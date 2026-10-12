@@ -10,11 +10,11 @@ export function LogoMark() {
 
 const pill = "mono flex h-10 items-center gap-2.5 rounded-full bg-white/60 px-4 text-xs text-ink no-underline";
 
-export function LogoPill({ href, compact = false }: { href?: string; compact?: boolean }) {
+export function LogoPill({ href }: { href?: string }) {
   const content = (
     <>
       <LogoMark />
-      <span className={compact ? "max-sm:hidden" : undefined}>Hyperanchor</span>
+      <span>Hyperanchor</span>
     </>
   );
   if (href) {

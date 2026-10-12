@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, monthGrid, parseYmd, startOfWeek, ymd } from "@/lib/dates";
+import { periodRange, type StatsRange } from "@/lib/analytics";
 import type { AppUser, Task } from "@/lib/types";
+import { AnalyticsView } from "./AnalyticsView";
 import { CalendarView } from "./CalendarView";
 import { DayView, type Composer } from "./DayView";
-import { Header } from "./Header";
+import { Header, type View } from "./Header";
 import { useTasks } from "./useTasks";
-
-type View = "day" | "calendar";
 
 const SAVE_DELAY = 600; // ms of typing inactivity before a PATCH
 
@@ -32,6 +32,7 @@ export function TaskApp({ user }: { user: AppUser }) {
   const [view, setView] = useState<View>("day");
   const [selected, setSelected] = useState(todayKey);
   const [cal, setCal] = useState(() => ({ y: new Date().getFullYear(), m: new Date().getMonth() }));
+  const [stats, setStats] = useState<{ range: StatsRange; offset: number }>({ range: "week", offset: 0 });
   const [editing, setEditing] = useState<{ id: string; snapshot: string } | null>(null);
   const [composer, setComposer] = useState<Composer | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -51,9 +52,10 @@ export function TaskApp({ user }: { user: AppUser }) {
       const ws = startOfWeek(parseYmd(selected));
       return [ymd(ws), ymd(addDays(ws, 6))];
     }
+    if (view === "analytics") return periodRange(stats.range, stats.offset, todayKey);
     const { start, end } = monthGrid(cal.y, cal.m);
     return [ymd(start), ymd(end)];
-  }, [view, selected, cal]);
+  }, [view, selected, cal, stats, todayKey]);
 
   useEffect(() => {
     load(from, to);
@@ -156,6 +158,11 @@ export function TaskApp({ user }: { user: AppUser }) {
     };
   }, [editing, composer, finishEdit, closeComposer, addFromComposer]);
 
+  const openDay = (key: string) => {
+    setSelected(key);
+    setView("day");
+  };
+
   const showView = (v: View) => {
     if (v === "calendar") {
       const d = parseYmd(selected);
@@ -189,6 +196,16 @@ export function TaskApp({ user }: { user: AppUser }) {
           onComposerAdd={addFromComposer}
           onComposerCancel={() => closeComposer(false)}
         />
+      ) : view === "analytics" ? (
+        <AnalyticsView
+          range={stats.range}
+          offset={stats.offset}
+          todayKey={todayKey}
+          byDate={byDate}
+          onRange={(range) => setStats({ range, offset: 0 })}
+          onOffset={(offset) => setStats((s) => ({ ...s, offset }))}
+          onPick={openDay}
+        />
       ) : (
         <CalendarView
           year={cal.y}
@@ -196,10 +213,7 @@ export function TaskApp({ user }: { user: AppUser }) {
           selected={selected}
           todayKey={todayKey}
           byDate={byDate}
-          onPick={(key) => {
-            setSelected(key);
-            setView("day");
-          }}
+          onPick={openDay}
           onShift={(n) =>
             setCal(({ y, m }) => {
               const d = new Date(y, m + n, 1);

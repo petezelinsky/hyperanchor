@@ -6,7 +6,7 @@ import type { AppUser } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { LogoPill } from "./Logo";
 
-type View = "day" | "calendar";
+export type View = "day" | "calendar" | "analytics";
 
 export function Header({
   user,
@@ -34,24 +34,37 @@ export function Header({
       type="button"
       onClick={() => onView(v)}
       aria-pressed={view === v}
-      className={`mono h-8 rounded-full px-3 transition-colors duration-150 hover:text-ink sm:px-4 ${view === v ? "bg-white text-ink" : "bg-transparent text-muted-2"}`}
+      className={`mono h-8 rounded-full px-4 transition-colors duration-150 hover:text-ink ${view === v ? "bg-white text-ink" : "bg-transparent text-muted-2"}`}
     >
       {label}
     </button>
   );
 
   return (
-    <header className="sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-2 bg-[rgba(237,237,235,0.94)] px-4 py-4 sm:gap-4 sm:px-6">
-      <div className="justify-self-start">
-        <LogoPill compact />
+    // Phone: logo + actions on the first row, view switcher on the second. sm+: one row, switcher centered.
+    <header className="sticky top-0 z-10 grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 bg-[rgba(237,237,235,0.94)] px-4 py-4 [grid-template-areas:'logo_actions'_'nav_nav'] sm:grid-cols-[1fr_auto_1fr] sm:px-6 sm:[grid-template-areas:'logo_nav_actions']">
+      <div className="justify-self-start [grid-area:logo]">
+        <LogoPill />
       </div>
 
-      <nav className="mono flex h-10 items-center gap-0.5 rounded-full bg-white/60 p-1 text-xs">
-        {tab("day", "Day")}
-        {tab("calendar", "Calendar")}
-      </nav>
+      <div className="flex items-center justify-center gap-2 [grid-area:nav]">
+        <nav className="mono flex h-10 items-center gap-0.5 rounded-full bg-white/60 p-1 text-xs">
+          {tab("day", "Day")}
+          {tab("calendar", "Calendar")}
+        </nav>
+        <button
+          type="button"
+          onClick={() => onView("analytics")}
+          aria-pressed={view === "analytics"}
+          className={`mono h-10 rounded-full px-[18px] text-xs transition-colors duration-150 hover:text-ink ${
+            view === "analytics" ? "bg-white text-ink" : "bg-white/60 text-muted-2"
+          }`}
+        >
+          Analytics
+        </button>
+      </div>
 
-      <div className="flex items-center gap-2 justify-self-end">
+      <div className="flex items-center gap-2 justify-self-end [grid-area:actions]">
         <button
           type="button"
           onClick={() => {

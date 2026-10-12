@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { DOW, DOW_FULL, MONTHS, addDays, dayDiff, dowIndex, parseYmd, plural, startOfWeek, ymd } from "@/lib/dates";
+import { GREEN, ORANGE } from "@/lib/colors";
 import type { Task } from "@/lib/types";
 import { AutoTextarea } from "./AutoTextarea";
 import { CheckIcon } from "./icons";
@@ -54,7 +55,9 @@ export function DayView({
   const sel = parseYmd(selected);
   const ws = startOfWeek(sel);
   const list = byDate(selected);
-  const sorted = [...list].sort((a, b) => Number(a.done) - Number(b.done));
+  const isPast = selected < todayKey;
+  // Past days put what got done first; today and future put what's left first.
+  const sorted = [...list].sort((a, b) => (isPast ? Number(b.done) - Number(a.done) : Number(a.done) - Number(b.done)));
   const doneN = list.filter((t) => t.done).length;
 
   const diff = dayDiff(sel, parseYmd(todayKey));
@@ -78,7 +81,7 @@ export function DayView({
                 onClick={() => onSelect(key)}
                 aria-pressed={isSel}
                 aria-label={`${DOW_FULL[i]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`}
-                className={`relative flex flex-col items-center gap-[3px] rounded-xl pt-1.5 pb-[5px] transition-colors duration-150 hover:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)] ${
+                className={`relative flex flex-col items-center gap-[3px] rounded-xl pt-1.5 pb-[5px] transition-colors duration-150 hover:bg-white ${
                   isSel ? "bg-white/75 text-ink" : key < todayKey ? "bg-transparent text-muted-3" : "bg-transparent text-muted"
                 }`}
               >
@@ -88,7 +91,10 @@ export function DayView({
                   {byDate(key)
                     .slice(0, 3)
                     .map((t) => (
-                      <span key={t.id} className={`size-[3px] rounded-full ${t.done ? "bg-dash" : "bg-muted-2"}`} />
+                      <span
+                        key={t.id}
+                        className={`size-[3px] rounded-full ${key < todayKey ? (t.done ? "bg-muted" : "bg-dash") : t.done ? "bg-dash" : "bg-muted-2"}`}
+                      />
                     ))}
                 </span>
                 {key === todayKey && <span className="absolute top-[5px] right-1.5 size-1 rounded-full bg-todo" />}
@@ -128,6 +134,7 @@ export function DayView({
           <TaskCard
             key={t.id}
             task={t}
+            past={isPast}
             active={editingId === t.id}
             onStartEdit={(focus) => onStartEdit(t.id, focus)}
             onFinishEdit={onFinishEdit}
@@ -155,6 +162,7 @@ export function DayView({
 
 function TaskCard({
   task,
+  past,
   active,
   onStartEdit,
   onFinishEdit,
@@ -163,6 +171,7 @@ function TaskCard({
   onDelete,
 }: {
   task: Task;
+  past: boolean;
   active: boolean;
   onStartEdit: (focus: boolean) => void;
   onFinishEdit: () => void;
@@ -171,26 +180,19 @@ function TaskCard({
   onDelete: () => void;
 }) {
   const { done } = task;
-  const c = active
-    ? { bg: "#FFFFFF", shadow: LIFT, status: "#2E2E32", title: done ? "#A3A3A7" : "#1E1E21", desc: "#3E3E42", btnBg: "#F1F1EF", btn: "#1E1E21" }
-    : done
-      ? { bg: "rgba(255,255,255,0.45)", shadow: "none", status: "#6B6B70", title: "#A3A3A7", desc: "#8B8B90", btnBg: "rgba(255,255,255,0.7)", btn: "#1E1E21" }
-      : { bg: CARD_TODO, shadow: DARK_SHADOW, status: "#B8B8BC", title: "#FFFFFF", desc: "#B8B8BC", btnBg: "rgba(255,255,255,0.1)", btn: "#FFFFFF" };
-  if (active && done) c.status = "#6B6B70";
-  const ring = done ? "#1E1E21" : active ? "#C4C4C8" : "rgba(255,255,255,0.45)";
-  const fill = done ? "#1E1E21" : active ? "#FFFFFF" : "transparent";
+  const s = cardStyle(done, active, past);
 
   return (
     <div
       data-editing={active ? "true" : "false"}
       onClick={(e) => onStartEdit((e.target as HTMLElement).tagName !== "TEXTAREA")}
       className={`${cardBase} ${active ? "" : "cursor-pointer"}`}
-      style={{ background: c.bg, boxShadow: c.shadow, transform: active ? "translateY(-3px)" : "none" }}
+      style={{ background: s.bg, boxShadow: s.shadow, transform: active ? "translateY(-3px)" : "none" }}
     >
       <div className="flex min-h-5 items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-[13px]" style={{ color: c.status }}>
-          <span className={`size-[7px] rounded-full ${done ? "bg-done" : "bg-todo"}`} />
-          <span>{done ? "Done" : "To do"}</span>
+        <div className="flex items-center gap-2 text-[13px]" style={{ color: s.status }}>
+          <span className="size-[7px] rounded-full" style={{ background: s.dot }} />
+          <span>{s.label}</span>
         </div>
         {active && (
           <button
@@ -219,8 +221,8 @@ function TaskCard({
         placeholder="Task title"
         aria-label="Task title"
         maxLength={500}
-        className={`${titleCls} ${done ? "line-through" : ""}`}
-        style={{ color: c.title }}
+        className={`${titleCls} ${s.strike ? "line-through" : ""}`}
+        style={{ color: s.title }}
       />
       {(active || task.description) && (
         <AutoTextarea
@@ -231,7 +233,7 @@ function TaskCard({
           aria-label="Description"
           maxLength={5000}
           className={descCls}
-          style={{ color: c.desc }}
+          style={{ color: s.desc }}
         />
       )}
       <div className="mt-auto flex pt-6">
@@ -243,9 +245,9 @@ function TaskCard({
           }}
           aria-pressed={done}
           className="mono flex h-11 items-center gap-2.5 rounded-full pr-[18px] pl-2 text-[11px] transition-opacity duration-150 hover:opacity-85"
-          style={{ background: c.btnBg, color: c.btn }}
+          style={{ background: s.btnBg, color: s.btn }}
         >
-          <span className="flex size-7 items-center justify-center rounded-full border-[1.5px]" style={{ borderColor: ring, background: fill }}>
+          <span className="flex size-7 items-center justify-center rounded-full border-[1.5px]" style={{ borderColor: s.ring, background: s.fill }}>
             {done && <CheckIcon />}
           </span>
           <span>{done ? "Undo" : "Mark done"}</span>
@@ -253,6 +255,44 @@ function TaskCard({
       </div>
     </div>
   );
+}
+
+/**
+ * Card colors per state. Past days stay calm: completed tasks are emphasized (bright card),
+ * unfinished ones are quiet ("Not done"), never red. The card being edited always looks the same.
+ */
+function cardStyle(done: boolean, active: boolean, past: boolean) {
+  if (active) {
+    return {
+      bg: "#FFFFFF", shadow: LIFT, dot: done ? GREEN : ORANGE, label: done ? "Done" : "To do",
+      status: done ? "#6B6B70" : "#2E2E32", title: done ? "#A3A3A7" : "#1E1E21", desc: "#3E3E42", strike: done,
+      btnBg: "#F1F1EF", btn: "#1E1E21", ring: done ? "#1E1E21" : "#C4C4C8", fill: done ? "#1E1E21" : "#FFFFFF",
+    };
+  }
+  if (past) {
+    return done
+      ? {
+          bg: "#FFFFFF", shadow: "0 1px 2px rgba(0,0,0,0.04)", dot: GREEN, label: "Done",
+          status: "#6B6B70", title: "#1E1E21", desc: "#6B6B70", strike: false,
+          btnBg: "#F1F1EF", btn: "#1E1E21", ring: "#1E1E21", fill: "#1E1E21",
+        }
+      : {
+          bg: "rgba(255,255,255,0.3)", shadow: "none", dot: "#C4C4C8", label: "Not done",
+          status: "#A3A3A7", title: "#8B8B90", desc: "#A3A3A7", strike: false,
+          btnBg: "rgba(255,255,255,0.6)", btn: "#6B6B70", ring: "#D2D2CF", fill: "transparent",
+        };
+  }
+  return done
+    ? {
+        bg: "rgba(255,255,255,0.45)", shadow: "none", dot: GREEN, label: "Done",
+        status: "#6B6B70", title: "#A3A3A7", desc: "#8B8B90", strike: true,
+        btnBg: "rgba(255,255,255,0.7)", btn: "#1E1E21", ring: "#1E1E21", fill: "#1E1E21",
+      }
+    : {
+        bg: CARD_TODO, shadow: DARK_SHADOW, dot: ORANGE, label: "To do",
+        status: "#B8B8BC", title: "#FFFFFF", desc: "#B8B8BC", strike: false,
+        btnBg: "rgba(255,255,255,0.1)", btn: "#FFFFFF", ring: "rgba(255,255,255,0.45)", fill: "transparent",
+      };
 }
 
 function ComposerCard({
