@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
 
-type Patch = Partial<Pick<Task, "title" | "description" | "date" | "done">>;
+type Fields = Pick<Task, "title" | "description" | "date" | "done">;
 
 async function request(url: string, init?: RequestInit) {
   const res = await fetch(url, {
@@ -22,21 +22,32 @@ async function request(url: string, init?: RequestInit) {
   return res.status === 204 ? null : res.json();
 }
 
-/** Client-side task cache with optimistic mutations. */
+/**
+ * Client-side task cache. Local state is authoritative while editing: mutations apply immediately,
+ * requests for the same task run in order, and typing is batched into debounced PATCHes.
+ * On any failure the visible range is re-fetched so the screen matches the server again.
+ */
 export function useTasks(onError: (message: string) => void) {
   const [tasks, setTasks] = useState<Record<string, Task>>({});
-  const pending = useRef(new Set<string>());
+  const range = useRef<[string, string] | null>(null);
+  const chains = useRef(new Map<string, Promise<unknown>>());
+  const pendingPatch = useRef(new Map<string, Partial<Fields>>());
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const busy = useRef(new Map<string, number>()); // in-flight or scheduled work per task
+
+  const isBusy = (id: string) => (busy.current.get(id) ?? 0) > 0 || timers.current.has(id);
 
   const load = useCallback(
     async (from: string, to: string) => {
+      range.current = [from, to];
       try {
         const { tasks: fetched } = (await request(`/api/tasks?from=${from}&to=${to}`)) as { tasks: Task[] };
         setTasks((prev) => {
           const next: Record<string, Task> = {};
           for (const t of Object.values(prev)) {
-            if (t.date < from || t.date > to || pending.current.has(t.id)) next[t.id] = t;
+            if (t.date < from || t.date > to || isBusy(t.id)) next[t.id] = t;
           }
-          for (const t of fetched) if (!pending.current.has(t.id)) next[t.id] = t;
+          for (const t of fetched) if (!isBusy(t.id)) next[t.id] = t;
           return next;
         });
       } catch (e) {
@@ -46,68 +57,72 @@ export function useTasks(onError: (message: string) => void) {
     [onError],
   );
 
-  const run = useCallback(
-    async (id: string, rollback: () => void, req: () => Promise<{ task: Task } | null>) => {
-      pending.current.add(id);
-      try {
-        const res = await req();
-        if (res?.task) setTasks((prev) => (prev[id] ? { ...prev, [id]: res.task } : prev));
-      } catch (e) {
-        rollback();
+  /** Runs `req` after earlier requests for the same task. */
+  const enqueue = useCallback(
+    (id: string, req: () => Promise<unknown>) => {
+      busy.current.set(id, (busy.current.get(id) ?? 0) + 1);
+      const run = (chains.current.get(id) ?? Promise.resolve()).then(req).catch((e) => {
         onError(e instanceof Error ? e.message : "Something went wrong");
-      } finally {
-        pending.current.delete(id);
-      }
+        busy.current.set(id, 0);
+        if (range.current) load(...range.current);
+      });
+      const tail = run.finally(() => {
+        busy.current.set(id, Math.max(0, (busy.current.get(id) ?? 1) - 1));
+        if (chains.current.get(id) === tail) chains.current.delete(id);
+      });
+      chains.current.set(id, tail);
     },
-    [onError],
+    [onError, load],
+  );
+
+  const flush = useCallback(
+    (id: string) => {
+      clearTimeout(timers.current.get(id));
+      timers.current.delete(id);
+      const patch = pendingPatch.current.get(id);
+      pendingPatch.current.delete(id);
+      if (!patch || !Object.keys(patch).length) return;
+      enqueue(id, () => request(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(patch) }));
+    },
+    [enqueue],
   );
 
   const create = useCallback(
-    (input: Pick<Task, "title" | "description" | "date" | "done">) => {
+    (input: Fields) => {
       const now = new Date().toISOString();
       const task: Task = { ...input, id: crypto.randomUUID(), createdAt: now, updatedAt: now };
       setTasks((prev) => ({ ...prev, [task.id]: task }));
-      return run(
-        task.id,
-        () => setTasks(({ [task.id]: _, ...rest }) => rest),
-        () => request("/api/tasks", { method: "POST", body: JSON.stringify(task) }),
-      );
+      enqueue(task.id, () => request("/api/tasks", { method: "POST", body: JSON.stringify(task) }));
+      return task.id;
     },
-    [run],
+    [enqueue],
   );
 
-  const update = useCallback(
-    (id: string, patch: Patch) => {
-      let before: Task | undefined;
-      setTasks((prev) => {
-        before = prev[id];
-        return before ? { ...prev, [id]: { ...before, ...patch } } : prev;
-      });
-      return run(
-        id,
-        () => setTasks((prev) => (before ? { ...prev, [id]: before } : prev)),
-        () => request(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
-      );
+  /** Applies `patch` locally and saves it — now, or after `delay` ms of inactivity (for typing). */
+  const edit = useCallback(
+    (id: string, patch: Partial<Fields>, delay = 0) => {
+      if (Object.keys(patch).length) setTasks((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev));
+      pendingPatch.current.set(id, { ...pendingPatch.current.get(id), ...patch });
+      if (delay > 0) {
+        clearTimeout(timers.current.get(id));
+        timers.current.set(id, setTimeout(() => flush(id), delay));
+      } else {
+        flush(id);
+      }
     },
-    [run],
+    [flush],
   );
 
   const remove = useCallback(
     (id: string) => {
-      let before: Task | undefined;
-      setTasks((prev) => {
-        before = prev[id];
-        const { [id]: _, ...rest } = prev;
-        return rest;
-      });
-      return run(
-        id,
-        () => setTasks((prev) => (before ? { ...prev, [id]: before } : prev)),
-        () => request(`/api/tasks/${id}`, { method: "DELETE" }),
-      );
+      clearTimeout(timers.current.get(id));
+      timers.current.delete(id);
+      pendingPatch.current.delete(id);
+      setTasks(({ [id]: _, ...rest }) => rest);
+      enqueue(id, () => request(`/api/tasks/${id}`, { method: "DELETE" }));
     },
-    [run],
+    [enqueue],
   );
 
-  return { tasks, load, create, update, remove };
+  return { tasks, load, create, edit, remove };
 }
