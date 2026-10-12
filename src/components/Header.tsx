@@ -81,7 +81,7 @@ export function Header({
           {accountOpen && (
             <>
               <div className="fixed inset-0 z-20" onClick={() => setAccountOpen(false)} />
-              <div className="absolute top-[52px] right-0 z-21 w-[300px] max-w-[calc(100vw-32px)] rounded-3xl bg-modal p-5 shadow-dropdown">
+              <div className="absolute top-[52px] right-0 z-21 w-[300px] max-w-[calc(100vw-32px)] rounded-3xl bg-dropdown p-5 shadow-dropdown">
                 <div className="mono text-[11px] text-muted-2">Account</div>
                 <div className="mt-4 flex items-center gap-3">
                   <Avatar name={user.name} image={user.image} size={44} className="text-sm" />

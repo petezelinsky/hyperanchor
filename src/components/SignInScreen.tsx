@@ -32,9 +32,15 @@ export function SignInScreen({ error }: { error?: boolean }) {
               Sign-in didn’t work. Please try again.
             </p>
           )}
-          <p className="mt-7 max-w-[360px] text-xs leading-normal text-faint">
-            By continuing, you agree to the <Link href="/terms">Terms of Service</Link> and{" "}
-            <Link href="/privacy">Privacy Policy</Link>.
+          <p className="mt-7 text-xs leading-normal text-faint">
+            By continuing, you agree to the{" "}
+            <Link href="/terms" className="whitespace-nowrap">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <span className="whitespace-nowrap">
+              <Link href="/privacy">Privacy Policy</Link>.
+            </span>
           </p>
         </div>
       </main>

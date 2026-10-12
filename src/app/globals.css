@@ -7,7 +7,7 @@
 
 @theme {
   --color-bg: #ededeb;
-  --color-modal: #fafaf9;
+  --color-dropdown: #fafaf9;
   --color-fill: #f1f1ef;
   --color-fill-2: #efefed;
   --color-fill-hover: #e5e5e2;
@@ -34,7 +34,6 @@
   --shadow-pill-dark-flat: 0 0 0 1px #18181b, inset 0 1px 0 rgba(255, 255, 255, 0.14);
   --shadow-google: 0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 28px -10px rgba(0, 0, 0, 0.18);
   --shadow-google-hover: 0 1px 2px rgba(0, 0, 0, 0.08), 0 14px 34px -10px rgba(0, 0, 0, 0.26);
-  --shadow-modal: 0 30px 80px -20px rgba(0, 0, 0, 0.28);
   --shadow-dropdown: 0 24px 60px -16px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 

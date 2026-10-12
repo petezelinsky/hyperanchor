@@ -4,14 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, monthGrid, parseYmd, startOfWeek, ymd } from "@/lib/dates";
 import type { AppUser, Task } from "@/lib/types";
 import { CalendarView } from "./CalendarView";
-import { DayView } from "./DayView";
+import { DayView, type Composer } from "./DayView";
 import { Header } from "./Header";
-import { TaskModal, type Draft } from "./TaskModal";
 import { useTasks } from "./useTasks";
 
 type View = "day" | "calendar";
 
-/** Today's local date key; refreshes when the tab regains focus (e.g. after midnight). */
+const SAVE_DELAY = 600; // ms of typing inactivity before a PATCH
+
+/** Today's local date key; refreshes periodically and when the tab regains focus (e.g. after midnight). */
 function useTodayKey() {
   const [key, setKey] = useState(() => ymd(new Date()));
   useEffect(() => {
@@ -31,7 +32,8 @@ export function TaskApp({ user }: { user: AppUser }) {
   const [view, setView] = useState<View>("day");
   const [selected, setSelected] = useState(todayKey);
   const [cal, setCal] = useState(() => ({ y: new Date().getFullYear(), m: new Date().getMonth() }));
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [editing, setEditing] = useState<{ id: string; snapshot: string } | null>(null);
+  const [composer, setComposer] = useState<Composer | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -41,7 +43,7 @@ export function TaskApp({ user }: { user: AppUser }) {
     toastTimer.current = setTimeout(() => setToast(null), 4000);
   }, []);
 
-  const { tasks, load, create, update, remove } = useTasks(showError);
+  const { tasks, load, create, edit, remove } = useTasks(showError);
 
   // Fetch whatever range is on screen.
   const [from, to] = useMemo(() => {
@@ -69,33 +71,90 @@ export function TaskApp({ user }: { user: AppUser }) {
   }, [tasks]);
   const byDate = useCallback((key: string) => byDateMap.get(key) ?? [], [byDateMap]);
 
-  const openNew = () => setDraft({ id: null, title: "", description: "", date: selected, done: false });
-  const openEdit = (t: Task) => setDraft({ id: t.id, title: t.title, description: t.description, date: t.date, done: t.done });
-  const closeModal = useCallback(() => setDraft(null), []);
+  // --- Inline editing -------------------------------------------------------
 
-  const save = useCallback(() => {
-    if (!draft) return;
-    const title = draft.title.trim();
-    if (!title) return;
-    const fields = { title, description: draft.description.trim(), date: draft.date, done: draft.done };
-    if (draft.id) {
-      const prev = tasks[draft.id];
-      if (prev) {
-        const patch = Object.fromEntries(
-          Object.entries(fields).filter(([k, v]) => prev[k as keyof typeof fields] !== v),
-        ) as Partial<typeof fields>;
-        if (Object.keys(patch).length) update(draft.id, patch);
-      }
-    } else {
-      create(fields);
+  const finishEdit = useCallback(() => {
+    if (!editing) return;
+    const t = tasks[editing.id];
+    if (t) {
+      const title = t.title.trim() || editing.snapshot || "Untitled";
+      const description = t.description.trim();
+      const patch: Partial<Pick<Task, "title" | "description">> = {};
+      if (title !== t.title) patch.title = title;
+      if (description !== t.description) patch.description = description;
+      // Saves the cleaned values now; also flushes any pending debounced save.
+      edit(t.id, patch);
     }
-    setDraft(null);
-  }, [draft, tasks, create, update]);
+    setEditing(null);
+    if (document.activeElement instanceof HTMLTextAreaElement) document.activeElement.blur();
+  }, [editing, tasks, edit]);
 
-  const deleteDraft = () => {
-    if (draft?.id) remove(draft.id);
-    setDraft(null);
+  const startEdit = (id: string, focus: boolean) => {
+    if (editing?.id === id) return;
+    const t = tasks[id];
+    if (!t) return;
+    setEditing({ id, snapshot: t.title });
+    if (focus) {
+      // The title textarea is always rendered, so focus it synchronously and no keystrokes are lost.
+      const el = document.querySelector<HTMLTextAreaElement>(`[data-title-for="${id}"]`);
+      if (el) {
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    }
   };
+
+  // --- Inline creation ------------------------------------------------------
+
+  const openComposer = () => {
+    finishEdit();
+    setView("day");
+    setComposer((c) => c ?? { title: "", description: "", nonce: Date.now() });
+  };
+
+  const addFromComposer = useCallback(
+    (keepOpen: boolean) => {
+      if (!composer) return;
+      const title = composer.title.trim();
+      if (!title) return;
+      create({ title, description: composer.description.trim(), date: selected, done: false });
+      setComposer(keepOpen ? { title: "", description: "", nonce: Date.now() } : null);
+    },
+    [composer, create, selected],
+  );
+
+  const closeComposer = useCallback(
+    (commit: boolean) => {
+      if (commit && composer?.title.trim()) addFromComposer(false);
+      else setComposer(null);
+    },
+    [composer, addFromComposer],
+  );
+
+  // Click outside the active card, Esc and Cmd/Ctrl+Enter.
+  useEffect(() => {
+    if (!editing && !composer) return;
+    const onDown = (e: PointerEvent) => {
+      if ((e.target as Element).closest?.('[data-editing="true"]')) return;
+      if (editing) finishEdit();
+      if (composer) closeComposer(true);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (editing) finishEdit();
+        else closeComposer(false);
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        if (editing) finishEdit();
+        else addFromComposer(true);
+      }
+    };
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [editing, composer, finishEdit, closeComposer, addFromComposer]);
 
   const showView = (v: View) => {
     if (v === "calendar") {
@@ -107,17 +166,28 @@ export function TaskApp({ user }: { user: AppUser }) {
 
   return (
     <div className="min-h-dvh bg-bg">
-      <Header user={user} view={view} onView={showView} onNewTask={openNew} />
+      <Header user={user} view={view} onView={showView} onNewTask={openComposer} />
 
       {view === "day" ? (
         <DayView
           selected={selected}
           todayKey={todayKey}
           byDate={byDate}
+          editingId={editing?.id ?? null}
+          composer={composer}
           onSelect={setSelected}
-          onNew={openNew}
-          onOpen={openEdit}
-          onToggle={(t) => update(t.id, { done: !t.done })}
+          onStartEdit={startEdit}
+          onFinishEdit={finishEdit}
+          onEdit={(id, patch) => edit(id, patch, SAVE_DELAY)}
+          onToggle={(t) => edit(t.id, { done: !t.done })}
+          onDelete={(id) => {
+            remove(id);
+            setEditing(null);
+          }}
+          onOpenComposer={openComposer}
+          onComposerChange={(patch) => setComposer((c) => (c ? { ...c, ...patch } : c))}
+          onComposerAdd={addFromComposer}
+          onComposerCancel={() => closeComposer(false)}
         />
       ) : (
         <CalendarView
@@ -140,16 +210,6 @@ export function TaskApp({ user }: { user: AppUser }) {
             const d = parseYmd(todayKey);
             setCal({ y: d.getFullYear(), m: d.getMonth() });
           }}
-        />
-      )}
-
-      {draft && (
-        <TaskModal
-          draft={draft}
-          onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
-          onSave={save}
-          onClose={closeModal}
-          onDelete={deleteDraft}
         />
       )}
 
