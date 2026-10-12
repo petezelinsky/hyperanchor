@@ -6,7 +6,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const sql = postgres(process.env.DATABASE_URL, { prepare: false, max: 1 });
+const sql = postgres(process.env.DATABASE_URL, { prepare: false, max: 1, onnotice: () => {} });
 const schema = await readFile(new URL("../db/schema.sql", import.meta.url), "utf8");
 
 try {

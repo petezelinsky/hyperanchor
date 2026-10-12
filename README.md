@@ -27,12 +27,15 @@ npm run dev                  # http://localhost:3000
 |---|---|
 | `AUTH_SECRET` | случайная строка: `openssl rand -base64 32` |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | OAuth-клиент Google (тип «Web application») |
-| `DATABASE_URL` | строка подключения к Postgres (Neon, Supabase и т. п.) |
+| `DATABASE_URL` | Supabase → Connect → Transaction pooler (порт `6543`), с паролем БД и `?sslmode=require` в конце |
 
 ## Деплой на hyperanchor.app (Vercel)
 
-1. **База данных.** Создайте Postgres (например, Neon или Supabase) и выполните миграцию:
-   `DATABASE_URL=... npm run db:migrate` (или выполните `db/schema.sql` в SQL-консоли).
+1. **База данных (Supabase).** Выполните `db/schema.sql` в Supabase → SQL Editor
+   (или `DATABASE_URL=... npm run db:migrate`). Миграция идемпотентна и включает RLS на `tasks`:
+   публичный Data API Supabase (`anon`/`authenticated`) таблицу не видит, а приложение подключается
+   владельцем таблицы (`postgres`) и RLS не затрагивается. Доступ к чужим задачам закрыт в API по `user_id`.
+   Код рассчитан на transaction pooler (порт 6543): `prepare: false`, одно соединение на serverless-инстанс.
 2. **Google Cloud Console** → APIs & Services:
    - *OAuth consent screen*: имя приложения Hyperanchor, домен `hyperanchor.app`,
      Home page `https://hyperanchor.app`, Privacy policy `https://hyperanchor.app/privacy`,

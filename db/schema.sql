@@ -10,3 +10,5 @@ create table if not exists tasks (
 );
 
 create index if not exists tasks_user_date_idx on tasks (user_id, date);
+
+alter table tasks enable row level security;
