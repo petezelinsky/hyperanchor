@@ -1,0 +1,72 @@
+# Hyperanchor
+
+Минималистичный планировщик задач — [hyperanchor.app](https://hyperanchor.app).
+
+- Вход через Google (Auth.js), меню аккаунта, выход
+- **Day** — переключатель дней недели и задачи выбранного дня крупными карточками
+- **Calendar** — сетка месяца, клик по дате открывает этот день
+- Создание / редактирование / удаление задач (название, описание, дата), отметка «готово»
+- Страницы `/privacy` и `/terms`
+
+Стек: Next.js 16 (App Router) · TypeScript · Tailwind CSS v4 · Auth.js v5 (Google, JWT-сессии) · Postgres (`postgres.js`).
+
+## Локальный запуск
+
+```bash
+npm install
+cp .env.example .env.local   # заполнить переменные
+npm run db:migrate           # создать таблицу tasks
+npm run dev                  # http://localhost:3000
+```
+
+Для локального входа добавьте в Google OAuth-клиент redirect URI `http://localhost:3000/api/auth/callback/google`.
+
+## Переменные окружения
+
+| Переменная | Что это |
+|---|---|
+| `AUTH_SECRET` | случайная строка: `openssl rand -base64 32` |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | OAuth-клиент Google (тип «Web application») |
+| `DATABASE_URL` | строка подключения к Postgres (Neon, Supabase и т. п.) |
+
+## Деплой на hyperanchor.app (Vercel)
+
+1. **База данных.** Создайте Postgres (например, Neon или Supabase) и выполните миграцию:
+   `DATABASE_URL=... npm run db:migrate` (или выполните `db/schema.sql` в SQL-консоли).
+2. **Google Cloud Console** → APIs & Services:
+   - *OAuth consent screen*: имя приложения Hyperanchor, домен `hyperanchor.app`,
+     Home page `https://hyperanchor.app`, Privacy policy `https://hyperanchor.app/privacy`,
+     Terms `https://hyperanchor.app/terms`, scopes: `openid`, `email`, `profile`.
+   - *Credentials* → OAuth client ID (Web application):
+     Authorized JavaScript origin `https://hyperanchor.app`,
+     Authorized redirect URI `https://hyperanchor.app/api/auth/callback/google`.
+3. **Vercel**: импортируйте репозиторий, добавьте переменные окружения из таблицы выше, задеплойте.
+4. **Домен**: Vercel → Project → Settings → Domains → `hyperanchor.app`, затем пропишите у регистратора
+   DNS-записи, которые покажет Vercel (A-запись на apex-домен и/или CNAME для `www`).
+
+Подойдёт и любой другой Node-хостинг: `npm run build && npm start` (Node ≥ 20.9).
+
+## API
+
+Все запросы требуют сессии; задачи доступны только их владельцу.
+
+| Метод | Путь | Тело / параметры |
+|---|---|---|
+| `GET` | `/api/tasks?from=YYYY-MM-DD&to=YYYY-MM-DD` | диапазон до 62 дней |
+| `POST` | `/api/tasks` | `{ id (uuid), title, description?, date, done? }` |
+| `PATCH` | `/api/tasks/:id` | любые из `title`, `description`, `date`, `done` |
+| `DELETE` | `/api/tasks/:id` | — |
+
+Даты хранятся как локальные `YYYY-MM-DD` пользователя, неделя начинается с понедельника. Клиент обновляет данные оптимистично и откатывает изменение, если сервер вернул ошибку.
+
+## Структура
+
+```
+db/schema.sql            схема Postgres
+scripts/migrate.mjs      применяет схему
+src/auth.ts              Auth.js (Google)
+src/app/api/tasks        REST API задач
+src/app/page.tsx         экран входа или приложение
+src/components/          UI: Header, DayView, CalendarView, TaskModal, …
+src/app/privacy, terms   юридические страницы
+```
