@@ -40,3 +40,34 @@ export function monthGrid(year: number, month: number) {
 }
 
 export const plural = (n: number, w: string) => `${n} ${n === 1 ? w : w + "s"}`;
+
+export const DOW_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export const MONTHS_SHORT = MONTHS.map((m) => m.slice(0, 3));
+
+/** "Thursday, October 23" */
+export const formatLong = (d: Date) => `${DOW_FULL[dowIndex(d)]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+/** "Thu, Oct 23" */
+export const formatMedium = (d: Date) => `${DOW_SHORT[dowIndex(d)]}, ${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
+/** "Oct 23" */
+export const formatShort = (d: Date) => `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
+
+/** "Today" / "Tomorrow" / "Yesterday", otherwise null. */
+export function relativeDay(key: string, todayKey: string) {
+  const diff = dayDiff(parseYmd(key), parseYmd(todayKey));
+  return diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : diff === -1 ? "Yesterday" : null;
+}
+
+/** "October 20 – 26, 2026", "Sep 29 – Oct 5, 2026" or "Dec 29, 2025 – Jan 4, 2026". */
+export function rangeLabel(start: Date, end: Date) {
+  if (start.getFullYear() !== end.getFullYear())
+    return `${formatShort(start)}, ${start.getFullYear()} – ${formatShort(end)}, ${end.getFullYear()}`;
+  if (start.getMonth() !== end.getMonth()) return `${formatShort(start)} – ${formatShort(end)}, ${end.getFullYear()}`;
+  return `${MONTHS[start.getMonth()]} ${start.getDate()} – ${end.getDate()}, ${end.getFullYear()}`;
+}
+
+/** Time for today ("9:41 AM"), otherwise a short date ("Oct 21"), for timestamps like createdAt. */
+export function formatStamp(iso: string, todayKey: string) {
+  const d = new Date(iso);
+  if (ymd(d) === todayKey) return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return formatShort(d);
+}

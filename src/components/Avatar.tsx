@@ -7,9 +7,10 @@ export function initials(name: string) {
   return (parts.slice(0, 2).map((p) => p[0]).join("") || "?").toUpperCase();
 }
 
-export function Avatar({ name, image, size, className = "" }: { name: string; image: string | null; size: number; className?: string }) {
+/** Google profile photo with an initials fallback. */
+export function Avatar({ name, image, size }: { name: string; image: string | null; size: number }) {
   const [broken, setBroken] = useState(false);
-  const style = { width: size, height: size };
+  const style = { width: size, height: size, fontSize: Math.round(size * 0.4) };
   if (image && !broken) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -19,12 +20,15 @@ export function Avatar({ name, image, size, className = "" }: { name: string; im
         referrerPolicy="no-referrer"
         onError={() => setBroken(true)}
         style={style}
-        className={`flex-none rounded-full bg-avatar object-cover ${className}`}
+        className="flex-none rounded-full bg-fill object-cover"
       />
     );
   }
   return (
-    <span style={style} className={`flex flex-none items-center justify-center rounded-full bg-avatar font-sans font-semibold tracking-normal ${className}`}>
+    <span
+      style={style}
+      className="flex flex-none items-center justify-center rounded-full bg-gradient-to-b from-[#a1a1a6] to-[#86868b] font-semibold text-white"
+    >
       {initials(name)}
     </span>
   );

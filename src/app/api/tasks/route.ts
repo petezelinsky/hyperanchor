@@ -4,7 +4,7 @@ import { badRequest, currentUserId, unauthorized, TASK_COLUMNS } from "@/lib/api
 import { isDate, isUuid, parsePatch } from "@/lib/validate";
 import type { Task } from "@/lib/types";
 
-const MAX_RANGE_DAYS = 62;
+const MAX_RANGE_DAYS = 800; // a year plus the previous one, for analytics comparisons
 
 export async function GET(req: NextRequest) {
   const userId = await currentUserId();

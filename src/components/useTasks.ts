@@ -29,7 +29,8 @@ async function request(url: string, init?: RequestInit) {
  */
 export function useTasks(onError: (message: string) => void) {
   const [tasks, setTasks] = useState<Record<string, Task>>({});
-  const range = useRef<[string, string] | null>(null);
+  // Ranges loaded recently (main view, mini calendar, analytics…); all are re-fetched after a failure.
+  const ranges = useRef(new Map<string, [string, string]>());
   const chains = useRef(new Map<string, Promise<unknown>>());
   const pendingPatch = useRef(new Map<string, Partial<Fields>>());
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -39,7 +40,9 @@ export function useTasks(onError: (message: string) => void) {
 
   const load = useCallback(
     async (from: string, to: string) => {
-      range.current = [from, to];
+      ranges.current.delete(`${from}|${to}`);
+      ranges.current.set(`${from}|${to}`, [from, to]);
+      while (ranges.current.size > 4) ranges.current.delete(ranges.current.keys().next().value!);
       try {
         const { tasks: fetched } = (await request(`/api/tasks?from=${from}&to=${to}`)) as { tasks: Task[] };
         setTasks((prev) => {
@@ -64,7 +67,7 @@ export function useTasks(onError: (message: string) => void) {
       const run = (chains.current.get(id) ?? Promise.resolve()).then(req).catch((e) => {
         onError(e instanceof Error ? e.message : "Something went wrong");
         busy.current.set(id, 0);
-        if (range.current) load(...range.current);
+        for (const [from, to] of ranges.current.values()) load(from, to);
       });
       const tail = run.finally(() => {
         busy.current.set(id, Math.max(0, (busy.current.get(id) ?? 1) - 1));
@@ -124,5 +127,15 @@ export function useTasks(onError: (message: string) => void) {
     [enqueue],
   );
 
-  return { tasks, load, create, edit, remove };
+  /** Puts a deleted task back (undo), keeping its id. */
+  const restore = useCallback(
+    (task: Task) => {
+      setTasks((prev) => ({ ...prev, [task.id]: task }));
+      const { id, title, description, date, done } = task;
+      enqueue(id, () => request("/api/tasks", { method: "POST", body: JSON.stringify({ id, title, description, date, done }) }));
+    },
+    [enqueue],
+  );
+
+  return { tasks, load, create, edit, remove, restore };
 }
