@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Fragment_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 
-// SF Pro is used on Apple devices; Inter is the closest match elsewhere.
-const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter", display: "swap" });
+const sans = Instrument_Sans({ subsets: ["latin", "latin-ext"], variable: "--font-instrument", display: "swap" });
+const mono = Fragment_Mono({ subsets: ["latin", "latin-ext"], weight: "400", variable: "--font-fragment", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://hyperanchor.app"),
@@ -22,13 +22,13 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#1e1e1f" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c0c0c" },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body>{children}</body>
     </html>
   );

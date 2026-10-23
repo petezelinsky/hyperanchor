@@ -1,120 +1,133 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — macOS-inspired, light and dark (follows the system setting).
- * Components use these through the Tailwind theme below (bg-window, text-label-2, …).
+ * Hyperanchor design tokens — "quiet ink": monochrome, typography-led, one signal accent
+ * reserved for today / now. Light paper by default, inverted ink in dark mode.
  */
 :root {
   color-scheme: light dark;
 
-  --window: #ffffff;
-  --sidebar: #f5f5f7;
-  --grouped: #f5f5f7;
-  --card: #ffffff;
-  --toolbar: rgba(255, 255, 255, 0.82);
-  --elevated: rgba(250, 250, 252, 0.9);
-  --control: #ffffff;
-  --hud: rgba(29, 29, 31, 0.92);
-  --on-hud: #f5f5f7;
+  --paper: #ffffff;
+  --ink: #0a0a0a;
+  --ink-2: #4f4f4f;
+  --muted: #858585;
+  --faint: #a3a3a3;
+  --ghost: #c9c9c9;
+  --line: #ececec;
+  --edge: #e3e3e3;
+  --track: #eeeeee;
+  --fill: #f4f4f4;
+  --fill-on: #efefef;
+  --fill-row: #f7f7f7;
+  --on-ink: #ffffff;
+  --signal: #ff5a1f;
+  --scrim: rgba(10, 10, 10, 0.16);
 
-  --label: #1d1d1f;
-  --label-2: #6e6e73;
-  --label-3: #a1a1a6;
-  --label-4: #d2d2d7;
-
-  --separator: rgba(0, 0, 0, 0.08);
-  --separator-strong: rgba(0, 0, 0, 0.14);
-  --fill: rgba(120, 120, 128, 0.14);
-  --fill-2: rgba(120, 120, 128, 0.08);
-  --fill-3: rgba(120, 120, 128, 0.05);
-  --selected: rgba(0, 0, 0, 0.065);
-
-  --accent: #007aff;
-  --accent-hover: #0068d9;
-  --accent-soft: rgba(0, 122, 255, 0.1);
-  --green: #28a745;
-  --red: #ff3b30;
-
-  --shadow-raised: 0 0 0 0.5px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.1);
-  --shadow-control: 0 0 0 0.5px rgba(0, 0, 0, 0.14), 0 0.5px 1.5px rgba(0, 0, 0, 0.12);
-  --shadow-card: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
-  --shadow-popover: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.05);
-  --shadow-window: 0 0 0 0.5px rgba(0, 0, 0, 0.14), 0 40px 90px -30px rgba(0, 0, 0, 0.35), 0 12px 30px -12px rgba(0, 0, 0, 0.18);
+  --shadow-card: 0 0 0 1px var(--edge), 0 18px 44px rgba(10, 10, 10, 0.06);
+  --shadow-menu: 0 0 0 1px var(--edge), 0 12px 32px rgba(10, 10, 10, 0.08);
+  --shadow-lift: 0 0 0 1px var(--edge), 0 30px 70px -20px rgba(10, 10, 10, 0.22);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --window: #1e1e1f;
-    --sidebar: #28282a;
-    --grouped: #161617;
-    --card: #232325;
-    --toolbar: rgba(30, 30, 31, 0.82);
-    --elevated: rgba(46, 46, 48, 0.92);
-    --control: rgba(255, 255, 255, 0.1);
-    --hud: rgba(245, 245, 247, 0.94);
-    --on-hud: #1d1d1f;
+    --paper: #0c0c0c;
+    --ink: #f2f2f2;
+    --ink-2: #b3b3b3;
+    --muted: #8c8c8c;
+    --faint: #6e6e6e;
+    --ghost: #4d4d4d;
+    --line: #1f1f1f;
+    --edge: #2a2a2a;
+    --track: #242424;
+    --fill: #171717;
+    --fill-on: #1f1f1f;
+    --fill-row: #141414;
+    --on-ink: #0a0a0a;
+    --signal: #ff6b35;
+    --scrim: rgba(0, 0, 0, 0.5);
 
-    --label: #f5f5f7;
-    --label-2: #a1a1a6;
-    --label-3: #6e6e73;
-    --label-4: #48484a;
-
-    --separator: rgba(255, 255, 255, 0.08);
-    --separator-strong: rgba(255, 255, 255, 0.14);
-    --fill: rgba(118, 118, 128, 0.28);
-    --fill-2: rgba(118, 118, 128, 0.18);
-    --fill-3: rgba(118, 118, 128, 0.1);
-    --selected: rgba(255, 255, 255, 0.09);
-
-    --accent: #0a84ff;
-    --accent-hover: #3395ff;
-    --accent-soft: rgba(10, 132, 255, 0.2);
-    --green: #30d158;
-    --red: #ff453a;
-
-    --shadow-raised: 0 0 0 0.5px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-control: 0 0 0 0.5px rgba(255, 255, 255, 0.1), 0 0.5px 1.5px rgba(0, 0, 0, 0.4);
-    --shadow-card: 0 0 0 0.5px rgba(255, 255, 255, 0.07);
-    --shadow-popover: 0 0 0 0.5px rgba(255, 255, 255, 0.12), 0 14px 36px rgba(0, 0, 0, 0.5);
-    --shadow-window: 0 0 0 0.5px rgba(255, 255, 255, 0.12), 0 40px 90px -30px rgba(0, 0, 0, 0.8);
+    --shadow-card: 0 0 0 1px var(--edge), 0 18px 44px rgba(0, 0, 0, 0.55);
+    --shadow-menu: 0 0 0 1px var(--edge), 0 12px 32px rgba(0, 0, 0, 0.6);
+    --shadow-lift: 0 0 0 1px var(--edge), 0 30px 70px -20px rgba(0, 0, 0, 0.8);
   }
 }
 
 @theme inline {
-  --color-window: var(--window);
-  --color-sidebar: var(--sidebar);
-  --color-grouped: var(--grouped);
-  --color-card: var(--card);
-  --color-toolbar: var(--toolbar);
-  --color-elevated: var(--elevated);
-  --color-control: var(--control);
-  --color-hud: var(--hud);
-  --color-on-hud: var(--on-hud);
-  --color-label: var(--label);
-  --color-label-2: var(--label-2);
-  --color-label-3: var(--label-3);
-  --color-label-4: var(--label-4);
-  --color-separator: var(--separator);
-  --color-separator-strong: var(--separator-strong);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-ghost: var(--ghost);
+  --color-line: var(--line);
+  --color-edge: var(--edge);
+  --color-track: var(--track);
   --color-fill: var(--fill);
-  --color-fill-2: var(--fill-2);
-  --color-fill-3: var(--fill-3);
-  --color-selected: var(--selected);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-soft: var(--accent-soft);
-  --color-green: var(--green);
-  --color-red: var(--red);
+  --color-fill-on: var(--fill-on);
+  --color-fill-row: var(--fill-row);
+  --color-on-ink: var(--on-ink);
+  --color-signal: var(--signal);
+  --color-scrim: var(--scrim);
 
-  --shadow-raised: var(--shadow-raised);
-  --shadow-control: var(--shadow-control);
   --shadow-card: var(--shadow-card);
-  --shadow-popover: var(--shadow-popover);
-  --shadow-window: var(--shadow-window);
+  --shadow-menu: var(--shadow-menu);
+  --shadow-lift: var(--shadow-lift);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-inter), "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-inter), "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: var(--font-instrument), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-fragment), ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+}
+
+@theme {
+  --ease-quiet: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-sweep: cubic-bezier(0.55, 0, 0.25, 1);
+
+  --animate-up: up 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+  --animate-fade: fade 0.3s ease both;
+  --animate-pop: pop 0.22s cubic-bezier(0.4, 0, 0.2, 1) both;
+  --animate-kick: kick 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  --animate-bump: bump 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  --animate-draw: draw 0.28s cubic-bezier(0.55, 0, 0.25, 1) 0.05s both;
+  --animate-breathe: breathe 1.4s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.9s linear infinite;
+  --animate-blink: blink 1s steps(1) infinite;
+
+  @keyframes up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(6px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes kick {
+    0% { transform: none; }
+    35% { transform: translateY(-3px); }
+    100% { transform: none; }
+  }
+  @keyframes bump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.16); }
+    100% { transform: scale(1); }
+  }
+  @keyframes draw {
+    from { stroke-dashoffset: 12; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 1; }
+  }
+  @keyframes shimmer {
+    from { background-position: 120% 0; }
+    to { background-position: -120% 0; }
+  }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
 }
 
 @layer base {
@@ -122,8 +135,8 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    background: var(--window);
-    color: var(--label);
+    background: var(--paper);
+    color: var(--ink);
     font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.45;
@@ -131,31 +144,72 @@
     -moz-osx-font-smoothing: grayscale;
   }
   a {
-    color: var(--accent);
-    text-decoration: none;
-  }
-  a:hover {
-    text-decoration: underline;
+    color: inherit;
   }
   ::selection {
-    background: color-mix(in srgb, var(--accent) 28%, transparent);
+    background: var(--ink);
+    color: var(--paper);
   }
   ::placeholder {
-    color: var(--label-3);
+    color: var(--faint);
+  }
+  input:focus,
+  textarea:focus {
+    outline: none;
   }
   :focus-visible {
-    outline: 3px solid color-mix(in srgb, var(--accent) 50%, transparent);
-    outline-offset: 0;
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
   }
 }
 
-/* Numbers that line up in columns and counters. */
+/* Small uppercase mono label: section names, dates, counters. */
+@utility mono-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
 
-/* Translucent "vibrancy" surfaces: toolbars, menus, popovers. */
-@utility material {
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
+/* "Saving…" style text: a highlight sweeps across instead of three dots. */
+@utility shimmer-text {
+  background: linear-gradient(90deg, var(--faint) 0%, var(--faint) 38%, var(--ink) 50%, var(--faint) 62%, var(--faint) 100%);
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: var(--animate-shimmer);
+}
+
+/* Typing caret for the landing demo. */
+@utility caret {
+  &::after {
+    content: "";
+    display: inline-block;
+    width: 1.5px;
+    height: 1.05em;
+    margin-left: 1px;
+    vertical-align: -0.18em;
+    background: var(--ink);
+    animation: var(--animate-blink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

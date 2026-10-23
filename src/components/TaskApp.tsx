@@ -8,6 +8,8 @@ import type { AppUser, Task } from "@/lib/types";
 import { AnalyticsView } from "./analytics/AnalyticsView";
 import { DayView } from "./DayView";
 import { MonthView } from "./MonthView";
+import type { QuickAddHandle } from "./QuickAdd";
+import { ShortcutsSheet } from "./ShortcutsSheet";
 import { MiniMonth, MobileBar, Sidebar, type View } from "./Sidebar";
 import type { Composer, Editing, Section, TableActions } from "./table/types";
 import { useTasks } from "./useTasks";
@@ -52,6 +54,8 @@ export function TaskApp({ user }: { user: AppUser }) {
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState<Toast | null>(null);
+  const [shortcuts, setShortcuts] = useState(false);
+  const quickAdd = useRef<QuickAddHandle>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const notify = useCallback((message: string, action?: Toast["action"]) => {
@@ -60,7 +64,7 @@ export function TaskApp({ user }: { user: AppUser }) {
     toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : 4000);
   }, []);
 
-  const { tasks, load, create, edit, remove, restore } = useTasks(notify);
+  const { tasks, load, create, edit, remove, restore, syncing } = useTasks(notify);
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const mainRange = useMemo((): [string, string] => {
@@ -193,6 +197,10 @@ export function TaskApp({ user }: { user: AppUser }) {
         remove(task.id);
         notify(`Deleted “${task.title}”`, { label: "Undo", run: () => restore(task) });
       },
+      duplicate: (task) => {
+        create({ title: task.title, description: task.description, date: task.date, done: false });
+        notify(`Duplicated “${task.title}”`);
+      },
       openComposer: (date) => {
         finishEdit();
         const next = { date, title: "", description: "", nonce: Date.now() };
@@ -208,6 +216,14 @@ export function TaskApp({ user }: { user: AppUser }) {
       sort: (key) => setSort((s) => nextSort(s, key)),
     };
   }, [create, edit, remove, restore, notify]);
+
+  const addFromQuickAdd = (title: string, date: string) => {
+    create({ title, description: "", date, done: false });
+    if (date !== selected) {
+      const name = relativeDay(date, todayKey) ?? formatMedium(parseYmd(date));
+      notify(`Added to ${name}`, { label: "Show", run: () => selectDate(date) });
+    }
+  };
 
   const moveAllToToday = (list: Task[]) => {
     for (const t of list) edit(t.id, { date: todayKey });
@@ -243,14 +259,18 @@ export function TaskApp({ user }: { user: AppUser }) {
       const i = l.selectedId ? l.visibleIds.indexOf(l.selectedId) : -1;
       const sel = l.selectedId ? l.tasks[l.selectedId] : undefined;
 
-      if (views[k]) showView(views[k]);
+      if (k === "?") setShortcuts(true);
+      else if (views[k]) showView(views[k]);
       else if (k === "t") {
         selectDate(l.todayKey);
         setCal(monthOf(l.todayKey));
         setStats((s) => ({ ...s, offset: 0 }));
       } else if (k === "n") {
-        if (!table) setView("day");
-        actions.openComposer(l.selected);
+        if (l.view === "week") actions.openComposer(l.selected);
+        else {
+          setView("day");
+          requestAnimationFrame(() => quickAdd.current?.focus());
+        }
       } else if (k === "ArrowLeft" || k === "ArrowRight") step(k === "ArrowLeft" ? -1 : 1);
       else if (table && (k === "ArrowDown" || k === "ArrowUp") && l.visibleIds.length) {
         const n = l.visibleIds.length;
@@ -277,12 +297,14 @@ export function TaskApp({ user }: { user: AppUser }) {
   const weekOpen = Array.from({ length: 7 }, (_, i) => byDate(ymd(addDays(weekStart, i)))).flat().filter((t) => !t.done).length;
 
   return (
-    <div className="min-h-dvh bg-window md:grid md:grid-cols-[236px_minmax(0,1fr)]">
+    <div className="min-h-dvh bg-paper md:grid md:grid-cols-[256px_minmax(0,1fr)]">
       <Sidebar
         user={user}
         view={view}
         onView={showView}
         badges={{ day: byDate(selected).filter((t) => !t.done).length, week: weekOpen }}
+        syncing={syncing}
+        onShortcuts={() => setShortcuts(true)}
         mini={
           <MiniMonth
             year={mini.y}
@@ -301,7 +323,7 @@ export function TaskApp({ user }: { user: AppUser }) {
       />
       <div className="min-w-0">
         <MobileBar user={user} view={view} onView={showView} />
-        <main className={view === "analytics" ? "min-h-dvh bg-grouped" : ""}>
+        <main>
           {view === "day" && (
             <DayView
               selected={selected}
@@ -309,10 +331,13 @@ export function TaskApp({ user }: { user: AppUser }) {
               state={tableState}
               actions={actions}
               byDate={byDate}
+              firstName={user.name.trim().split(/\s+/)[0] ?? ""}
               query={query}
               onQuery={setQuery}
               onSelectDate={selectDate}
               onMoveToToday={moveAllToToday}
+              quickAdd={quickAdd}
+              onQuickAdd={addFromQuickAdd}
             />
           )}
           {view === "week" && (
@@ -351,24 +376,32 @@ export function TaskApp({ user }: { user: AppUser }) {
       </div>
 
       {toast && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-[120] flex justify-center px-4">
-          <div role="status" key={toast.id} className="material pointer-events-auto flex items-center gap-4 rounded-[12px] bg-hud py-2.5 pr-3 pl-4 text-[13px] text-on-hud shadow-popover">
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[120] flex justify-center px-4">
+          <div
+            role="status"
+            key={toast.id}
+            className="pointer-events-auto flex h-11 animate-up items-center gap-4 rounded-full bg-ink pr-2 pl-5 text-[13.5px] text-on-ink shadow-[0_14px_36px_-12px_rgba(10,10,10,0.45)]"
+          >
             <span className="max-w-[60vw] truncate">{toast.message}</span>
-            {toast.action && (
+            {toast.action ? (
               <button
                 type="button"
                 onClick={() => {
                   toast.action?.run();
                   setToast(null);
                 }}
-                className="rounded-[6px] px-2 py-0.5 font-semibold text-accent hover:bg-fill-2"
+                className="h-8 rounded-full bg-on-ink/12 px-3.5 font-medium transition-colors hover:bg-on-ink/20"
               >
                 {toast.action.label}
               </button>
+            ) : (
+              <span className="w-2" />
             )}
           </div>
         </div>
       )}
+
+      {shortcuts && <ShortcutsSheet onClose={() => setShortcuts(false)} />}
     </div>
   );
 }

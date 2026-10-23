@@ -1,8 +1,8 @@
-// SF Symbols-style line icons (1.6 stroke, 16px grid by default). Decorative: hidden from assistive tech.
+// Thin line icons (1.5 stroke, 16px grid by default). Decorative: hidden from assistive tech.
 
 type IconProps = { size?: number; className?: string; strokeWidth?: number };
 
-function Svg({ size = 16, className, strokeWidth = 1.6, children }: IconProps & { children: React.ReactNode }) {
+function Svg({ size = 16, className, strokeWidth = 1.5, children }: IconProps & { children: React.ReactNode }) {
   return (
     <svg
       width={size}
@@ -122,6 +122,39 @@ export const SignOutIcon = (p: IconProps) => (
 export const ListIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M6 4h7.5M6 8h7.5M6 12h7.5M2.6 4h.01M2.6 8h.01M2.6 12h.01" />
+  </Svg>
+);
+
+export const ArrowUpIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 13V3M3.8 7.2 8 3l4.2 4.2" />
+  </Svg>
+);
+
+export const ArrowUpRightIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4.5 11.5 11.5 4.5M5.5 4.5h6v6" />
+  </Svg>
+);
+
+export const CopyIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="5.2" y="5.2" width="8.3" height="8.3" rx="1.8" />
+    <path d="M10.8 5.2V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5.3A1.5 1.5 0 0 0 4 10.8h1.2" />
+  </Svg>
+);
+
+export const KeyboardIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="1.6" y="3.6" width="12.8" height="8.8" rx="1.8" />
+    <path d="M4.3 6.4h.01M6.8 6.4h.01M9.3 6.4h.01M11.8 6.4h.01M4.8 9.6h6.4" strokeWidth={1.7} />
+  </Svg>
+);
+
+export const CircleDotIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="8" cy="8" r="5.6" />
+    <circle cx="8" cy="8" r="1.4" fill="currentColor" />
   </Svg>
 );
 
