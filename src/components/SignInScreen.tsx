@@ -1,104 +1,104 @@
 import Link from "next/link";
 import { signInWithGoogle } from "@/app/actions";
+import { AppPreview } from "./AppPreview";
 import { GoogleButton } from "./GoogleButton";
-import { LiveDemo } from "./LiveDemo";
+import { ChartIcon, ListIcon, WeekIcon } from "./icons";
 import { SiteFooter, SiteHeader } from "./Site";
 
 const FEATURES = [
   {
-    title: "Type it. It lands.",
-    text: "Quick add understands dates — “Report fri”, “Dentist oct 28”, “Review in 3 days” — and puts the task on the right day.",
+    icon: <ListIcon size={18} />,
+    title: "A table built for planning",
+    text: "Add, edit and check off tasks inline. Keyboard shortcuts for everything — N for a new task, Space to complete it.",
   },
   {
-    title: "A list with a spine.",
-    text: "Every task in a strict, keyboard-first table. Edit in place, sort, carry unfinished work over in one click.",
+    icon: <WeekIcon size={18} />,
+    title: "Your week and month at a glance",
+    text: "See the whole week grouped by day or the month on a calendar. Move anything to today or tomorrow in a click.",
   },
   {
-    title: "Numbers without noise.",
-    text: "Week, month and year at a glance: what you finished, your strongest days, and what is still open.",
+    icon: <ChartIcon size={18} />,
+    title: "Analytics that stay calm",
+    text: "Completion rate, daily average, your strongest weekdays and a year of activity. Clear, private, no noise.",
   },
 ];
 
-function SignIn({ error }: { error?: boolean }) {
+/** Slow-drifting light behind the glass: it is what the frosted surfaces refract. */
+function Orbs() {
   return (
-    <div className="flex flex-col items-start gap-3">
-      <form action={signInWithGoogle}>
-        <GoogleButton />
-      </form>
-      {error && (
-        <p role="alert" className="text-[13px] text-signal">
-          Sign-in didn’t work. Please try again.
-        </p>
-      )}
-      <p className="max-w-[320px] text-[12.5px] leading-relaxed text-muted">
-        Free. By continuing, you agree to the{" "}
-        <Link href="/terms" className="text-ink-2 underline decoration-ghost underline-offset-[3px] hover:decoration-ink">
-          Terms
-        </Link>{" "}
-        and the{" "}
-        <span className="whitespace-nowrap">
-          <Link href="/privacy" className="text-ink-2 underline decoration-ghost underline-offset-[3px] hover:decoration-ink">
-            Privacy Policy
-          </Link>
-          .
-        </span>
-      </p>
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[1700px] overflow-hidden">
+      <div className="orb top-[-320px] left-1/2 size-[1100px] -translate-x-1/2 bg-[radial-gradient(closest-side,var(--orb-light),transparent)]" />
+      <div className="orb top-[700px] left-[calc(50%-560px)] size-[640px] bg-[radial-gradient(closest-side,var(--orb-dark),transparent)]" />
+      <div className="orb top-[820px] left-[calc(50%+40px)] size-[560px] bg-[radial-gradient(closest-side,var(--orb-dark),transparent)] [animation-delay:-9s] [animation-duration:34s]" />
+      <div className="orb top-[560px] left-[calc(50%-120px)] size-[420px] bg-[radial-gradient(closest-side,var(--orb-light),transparent)] [animation-delay:-17s] [animation-duration:40s]" />
     </div>
   );
 }
 
 export function SignInScreen({ error }: { error?: boolean }) {
   return (
-    <div className="min-h-dvh bg-paper">
+    <div className="relative isolate min-h-dvh overflow-x-clip">
+      <Orbs />
       <SiteHeader>
         <form action={signInWithGoogle}>
-          <button type="submit" className="h-9 rounded-[10px] px-3 text-[13.5px] text-muted transition-colors hover:bg-fill hover:text-ink">
+          <button type="submit" className="control flex h-10 items-center rounded-full px-5 text-[13.5px] font-medium transition-colors hover:bg-control-hover">
             Sign in
           </button>
         </form>
       </SiteHeader>
 
       <main>
-        <section className="mx-auto max-w-[1040px] px-5 pt-16 md:pt-28">
-          <div className="mono-label flex animate-up items-center gap-2">
-            <span className="size-1.5 rounded-full bg-signal" />
-            Task planner
+        <section className="mx-auto max-w-[1100px] px-5 pt-16 pb-14 text-center md:pt-24">
+          <div className="glass rim relative inline-flex h-8 animate-rise items-center gap-2.5 rounded-full px-4 text-[12.5px] font-medium text-label-2">
+            {["Day", "Week", "Month", "Analytics"].map((v, i) => (
+              <span key={v} className="flex items-center gap-2.5">
+                {i > 0 && <span className="size-[3px] rounded-full bg-label-3" />}
+                {v}
+              </span>
+            ))}
           </div>
-          <h1 className="mt-6 max-w-[900px] animate-up text-[46px] leading-[1.02] font-medium tracking-[-0.045em] [animation-delay:80ms] md:text-[80px]">
-            Your whole week,
-            <br />
-            <span className="text-faint">on one screen.</span>
+          <h1 className="title-gradient mx-auto mt-7 max-w-[920px] pb-2 font-display text-[46px] leading-[1.04] font-bold tracking-[-0.048em] text-balance md:text-[88px]">
+            Your whole week on one screen.
           </h1>
-          <div className="mt-10 grid animate-up items-end gap-8 [animation-delay:200ms] md:grid-cols-[minmax(0,1fr)_auto] md:gap-16">
-            <p className="max-w-[520px] text-[17px] leading-relaxed text-ink-2 md:text-[19px]">
-              A calm planner for people who like their lists strict. Type a task and it lands on the right day. Check it off and watch the week
-              fill up.
+          <p className="mx-auto mt-5 max-w-[600px] text-[17px] leading-relaxed text-pretty text-label-2 md:text-[20px]">
+            Hyperanchor is a calm, focused planner. Plan each day in a clean table, see the week and month at a glance, and understand how you
+            get things done.
+          </p>
+          <form action={signInWithGoogle} className="mt-10 flex justify-center">
+            <GoogleButton />
+          </form>
+          {error && (
+            <p role="alert" className="glass rim relative mt-5 inline-flex rounded-full px-4 py-1.5 text-[13px] font-medium text-label">
+              Sign-in didn’t work. Please try again.
             </p>
-            <SignIn error={error} />
-          </div>
+          )}
+          <p className="mt-5 text-[12.5px] text-label-3">
+            Free. By continuing, you agree to the{" "}
+            <Link href="/terms" className="text-label-2">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <span className="whitespace-nowrap">
+              <Link href="/privacy" className="text-label-2">
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </p>
         </section>
 
-        <section className="mx-auto mt-16 max-w-[1040px] animate-up px-5 [animation-delay:340ms] md:mt-24">
-          <LiveDemo />
+        <section className="mx-auto max-w-[1100px] px-3 md:px-5">
+          <AppPreview />
         </section>
 
-        <section className="mx-auto mt-24 grid max-w-[1040px] gap-10 px-5 md:mt-32 md:grid-cols-3 md:gap-8">
-          {FEATURES.map((f, i) => (
-            <div key={f.title} className="border-t border-ink pt-5">
-              <div className="mono-label">0{i + 1}</div>
-              <h2 className="mt-5 text-[20px] font-medium tracking-[-0.02em]">{f.title}</h2>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-muted">{f.text}</p>
+        <section className="mx-auto grid max-w-[1080px] gap-3 px-3 py-20 md:grid-cols-3 md:gap-4 md:py-28">
+          {FEATURES.map((f) => (
+            <div key={f.title} className="glass rim relative rounded-[28px] p-7">
+              <div className="lens flex size-11 items-center justify-center rounded-full text-label">{f.icon}</div>
+              <h2 className="mt-6 text-[17px] font-semibold tracking-[-0.015em]">{f.title}</h2>
+              <p className="mt-2 text-[14.5px] leading-relaxed text-label-2">{f.text}</p>
             </div>
           ))}
-        </section>
-
-        <section className="mx-auto mt-28 mb-24 max-w-[1040px] px-5 md:mt-36">
-          <div className="grid items-end gap-8 border-t border-line pt-12 md:grid-cols-[minmax(0,1fr)_auto]">
-            <h2 className="text-[34px] leading-[1.08] font-medium tracking-[-0.035em] md:text-[48px]">
-              Plan less. <span className="text-faint">Finish more.</span>
-            </h2>
-            <SignIn />
-          </div>
         </section>
       </main>
 

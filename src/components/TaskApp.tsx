@@ -8,9 +8,7 @@ import type { AppUser, Task } from "@/lib/types";
 import { AnalyticsView } from "./analytics/AnalyticsView";
 import { DayView } from "./DayView";
 import { MonthView } from "./MonthView";
-import type { QuickAddHandle } from "./QuickAdd";
-import { ShortcutsSheet } from "./ShortcutsSheet";
-import { MiniMonth, MobileBar, Sidebar, type View } from "./Sidebar";
+import { MiniMonth, MobileHeader, Sidebar, TabBar, type View } from "./Sidebar";
 import type { Composer, Editing, Section, TableActions } from "./table/types";
 import { useTasks } from "./useTasks";
 import { WeekView } from "./WeekView";
@@ -54,9 +52,8 @@ export function TaskApp({ user }: { user: AppUser }) {
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState<Toast | null>(null);
-  const [shortcuts, setShortcuts] = useState(false);
-  const quickAdd = useRef<QuickAddHandle>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const scroller = useRef<HTMLElement>(null);
 
   const notify = useCallback((message: string, action?: Toast["action"]) => {
     setToast({ id: Date.now(), message, action });
@@ -64,7 +61,7 @@ export function TaskApp({ user }: { user: AppUser }) {
     toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : 4000);
   }, []);
 
-  const { tasks, load, create, edit, remove, restore, syncing } = useTasks(notify);
+  const { tasks, load, create, edit, remove, restore } = useTasks(notify);
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const mainRange = useMemo((): [string, string] => {
@@ -197,10 +194,6 @@ export function TaskApp({ user }: { user: AppUser }) {
         remove(task.id);
         notify(`Deleted “${task.title}”`, { label: "Undo", run: () => restore(task) });
       },
-      duplicate: (task) => {
-        create({ title: task.title, description: task.description, date: task.date, done: false });
-        notify(`Duplicated “${task.title}”`);
-      },
       openComposer: (date) => {
         finishEdit();
         const next = { date, title: "", description: "", nonce: Date.now() };
@@ -216,14 +209,6 @@ export function TaskApp({ user }: { user: AppUser }) {
       sort: (key) => setSort((s) => nextSort(s, key)),
     };
   }, [create, edit, remove, restore, notify]);
-
-  const addFromQuickAdd = (title: string, date: string) => {
-    create({ title, description: "", date, done: false });
-    if (date !== selected) {
-      const name = relativeDay(date, todayKey) ?? formatMedium(parseYmd(date));
-      notify(`Added to ${name}`, { label: "Show", run: () => selectDate(date) });
-    }
-  };
 
   const moveAllToToday = (list: Task[]) => {
     for (const t of list) edit(t.id, { date: todayKey });
@@ -259,18 +244,14 @@ export function TaskApp({ user }: { user: AppUser }) {
       const i = l.selectedId ? l.visibleIds.indexOf(l.selectedId) : -1;
       const sel = l.selectedId ? l.tasks[l.selectedId] : undefined;
 
-      if (k === "?") setShortcuts(true);
-      else if (views[k]) showView(views[k]);
+      if (views[k]) showView(views[k]);
       else if (k === "t") {
         selectDate(l.todayKey);
         setCal(monthOf(l.todayKey));
         setStats((s) => ({ ...s, offset: 0 }));
       } else if (k === "n") {
-        if (l.view === "week") actions.openComposer(l.selected);
-        else {
-          setView("day");
-          requestAnimationFrame(() => quickAdd.current?.focus());
-        }
+        if (!table) setView("day");
+        actions.openComposer(l.selected);
       } else if (k === "ArrowLeft" || k === "ArrowRight") step(k === "ArrowLeft" ? -1 : 1);
       else if (table && (k === "ArrowDown" || k === "ArrowUp") && l.visibleIds.length) {
         const n = l.visibleIds.length;
@@ -291,20 +272,34 @@ export function TaskApp({ user }: { user: AppUser }) {
     };
   }, [actions, selectDate, showView]);
 
+  // A new view starts at the top (the sheet scrolls on desktop, the page on phones).
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
+  }, [view]);
+
+  // The sticky toolbar shows its blurred edge only while content is scrolled beneath it.
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const update = () => (el.dataset.scrolled = String(el.scrollTop > 2));
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    return () => el.removeEventListener("scroll", update);
+  }, []);
+
   // ── Layout ──────────────────────────────────────────────────────────────────
   const tableState = { todayKey, selectedId, editing, composer, sort };
   const weekStart = startOfWeek(parseYmd(selected));
   const weekOpen = Array.from({ length: 7 }, (_, i) => byDate(ymd(addDays(weekStart, i)))).flat().filter((t) => !t.done).length;
 
   return (
-    <div className="min-h-dvh bg-paper md:grid md:grid-cols-[256px_minmax(0,1fr)]">
+    <div className="md:flex md:h-dvh md:gap-2.5 md:p-2.5">
       <Sidebar
         user={user}
         view={view}
         onView={showView}
         badges={{ day: byDate(selected).filter((t) => !t.done).length, week: weekOpen }}
-        syncing={syncing}
-        onShortcuts={() => setShortcuts(true)}
         mini={
           <MiniMonth
             year={mini.y}
@@ -321,87 +316,84 @@ export function TaskApp({ user }: { user: AppUser }) {
           />
         }
       />
-      <div className="min-w-0">
-        <MobileBar user={user} view={view} onView={showView} />
-        <main>
-          {view === "day" && (
-            <DayView
-              selected={selected}
-              section={sections[0] ?? { date: selected, tasks: [] }}
-              state={tableState}
-              actions={actions}
-              byDate={byDate}
-              firstName={user.name.trim().split(/\s+/)[0] ?? ""}
-              query={query}
-              onQuery={setQuery}
-              onSelectDate={selectDate}
-              onMoveToToday={moveAllToToday}
-              quickAdd={quickAdd}
-              onQuickAdd={addFromQuickAdd}
-            />
-          )}
-          {view === "week" && (
-            <WeekView selected={selected} sections={sections} state={tableState} actions={actions} query={query} onQuery={setQuery} onSelectDate={selectDate} />
-          )}
-          {view === "month" && (
-            <MonthView
-              year={cal.y}
-              month={cal.m}
-              selected={selected}
-              todayKey={todayKey}
-              byDate={byDate}
-              onShift={(n) => setCal(({ y, m }) => monthOf(ymd(new Date(y, m + n, 1))))}
-              onThisMonth={() => setCal(monthOf(todayKey))}
-              onSelectDate={selectDate}
-              onOpenDay={openDay}
-              onToggle={actions.toggle}
-              onCreate={(date, title) => create({ title, description: "", date, done: false })}
-            />
-          )}
-          {view === "analytics" && (
-            <AnalyticsView
-              period={stats.period}
-              offset={stats.offset}
-              todayKey={todayKey}
-              byDate={byDate}
-              onPeriod={(period) => setStats({ period, offset: 0 })}
-              onOffset={(offset) => setStats((s) => ({ ...s, offset: Math.min(0, offset) }))}
-              onDrill={(period, offset) => setStats({ period, offset })}
-              onOpenDay={openDay}
-              onToggle={actions.toggle}
-              onMove={actions.move}
-            />
-          )}
-        </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <MobileHeader user={user} />
+        {/* The content sheet. Desktop: fixed height, scrolls inside (the toolbar sticks). Phone: grows, the page scrolls. */}
+        <div className="glass-sheet rim relative mx-2 mb-[calc(env(safe-area-inset-bottom)+96px)] min-h-[calc(100dvh-160px)] overflow-hidden rounded-[26px] md:m-0 md:min-h-0 md:flex-1 md:rounded-[28px]">
+          <main ref={scroller} className="md:h-full md:scroll-pt-32 md:overflow-y-auto">
+            {view === "day" && (
+              <DayView
+                selected={selected}
+                section={sections[0] ?? { date: selected, tasks: [] }}
+                state={tableState}
+                actions={actions}
+                byDate={byDate}
+                query={query}
+                onQuery={setQuery}
+                onSelectDate={selectDate}
+                onMoveToToday={moveAllToToday}
+              />
+            )}
+            {view === "week" && (
+              <WeekView selected={selected} sections={sections} state={tableState} actions={actions} query={query} onQuery={setQuery} onSelectDate={selectDate} />
+            )}
+            {view === "month" && (
+              <MonthView
+                year={cal.y}
+                month={cal.m}
+                selected={selected}
+                todayKey={todayKey}
+                byDate={byDate}
+                onShift={(n) => setCal(({ y, m }) => monthOf(ymd(new Date(y, m + n, 1))))}
+                onThisMonth={() => setCal(monthOf(todayKey))}
+                onSelectDate={selectDate}
+                onOpenDay={openDay}
+                onToggle={actions.toggle}
+                onCreate={(date, title) => create({ title, description: "", date, done: false })}
+              />
+            )}
+            {view === "analytics" && (
+              <AnalyticsView
+                period={stats.period}
+                offset={stats.offset}
+                todayKey={todayKey}
+                byDate={byDate}
+                onPeriod={(period) => setStats({ period, offset: 0 })}
+                onOffset={(offset) => setStats((s) => ({ ...s, offset: Math.min(0, offset) }))}
+                onDrill={(period, offset) => setStats({ period, offset })}
+                onOpenDay={openDay}
+                onToggle={actions.toggle}
+                onMove={actions.move}
+              />
+            )}
+          </main>
+        </div>
       </div>
+      <TabBar view={view} onView={showView} />
 
       {toast && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[120] flex justify-center px-4">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+92px)] z-[120] flex justify-center px-4 md:bottom-6">
           <div
             role="status"
             key={toast.id}
-            className="pointer-events-auto flex h-11 animate-up items-center gap-4 rounded-full bg-ink pr-2 pl-5 text-[13.5px] text-on-ink shadow-[0_14px_36px_-12px_rgba(10,10,10,0.45)]"
+            className="pointer-events-auto flex animate-rise items-center gap-3 rounded-full bg-hud py-2 pr-2 pl-5 text-[13px] text-on-hud shadow-float backdrop-blur-xl backdrop-saturate-150"
           >
             <span className="max-w-[60vw] truncate">{toast.message}</span>
-            {toast.action ? (
+            {toast.action && (
               <button
                 type="button"
                 onClick={() => {
                   toast.action?.run();
                   setToast(null);
                 }}
-                className="h-8 rounded-full bg-on-ink/12 px-3.5 font-medium transition-colors hover:bg-on-ink/20"
+                className="rounded-full bg-on-hud/12 px-3 py-1 font-semibold transition-colors hover:bg-on-hud/20"
               >
                 {toast.action.label}
               </button>
-            ) : (
-              <span className="w-2" />
             )}
           </div>
         </div>
       )}
-
-      {shortcuts && <ShortcutsSheet onClose={() => setShortcuts(false)} />}
     </div>
   );
 }

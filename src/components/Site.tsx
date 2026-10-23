@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { Brand } from "./AppIcon";
+import { Wordmark } from "./Brand";
 
-/** Top bar for public pages (landing, legal). */
+/** Top bar for public pages (landing, legal): a floating glass capsule. */
 export function SiteHeader({ children }: { children?: React.ReactNode }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-paper/85 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-[1040px] items-center justify-between gap-4 px-5">
-        <Brand href="/" size={22} />
+    <header className="sticky top-3 z-30 px-3">
+      <div className="glass rim relative mx-auto flex h-14 max-w-[1080px] items-center justify-between gap-4 rounded-full pr-2 pl-6">
+        <Wordmark href="/" size={20} />
         {children}
       </div>
     </header>
@@ -15,15 +15,15 @@ export function SiteHeader({ children }: { children?: React.ReactNode }) {
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-line">
-      <div className="mx-auto flex max-w-[1040px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-8">
-        <span className="mono-label">© 2026 Hyperanchor</span>
-        <nav className="flex gap-6 text-[13px] text-muted">
-          <Link href="/privacy" className="transition-colors hover:text-ink">
-            Privacy
+    <footer className="mx-auto max-w-[1080px] px-6">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-separator py-8 text-[12.5px] text-label-3">
+        <span>© 2026 Hyperanchor</span>
+        <nav className="flex gap-5">
+          <Link href="/privacy" className="text-label-2 no-underline hover:text-label">
+            Privacy Policy
           </Link>
-          <Link href="/terms" className="transition-colors hover:text-ink">
-            Terms
+          <Link href="/terms" className="text-label-2 no-underline hover:text-label">
+            Terms of Service
           </Link>
         </nav>
       </div>

@@ -4,10 +4,10 @@ import { addDays, dayDiff, formatMedium, MONTHS_SHORT, startOfWeek, ymd } from "
 import type { DayStat } from "@/lib/stats";
 
 const LEVELS = [
-  "var(--fill)",
-  "color-mix(in srgb, var(--ink) 20%, var(--paper))",
-  "color-mix(in srgb, var(--ink) 42%, var(--paper))",
-  "color-mix(in srgb, var(--ink) 68%, var(--paper))",
+  "var(--fill-2)",
+  "color-mix(in srgb, var(--ink) 24%, transparent)",
+  "color-mix(in srgb, var(--ink) 46%, transparent)",
+  "color-mix(in srgb, var(--ink) 70%, transparent)",
   "var(--ink)",
 ];
 
@@ -28,7 +28,7 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
     <div>
       <div className="overflow-x-auto pb-1">
         <div className="min-w-[620px]">
-          <div className="relative ml-8 h-4 font-mono text-[10px] tracking-[0.06em] text-faint uppercase">
+          <div className="relative ml-8 h-4 text-[11px] text-label-2">
             {monthCols.map((col, m) => (
               <span key={m} className="absolute" style={{ left: `${(col / weeks) * 100}%` }}>
                 {MONTHS_SHORT[m]}
@@ -36,7 +36,7 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
             ))}
           </div>
           <div className="mt-1 flex gap-2">
-            <div className="grid w-6 flex-none grid-rows-7 gap-[3px] font-mono text-[9.5px] text-faint uppercase">
+            <div className="grid w-6 flex-none grid-rows-7 gap-[3px] text-[10.5px] text-label-3">
               {["Mon", "", "Wed", "", "Fri", "", ""].map((l, i) => (
                 <span key={i} className="flex items-center">
                   {l}
@@ -55,8 +55,8 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
                     onClick={() => onPick(d.key)}
                     title={`${formatMedium(d.date)} — ${d.total ? `${d.done} of ${d.total} done` : "no tasks"}`}
                     aria-label={`${formatMedium(d.date)}: ${d.done} of ${d.total} done`}
-                    className={`aspect-square w-full rounded-[3px] transition-transform duration-150 hover:scale-125 ${d.isToday ? "ring-[1.5px] ring-signal ring-offset-1 ring-offset-paper" : ""}`}
-                    style={{ background: d.elapsed ? LEVELS[level(d)] : "var(--fill-row)" }}
+                    className={`aspect-square w-full rounded-[3px] transition-transform duration-200 ease-liquid hover:scale-125 ${d.isToday ? "outline-[1.5px] outline-offset-1 outline-label-2 outline-solid" : ""}`}
+                    style={{ background: d.elapsed ? LEVELS[level(d)] : "var(--fill-3)" }}
                   />
                 );
               })}
@@ -64,7 +64,7 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
           </div>
         </div>
       </div>
-      <div className="mt-4 flex items-center justify-end gap-1.5 font-mono text-[10px] text-faint uppercase">
+      <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-label-3">
         Less
         {LEVELS.map((c, i) => (
           <span key={i} className="size-3 rounded-[3px]" style={{ background: c }} />
