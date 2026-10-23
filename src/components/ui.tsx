@@ -4,22 +4,23 @@ import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import { CheckIcon } from "./icons";
 
-// ── Buttons ──────────────────────────────────────────────────────────────────
+// ── Buttons (capsules) ───────────────────────────────────────────────────────
 
 type Variant = "primary" | "secondary" | "plain";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-white shadow-[0_0.5px_1px_rgba(0,0,0,0.18)] hover:bg-accent-hover",
-  secondary: "bg-control text-label shadow-control hover:bg-fill-3 active:bg-fill-2",
+  primary: "ink hover:brightness-[1.35] active:scale-[0.97] dark:hover:brightness-[0.92]",
+  secondary: "control text-label hover:bg-control-hover active:scale-[0.97]",
   plain: "text-label-2 hover:bg-fill-2 hover:text-label active:bg-fill",
 };
 const sizes: Record<Size, string> = {
-  sm: "h-6 rounded-[6px] px-2 text-[12px]",
-  md: "h-7 rounded-[7px] px-3 text-[13px]",
-  lg: "h-9 rounded-[8px] px-4 text-[14px]",
+  sm: "h-7 px-3 text-[12.5px]",
+  md: "h-8 px-3.5 text-[13px]",
+  lg: "h-11 px-5 text-[15px]",
 };
-const iconSizes: Record<Size, string> = { sm: "size-6 rounded-[6px]", md: "size-7 rounded-[7px]", lg: "size-9 rounded-[8px]" };
+const iconSizes: Record<Size, string> = { sm: "size-7", md: "size-8", lg: "size-11" };
+const base = "rounded-full transition-[background-color,color,box-shadow,filter,transform] duration-200 ease-glass select-none disabled:pointer-events-none";
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size };
 
@@ -31,7 +32,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       type={type}
-      className={`inline-flex items-center justify-center gap-1.5 font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 select-none disabled:pointer-events-none disabled:opacity-40 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 font-medium whitespace-nowrap disabled:opacity-40 ${base} ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     />
   );
@@ -47,13 +48,13 @@ export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { label: s
       type={type}
       aria-label={label}
       title={props.title ?? label}
-      className={`inline-flex flex-none items-center justify-center transition-[background-color,color,box-shadow] duration-150 disabled:pointer-events-none disabled:opacity-35 ${variants[variant]} ${iconSizes[size]} ${className}`}
+      className={`inline-flex flex-none items-center justify-center disabled:opacity-35 ${base} ${variants[variant]} ${iconSizes[size]} ${className}`}
       {...props}
     />
   );
 });
 
-// ── Segmented control ────────────────────────────────────────────────────────
+// ── Segmented control: a glass lens slides over a recessed track ─────────────
 
 export function SegmentedControl<T extends string>({
   value,
@@ -68,8 +69,19 @@ export function SegmentedControl<T extends string>({
   label: string;
   className?: string;
 }) {
+  const index = Math.max(0, options.findIndex((o) => o.value === value));
   return (
-    <div role="radiogroup" aria-label={label} className={`inline-flex rounded-[8px] bg-fill p-[2px] ${className}`}>
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={`track relative grid rounded-full p-[3px] ${className}`}
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+    >
+      <span
+        aria-hidden="true"
+        className="lens absolute inset-y-[3px] left-[3px] rounded-full transition-transform duration-500 ease-liquid"
+        style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${index * 100}%)` }}
+      />
       {options.map((o) => {
         const on = o.value === value;
         return (
@@ -79,8 +91,8 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={`h-6 flex-1 rounded-[6px] px-3 text-[12.5px] font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 ${
-              on ? "bg-control text-label shadow-raised" : "text-label/75 hover:text-label"
+            className={`relative h-[26px] rounded-full px-3.5 text-[12.5px] font-medium whitespace-nowrap transition-colors duration-200 ${
+              on ? "text-label" : "text-label-2 hover:text-label"
             }`}
           >
             {o.label}
@@ -91,13 +103,13 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-// ── Checkbox (round, Reminders-style) ────────────────────────────────────────
+// ── Checkbox (round; fills with ink) ─────────────────────────────────────────
 
 export function Checkbox({
   checked,
   onToggle,
   label,
-  size = 18,
+  size = 20,
   className = "",
 }: {
   checked: boolean;
@@ -117,11 +129,13 @@ export function Checkbox({
         onToggle();
       }}
       style={{ width: size, height: size }}
-      className={`flex flex-none items-center justify-center rounded-full border-[1.5px] transition-colors duration-150 ${
-        checked ? "border-accent bg-accent text-white" : "border-label-4 bg-transparent hover:border-accent"
+      className={`flex flex-none items-center justify-center rounded-full transition-[background-color,box-shadow,transform] duration-200 ease-glass active:scale-90 ${
+        checked
+          ? "bg-ink bg-[image:var(--ink-sheen)] text-on-ink shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
+          : "shadow-[inset_0_0_0_1.5px_var(--label-3)] hover:shadow-[inset_0_0_0_1.5px_var(--label-2)]"
       } ${className}`}
     >
-      {checked && <CheckIcon size={Math.round(size * 0.56)} strokeWidth={2.2} />}
+      {checked && <CheckIcon size={Math.round(size * 0.52)} strokeWidth={2.4} className="animate-pop" />}
     </button>
   );
 }
@@ -133,37 +147,55 @@ export type Anchor = DOMRect | { x: number; y: number };
 /** Positions a floating panel next to an anchor rect (or at a point), flipped and clamped into the viewport. */
 function useFloating(anchor: Anchor, align: "start" | "end") {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; origin: string } | null>(null);
 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const { width: w, height: h } = el.getBoundingClientRect();
+    // Layout size, not getBoundingClientRect: the panel is mid scale-in animation here.
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const m = 8;
     let left: number;
     let top: number;
+    let below = true;
     if ("width" in anchor) {
       left = align === "end" ? anchor.right - w : anchor.left;
-      top = anchor.bottom + 4;
-      if (top + h > vh - m && anchor.top - h - 4 > m) top = anchor.top - h - 4;
+      top = anchor.bottom + 6;
+      if (top + h > vh - m && anchor.top - h - 6 > m) {
+        top = anchor.top - h - 6;
+        below = false;
+      }
     } else {
       left = anchor.x;
       top = anchor.y;
       if (left + w > vw - m) left = anchor.x - w;
-      if (top + h > vh - m) top = anchor.y - h;
+      if (top + h > vh - m) {
+        top = anchor.y - h;
+        below = false;
+      }
     }
-    setPos({ left: Math.min(Math.max(m, left), vw - w - m), top: Math.min(Math.max(m, top), vh - h - m) });
+    const x = Math.min(Math.max(m, left), vw - w - m);
+    const y = Math.min(Math.max(m, top), vh - h - m);
+    setPos({ left: x, top: y, origin: `${align === "end" ? "right" : "left"} ${below ? "top" : "bottom"}` });
   }, [anchor, align]);
 
-  return { ref, style: { left: pos?.left ?? 0, top: pos?.top ?? 0, visibility: pos ? "visible" : "hidden" } as const };
+  return {
+    ref,
+    style: { left: pos?.left ?? 0, top: pos?.top ?? 0, transformOrigin: pos?.origin, visibility: pos ? "visible" : "hidden" } as const,
+  };
 }
 
-/** Closes on Escape and on pointer down outside `ref` (and outside `ignore`, usually the trigger that toggles it). */
+/**
+ * Closes on Escape, on pointer down outside `ref` (and outside `ignore`, usually the trigger that toggles it),
+ * on resize and when the page scrolls under it.
+ */
 export function useDismiss(ref: React.RefObject<HTMLElement | null>, onClose: () => void, enabled = true, ignore?: HTMLElement | null) {
   useEffect(() => {
     if (!enabled) return;
+    const opened = performance.now();
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node;
       if (ref.current && !ref.current.contains(t) && !ignore?.contains(t)) onClose();
@@ -174,13 +206,20 @@ export function useDismiss(ref: React.RefObject<HTMLElement | null>, onClose: ()
         onClose();
       }
     };
+    // Ignore the scroll that opening may cause (keeping a selected row in view) and scrolling inside the panel.
+    const onScroll = (e: Event) => {
+      if (performance.now() - opened < 400 || ref.current?.contains(e.target as Node)) return;
+      onClose();
+    };
     window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("keydown", onKey, true);
     window.addEventListener("resize", onClose);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("resize", onClose);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [ref, onClose, enabled, ignore]);
 }
@@ -211,7 +250,7 @@ export function Popover({
       aria-label={label}
       data-floating=""
       style={style}
-      className={`material fixed z-[100] rounded-[12px] bg-elevated shadow-popover ${className}`}
+      className={`glass-float rim fixed z-[100] animate-glass-in rounded-[22px] ${className}`}
     >
       {children}
     </div>,
@@ -220,7 +259,7 @@ export function Popover({
 }
 
 export type MenuEntry =
-  | { label: string; onSelect: () => void; destructive?: boolean; disabled?: boolean; shortcut?: string; icon?: React.ReactNode }
+  | { label: string; onSelect: () => void; disabled?: boolean; shortcut?: string; icon?: React.ReactNode }
   | { separator: true }
   | { heading: string };
 
@@ -275,13 +314,13 @@ export function Menu({
       data-floating=""
       onKeyDown={onKeyDown}
       style={style}
-      className="material fixed z-[100] min-w-[210px] rounded-[10px] bg-elevated p-[5px] text-[13px] shadow-popover outline-none"
+      className="glass-float rim fixed z-[100] min-w-[220px] animate-glass-in rounded-[16px] p-1.5 text-[13px] outline-none"
     >
       {entries.map((e, i) => {
-        if ("separator" in e) return <div key={i} role="separator" className="mx-2 my-[5px] h-px bg-separator-strong" />;
+        if ("separator" in e) return <div key={i} role="separator" className="mx-2.5 my-1 h-px bg-separator-strong" />;
         if ("heading" in e)
           return (
-            <div key={i} className="px-2.5 pt-1 pb-1 text-[11.5px] font-semibold text-label-3">
+            <div key={i} className="px-2.5 pt-1.5 pb-1 text-[11.5px] font-semibold text-label-3">
               {e.heading}
             </div>
           );
@@ -295,13 +334,13 @@ export function Menu({
             onMouseEnter={() => setActive(i)}
             onMouseLeave={() => setActive(-1)}
             onClick={() => run(e)}
-            className={`flex h-[26px] w-full items-center gap-2 rounded-[5px] px-2.5 text-left whitespace-nowrap disabled:opacity-40 ${
-              on ? (e.destructive ? "bg-red text-white" : "bg-accent text-white") : e.destructive ? "text-red" : "text-label"
+            className={`flex h-[30px] w-full items-center gap-2 rounded-[9px] px-2.5 text-left whitespace-nowrap disabled:opacity-35 ${
+              on ? "bg-ink text-on-ink" : "text-label"
             }`}
           >
-            {e.icon && <span className={on ? "text-white" : "text-label-2"}>{e.icon}</span>}
+            {e.icon && <span className={on ? "text-on-ink" : "text-label-2"}>{e.icon}</span>}
             <span className="flex-1">{e.label}</span>
-            {e.shortcut && <span className={`pl-6 text-[12px] ${on ? "text-white/75" : "text-label-3"}`}>{e.shortcut}</span>}
+            {e.shortcut && <span className={`pl-6 text-[12px] ${on ? "text-on-ink/60" : "text-label-3"}`}>{e.shortcut}</span>}
           </button>
         );
       })}
@@ -312,5 +351,5 @@ export function Menu({
 
 /** Small key hint, e.g. ⏎ or N. */
 export function Kbd({ children }: { children: React.ReactNode }) {
-  return <kbd className="rounded-[4px] bg-fill-2 px-1 font-sans text-[11px] text-label-3">{children}</kbd>;
+  return <kbd className="control rounded-[6px] px-1.5 py-px font-sans text-[11px] font-medium text-label-2">{children}</kbd>;
 }

@@ -23,7 +23,7 @@ export function taskMenu(task: Task, todayKey: string, actions: TableActions): M
     { label: "Move to Tomorrow", disabled: task.date === tomorrow, onSelect: () => actions.move(task, tomorrow) },
     { label: "Move to Next Week", disabled: task.date === nextWeek, onSelect: () => actions.move(task, nextWeek) },
     { separator: true },
-    { label: "Delete", shortcut: "⌫", destructive: true, onSelect: () => actions.remove(task) },
+    { label: "Delete", shortcut: "⌫", onSelect: () => actions.remove(task) },
   ];
 }
 
@@ -33,7 +33,7 @@ function SortHeader({ label, k, state, actions, className = "" }: { label: strin
     <button
       type="button"
       onClick={() => actions.sort(k)}
-      className={`flex items-center gap-1 text-left transition-colors hover:text-label ${on ? "text-label" : ""} ${className}`}
+      className={`flex items-center gap-1 text-left uppercase transition-colors hover:text-label-2 ${on ? "text-label-2" : ""} ${className}`}
     >
       {label}
       {on && (state.sort.dir === "asc" ? <ChevronUp size={11} strokeWidth={2} /> : <ChevronDown size={11} strokeWidth={2} />)}
@@ -59,11 +59,11 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
   const input = "m-0 block w-full bg-transparent p-0 outline-none";
 
   return (
-    <div role="row" data-editing="true" className={`relative ${COLS} min-h-10 items-start rounded-[7px] bg-accent-soft px-1`}>
-      <div className="flex h-10 items-center justify-center">
-        <span className="size-[18px] rounded-full border-[1.5px] border-dashed border-label-3" />
+    <div role="row" data-editing="true" className={`lens relative z-[1] ${COLS} min-h-11 animate-rise items-start rounded-[14px] px-1`}>
+      <div className="flex h-11 items-center justify-center">
+        <span className="size-5 rounded-full border-[1.5px] border-dashed border-label-3" />
       </div>
-      <div className="min-w-0 py-[10px] pr-3">
+      <div className="min-w-0 py-3 pr-3">
         <input
           ref={titleRef}
           value={composer.title}
@@ -84,7 +84,7 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
           className={`${input} mt-0.5 text-[13px] leading-[19px] @2xl:hidden`}
         />
       </div>
-      <div className="hidden min-w-0 py-[10px] pr-3 @2xl:block">
+      <div className="hidden min-w-0 py-3 pr-3 @2xl:block">
         <input
           value={composer.description}
           onChange={(e) => actions.composerChange({ description: e.target.value })}
@@ -95,7 +95,7 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
           className={`${input} text-[13px] leading-[19px]`}
         />
       </div>
-      <div className="hidden py-[11px] pr-2 text-right text-[12px] leading-[18px] text-label-3 @4xl:block">↩ to add</div>
+      <div className="hidden py-[13px] pr-2 text-right text-[12px] leading-[18px] text-label-3 @4xl:block">↩ to add</div>
       <div />
     </div>
   );
@@ -106,7 +106,7 @@ function NewTaskRow({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className={`${COLS} h-10 w-full items-center rounded-[7px] px-1 text-left text-[14px] text-label-3 transition-colors hover:bg-fill-3 hover:text-label-2`}
+      className={`${COLS} h-11 w-full items-center rounded-[14px] px-1 text-left text-[14px] text-label-3 transition-colors duration-200 hover:bg-fill-3 hover:text-label-2`}
     >
       <span className="flex justify-center">
         <PlusIcon size={15} />
@@ -148,7 +148,7 @@ export function TaskTable({
   return (
     <div ref={root} className="@container">
       <div role="grid" aria-label="Tasks">
-        <div role="row" className={`${COLS} h-8 items-center border-b border-separator px-1 text-[12px] font-medium text-label-2`}>
+        <div role="row" className={`${COLS} h-9 items-center border-b border-separator px-1 text-[11px] font-semibold tracking-[0.06em] text-label-3 uppercase`}>
           <div />
           <SortHeader label="Task" k="title" state={state} actions={actions} />
           <div className="hidden @2xl:block">Notes</div>
@@ -163,17 +163,17 @@ export function TaskTable({
           return (
             <div key={s.date} role="rowgroup" aria-label={grouped ? `${DOW_FULL[dowIndex(d)]}, ${formatShort(d)}` : undefined}>
               {grouped && (
-                <div className="flex items-center gap-2 border-b border-separator px-2 pt-5 pb-1.5">
-                  <span className={`text-[13px] font-semibold ${isToday ? "text-accent" : "text-label"}`}>{DOW_FULL[dowIndex(d)]}</span>
+                <div className="flex items-center gap-2.5 border-b border-separator pt-7 pr-1 pb-2 pl-3">
+                  <span className="text-[15px] font-semibold tracking-[-0.015em] text-label">{DOW_FULL[dowIndex(d)]}</span>
                   <span className="text-[13px] text-label-2">{formatShort(d)}</span>
-                  {isToday && <span className="rounded-full bg-accent px-1.5 py-px text-[10.5px] font-semibold text-white">Today</span>}
+                  {isToday && <span className="ink rounded-full px-2 py-px text-[10.5px] font-semibold">Today</span>}
                   <span className="tabular ml-auto text-[12px] text-label-3">{s.tasks.length ? `${doneN} of ${s.tasks.length}` : ""}</span>
-                  <IconButton label={`Add task to ${DOW_FULL[dowIndex(d)]}`} size="sm" onClick={() => actions.openComposer(s.date)}>
-                    <PlusIcon size={14} />
+                  <IconButton label={`Add task to ${DOW_FULL[dowIndex(d)]}`} size="sm" variant="secondary" onClick={() => actions.openComposer(s.date)}>
+                    <PlusIcon size={13} strokeWidth={2} />
                   </IconButton>
                 </div>
               )}
-              <div className="py-0.5">
+              <div className="py-1">
                 {s.tasks.map((t) => (
                   <TaskRow
                     key={t.id}
@@ -190,7 +190,7 @@ export function TaskTable({
                 ) : placeholderRow ? (
                   <NewTaskRow onClick={() => actions.openComposer(s.date)} />
                 ) : (
-                  grouped && !s.tasks.length && <div className="py-2.5 pl-11 text-[13px] text-label-3">No tasks</div>
+                  grouped && !s.tasks.length && <div className="py-3 pl-12 text-[13px] text-label-3">No tasks</div>
                 )}
               </div>
             </div>

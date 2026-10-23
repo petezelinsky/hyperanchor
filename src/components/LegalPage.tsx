@@ -1,20 +1,24 @@
 import Link from "next/link";
+import { ChevronLeft } from "./icons";
 import { SiteFooter, SiteHeader } from "./Site";
 
 export function LegalPage({ title, effective, children }: { title: string; effective: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh bg-window">
+    <div className="min-h-dvh">
       <SiteHeader>
-        <Link href="/" className="text-[13px] font-medium">
-          Back to Hyperanchor
+        <Link href="/" className="control flex h-10 items-center gap-1 rounded-full pr-4 pl-3 text-[13px] font-medium no-underline transition-colors hover:bg-control-hover">
+          <ChevronLeft size={14} strokeWidth={2} />
+          Back
         </Link>
       </SiteHeader>
 
-      <main className="mx-auto max-w-[720px] px-5 pt-14 pb-20 md:pt-20">
-        <p className="text-[13px] font-semibold text-label-2">Legal</p>
-        <h1 className="mt-2 font-display text-[36px] leading-[1.1] font-bold tracking-[-0.03em] md:text-[44px]">{title}</h1>
-        <p className="mt-3 text-[15px] text-label-2">Effective {effective}</p>
-        <article className="mt-10 border-t border-separator text-[16px] leading-[1.65] text-label">{children}</article>
+      <main className="mx-auto max-w-[800px] px-3 pt-8 pb-14 md:pt-14">
+        <div className="glass-sheet rim relative animate-rise rounded-[32px] px-6 py-10 md:px-14 md:py-14">
+          <p className="text-[11.5px] font-semibold tracking-[0.08em] text-label-3 uppercase">Legal</p>
+          <h1 className="mt-3 font-display text-[36px] leading-[1.08] font-bold tracking-[-0.035em] md:text-[48px]">{title}</h1>
+          <p className="mt-3 text-[15px] text-label-2">Effective {effective}</p>
+          <article className="mt-10 border-t border-separator text-[16px] leading-[1.65] text-label">{children}</article>
+        </div>
       </main>
 
       <SiteFooter />

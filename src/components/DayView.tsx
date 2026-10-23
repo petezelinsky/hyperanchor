@@ -55,11 +55,11 @@ export function DayView({
         <NewTaskButton onClick={() => actions.openComposer(selected)} />
       </Toolbar>
 
-      <div className="px-4 pb-16 md:px-7">
+      <div className="px-3 pb-16 md:px-6">
         <WeekStrip selected={selected} todayKey={todayKey} byDate={byDate} onSelect={onSelectDate} />
 
         {past && open.length > 0 && !query && (
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[10px] bg-fill-3 px-3.5 py-2.5 text-[13px] text-label-2 shadow-[inset_0_0_0_0.5px_var(--separator)]">
+          <div className="card mt-4 flex animate-rise flex-wrap items-center gap-x-3 gap-y-2 rounded-[18px] py-2.5 pr-2.5 pl-4 text-[13px] text-label-2">
             <span className="flex-1">
               {open.length === 1 ? "1 task wasn’t completed on this day." : `${open.length} tasks weren’t completed on this day.`}
             </span>
@@ -69,7 +69,7 @@ export function DayView({
           </div>
         )}
 
-        <div className="mt-4">
+        <div className="mt-3">
           <TaskTable
             sections={[section]}
             state={state}
@@ -95,8 +95,17 @@ export function DayView({
 
 function WeekStrip({ selected, todayKey, byDate, onSelect }: { selected: string; todayKey: string; byDate: (key: string) => Task[]; onSelect: (key: string) => void }) {
   const start = startOfWeek(parseYmd(selected));
+  const index = dowIndex(parseYmd(selected));
   return (
-    <div className="mt-4 grid grid-cols-7 gap-1 sm:gap-1.5">
+    <div className="relative mt-1 grid grid-cols-7">
+      {/* The selection is a glass lens that slides between days; today is the ink circle. */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-0 left-0 w-[calc(100%/7)] px-0.5 transition-transform duration-500 ease-liquid sm:px-1"
+        style={{ transform: `translateX(${index * 100}%)` }}
+      >
+        <span className="lens block h-full rounded-[20px]" />
+      </span>
       {Array.from({ length: 7 }, (_, i) => {
         const day = addDays(start, i);
         const key = ymd(day);
@@ -110,18 +119,24 @@ function WeekStrip({ selected, todayKey, byDate, onSelect }: { selected: string;
             onClick={() => onSelect(key)}
             aria-pressed={sel}
             aria-label={`${formatLong(day)}: ${tasks.length ? `${done} of ${tasks.length} done` : "no tasks"}`}
-            className="flex flex-col items-center gap-1 rounded-[10px] pt-2 pb-2.5 transition-colors duration-150 hover:bg-fill-3"
+            className="group relative px-0.5 sm:px-1"
           >
-            <span className="text-[11px] font-medium text-label-2">{DOW_SHORT[i]}</span>
             <span
-              className={`tabular flex size-8 items-center justify-center rounded-full text-[16px] font-semibold transition-colors ${
-                sel ? "bg-accent text-white" : key === todayKey ? "text-accent" : key < todayKey ? "text-label-2" : "text-label"
-              }`}
+              className={`flex flex-col items-center gap-1.5 rounded-[20px] pt-2.5 pb-3 transition-colors duration-200 ${sel ? "" : "group-hover:bg-fill-3"}`}
             >
-              {day.getDate()}
-            </span>
-            <span className={`h-[3px] w-6 overflow-hidden rounded-full ${tasks.length ? "bg-fill" : ""}`}>
-              {tasks.length > 0 && <span className="block h-full rounded-full bg-accent" style={{ width: `${(done / tasks.length) * 100}%` }} />}
+              <span className={`text-[11px] font-medium ${sel ? "text-label" : "text-label-2"}`}>{DOW_SHORT[i]}</span>
+              <span
+                className={`tabular flex size-9 items-center justify-center rounded-full text-[17px] font-semibold tracking-[-0.01em] ${
+                  key === todayKey ? "ink" : key < todayKey ? "text-label-2" : "text-label"
+                }`}
+              >
+                {day.getDate()}
+              </span>
+              <span className={`h-[3px] w-7 overflow-hidden rounded-full ${tasks.length ? "bg-fill" : ""}`}>
+                {tasks.length > 0 && (
+                  <span className="block h-full rounded-full bg-ink transition-[width] duration-500 ease-glass" style={{ width: `${(done / tasks.length) * 100}%` }} />
+                )}
+              </span>
             </span>
           </button>
         );

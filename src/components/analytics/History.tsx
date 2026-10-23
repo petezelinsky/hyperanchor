@@ -35,7 +35,7 @@ export function HistoryCard({ rows, unit }: { rows: HistoryRow[]; unit: "days" |
         <button
           type="button"
           onClick={() => setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: -1 }))}
-          className={`inline-flex items-center gap-1 hover:text-label ${on ? "text-label" : ""}`}
+          className={`inline-flex items-center gap-1 uppercase hover:text-label-2 ${on ? "text-label-2" : ""}`}
         >
           {label}
           {on && (sort.dir === 1 ? <ChevronUp size={11} strokeWidth={2} /> : <ChevronDown size={11} strokeWidth={2} />)}
@@ -49,10 +49,10 @@ export function HistoryCard({ rows, unit }: { rows: HistoryRow[]; unit: "days" |
       {rows.length === 0 ? (
         <p className="py-6 text-center text-[13px] text-label-2">No tasks in this period yet.</p>
       ) : (
-        <div className="-mx-4 overflow-x-auto md:-mx-5">
+        <div className="-mx-4 overflow-x-auto md:-mx-6">
           <table className="w-full min-w-[560px] border-collapse text-[13px]">
             <thead>
-              <tr className="border-b border-separator text-[12px] text-label-2 [&>th:first-child]:pl-4 md:[&>th:first-child]:pl-5 [&>th:last-child]:pr-4 md:[&>th:last-child]:pr-5">
+              <tr className="border-b border-separator text-[11px] tracking-[0.06em] text-label-3 uppercase [&>th:first-child]:pl-4 md:[&>th:first-child]:pl-6 [&>th:last-child]:pr-4 md:[&>th:last-child]:pr-6">
                 {th("date", unit === "days" ? "Date" : "Month")}
                 {th("done", "Completed", true)}
                 <th className="py-2 pl-4 text-right font-medium">Planned</th>
@@ -65,10 +65,10 @@ export function HistoryCard({ rows, unit }: { rows: HistoryRow[]; unit: "days" |
                 <tr
                   key={r.key}
                   onClick={r.onPick}
-                  className="border-b border-separator transition-colors last:border-0 hover:bg-fill-3 [&>td:first-child]:pl-4 md:[&>td:first-child]:pl-5 [&>td:last-child]:pr-4 md:[&>td:last-child]:pr-5"
+                  className="cursor-pointer border-b border-separator transition-colors last:border-0 hover:bg-fill-3 [&>td:first-child]:pl-4 md:[&>td:first-child]:pl-6 [&>td:last-child]:pr-4 md:[&>td:last-child]:pr-6"
                 >
                   <td className="py-2.5 whitespace-nowrap">
-                    <button type="button" className="font-medium hover:underline">
+                    <button type="button" className="font-medium underline-offset-2 hover:underline">
                       {r.label}
                     </button>
                   </td>
@@ -77,7 +77,7 @@ export function HistoryCard({ rows, unit }: { rows: HistoryRow[]; unit: "days" |
                   <td className="py-2.5 pl-5">
                     <span className="flex items-center gap-2">
                       <span className="h-1.5 w-14 overflow-hidden rounded-full bg-fill-2">
-                        <span className="block h-full rounded-full bg-accent" style={{ width: `${(r.rate ?? 0) * 100}%` }} />
+                        <span className="block h-full rounded-full bg-ink" style={{ width: `${(r.rate ?? 0) * 100}%` }} />
                       </span>
                       <span className="tabular w-9 text-[12.5px] text-label-2">{r.rate == null ? "—" : pct(r.rate)}</span>
                     </span>

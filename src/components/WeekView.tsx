@@ -46,7 +46,7 @@ export function WeekView({
         <NewTaskButton onClick={() => actions.openComposer(selected)} />
       </Toolbar>
 
-      <div className="px-4 pt-2 pb-16 md:px-7">
+      <div className="px-3 pt-1 pb-16 md:px-6">
         <TaskTable
           sections={sections}
           state={state}

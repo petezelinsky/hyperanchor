@@ -20,7 +20,7 @@ export function WeekdayCard({ days }: { days: DayStat[] }) {
             <span className={`text-[12.5px] ${best?.index === w.index ? "font-semibold text-label" : "text-label-2"}`}>{DOW_SHORT[w.index]}</span>
             <span className="h-2 overflow-hidden rounded-full bg-fill-2">
               <span
-                className={`block h-full rounded-full transition-[width] duration-500 ${best?.index === w.index ? "bg-accent" : "bg-accent/40"}`}
+                className={`block h-full rounded-full transition-[width] duration-700 ease-liquid ${best?.index === w.index ? "bg-ink" : "bg-label-3"}`}
                 style={{ width: max ? `${(w.avg / max) * 100}%` : 0 }}
               />
             </span>
@@ -71,13 +71,13 @@ export function OpenCard({
           <ul>
             {shown.map(({ task, day }) => (
               <li key={task.id} className="flex items-center gap-3 border-b border-separator py-2 last:border-0">
-                <Checkbox size={16} checked={false} onToggle={() => onToggle(task)} label={`Mark “${task.title}” as done`} />
-                <button type="button" onClick={() => onOpenDay(day.key)} className="min-w-0 flex-1 truncate text-left text-[13.5px] hover:underline">
+                <Checkbox size={18} checked={false} onToggle={() => onToggle(task)} label={`Mark “${task.title}” as done`} />
+                <button type="button" onClick={() => onOpenDay(day.key)} className="min-w-0 flex-1 truncate text-left text-[13.5px] underline-offset-2 hover:underline">
                   {task.title}
                 </button>
                 <span className="tabular flex-none text-[12px] text-label-3">{day.isToday ? "Today" : formatShort(day.date)}</span>
                 {!day.isToday && (
-                  <Button size="sm" variant="plain" onClick={() => onMove(task, todayKey)} className="flex-none text-accent hover:text-accent">
+                  <Button size="sm" variant="secondary" onClick={() => onMove(task, todayKey)} className="flex-none">
                     Move to Today
                   </Button>
                 )}
@@ -85,7 +85,7 @@ export function OpenCard({
             ))}
           </ul>
           {open.length > 6 && (
-            <button type="button" onClick={() => setAll((a) => !a)} className="mt-2 text-[12.5px] font-medium text-accent">
+            <button type="button" onClick={() => setAll((a) => !a)} className="mt-3 text-[12.5px] font-semibold text-label underline decoration-label-4 underline-offset-[3px] hover:decoration-current">
               {all ? "Show less" : `Show all ${open.length}`}
             </button>
           )}

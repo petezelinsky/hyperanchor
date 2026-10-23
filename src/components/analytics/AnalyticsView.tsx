@@ -123,7 +123,7 @@ export function AnalyticsView({
         />
       </Toolbar>
 
-      <div className="mx-auto max-w-[1180px] space-y-4 px-4 py-5 md:px-7 md:py-6">
+      <div className="mx-auto max-w-[1180px] space-y-3 px-3 pt-1 pb-8 md:space-y-4 md:px-6 md:pb-8">
         <Kpis sum={sum} prev={prev} period={period} />
 
         <Card
@@ -131,7 +131,7 @@ export function AnalyticsView({
           aside={
             <span className="flex items-center gap-4 text-[12px] text-label-2">
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-[3px] bg-accent" />
+                <span className="size-2.5 rounded-[3px] bg-ink" />
                 Done
               </span>
               <span className="flex items-center gap-1.5">
@@ -139,7 +139,7 @@ export function AnalyticsView({
                 Open
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-3 border-t border-dashed border-accent" />
+                <span className="w-3 border-t border-dashed border-label-2" />
                 Average
               </span>
             </span>
@@ -164,7 +164,7 @@ export function AnalyticsView({
           </Card>
         )}
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
           {period !== "week" && <WeekdayCard days={days} />}
           <OpenCard
             open={sum.open}

@@ -48,8 +48,8 @@ export function BarChart({ bars, avg, avgLabel, onPick }: { bars: Bar[]; avg: nu
           <div className="absolute inset-x-0 top-1/2 border-t border-separator" />
           <div className="absolute inset-x-0 bottom-0 border-t border-separator-strong" />
           {avg != null && avg > 0 && (
-            <div className="pointer-events-none absolute inset-x-0 z-[1] border-t border-dashed border-accent/70" style={{ bottom: `${(avg / max) * 100}%` }}>
-              <span className="tabular absolute right-0 bottom-0.5 rounded-[4px] bg-card/90 px-1 text-[10.5px] font-medium text-accent">
+            <div className="pointer-events-none absolute inset-x-0 z-[1] border-t border-dashed border-label-3" style={{ bottom: `${(avg / max) * 100}%` }}>
+              <span className="tabular control absolute right-0 bottom-1 rounded-full px-1.5 text-[10.5px] font-medium text-label-2">
                 {avgLabel} {fmt1(avg)}
               </span>
             </div>
@@ -66,15 +66,15 @@ export function BarChart({ bars, avg, avgLabel, onPick }: { bars: Bar[]; avg: nu
                 onClick={() => onPick?.(b)}
                 disabled={!b.elapsed && !b.total}
                 aria-label={`${b.title}: ${b.done} of ${b.total} done`}
-                className={`flex h-full min-w-0 flex-col items-center justify-end rounded-[6px] transition-[background-color,opacity] duration-150 ${hover === i ? "bg-fill-3" : ""} ${hover != null && hover !== i ? "opacity-50" : ""}`}
+                className={`flex h-full min-w-0 flex-col items-center justify-end rounded-[8px] transition-[background-color,opacity] duration-200 ${hover === i ? "bg-fill-3" : ""} ${hover != null && hover !== i ? "opacity-45" : ""}`}
               >
                 {b.total > 0 ? (
                   <span
-                    className="flex w-full flex-col overflow-hidden rounded-[5px] transition-[height] duration-500 ease-out"
+                    className="flex w-full flex-col overflow-hidden rounded-[7px] transition-[height] duration-700 ease-liquid"
                     style={{ height: `${(b.total / max) * 100}%`, maxWidth: maxW }}
                   >
                     <span className="min-h-0 bg-fill" style={{ flex: b.total - b.done }} />
-                    <span className="min-h-0 bg-accent" style={{ flex: b.done }} />
+                    <span className="min-h-0 bg-ink" style={{ flex: b.done }} />
                   </span>
                 ) : (
                   b.elapsed && <span className="h-[2px] w-full rounded-full bg-label-4" style={{ maxWidth: maxW }} />
@@ -93,10 +93,10 @@ export function BarChart({ bars, avg, avgLabel, onPick }: { bars: Bar[]; avg: nu
               key={b.key}
               className={`flex min-w-0 flex-col items-center text-center leading-4 transition-opacity ${hover != null && hover !== i ? "opacity-50" : ""}`}
             >
-              <span className={`tabular text-[11px] whitespace-nowrap ${b.current ? "font-semibold text-accent" : "text-label-2"} ${dense && !b.major && !b.current ? "invisible" : ""}`}>
+              <span className={`tabular text-[11px] whitespace-nowrap ${b.current ? "font-bold text-label" : "text-label-2"} ${dense && !b.major && !b.current ? "invisible" : ""}`}>
                 {b.label}
               </span>
-              {b.sub && <span className={`tabular text-[11px] ${b.current ? "font-semibold text-accent" : "text-label-3"}`}>{b.sub}</span>}
+              {b.sub && <span className={`tabular text-[11px] ${b.current ? "font-bold text-label" : "text-label-3"}`}>{b.sub}</span>}
             </div>
           ))}
         </div>
@@ -115,7 +115,7 @@ function Tooltip({ bar, index, n }: { bar: Bar; index: number; n: number }) {
   return (
     <div
       role="tooltip"
-      className="material pointer-events-none absolute bottom-[calc(100%+6px)] z-10 w-[240px] rounded-[10px] bg-elevated p-3 shadow-popover"
+      className="glass-float rim pointer-events-none absolute bottom-[calc(100%+8px)] z-10 w-[244px] animate-glass-in rounded-[16px] p-3.5"
       style={style}
     >
       <div className="text-[12.5px] font-semibold">{bar.title}</div>
@@ -127,7 +127,7 @@ function Tooltip({ bar, index, n }: { bar: Bar; index: number; n: number }) {
           {tasks.slice(0, 6).map((t) => (
             <li key={t.id} className={`flex items-center gap-2 text-[12.5px] ${t.done ? "text-label" : "text-label-3"}`}>
               <span
-                className={`flex size-3 flex-none items-center justify-center rounded-full ${t.done ? "bg-accent text-white" : "border border-label-4"}`}
+                className={`flex size-3 flex-none items-center justify-center rounded-full ${t.done ? "bg-ink text-on-ink" : "border border-label-3"}`}
               >
                 {t.done && <CheckIcon size={7} strokeWidth={2.4} />}
               </span>

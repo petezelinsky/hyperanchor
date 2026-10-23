@@ -10,7 +10,7 @@ import type { Field, TableActions } from "./types";
 
 // Responsive columns (container queries): check | task | notes | added | menu.
 export const COLS =
-  "grid grid-cols-[36px_minmax(0,1fr)_32px] @2xl:grid-cols-[36px_minmax(180px,2fr)_minmax(0,3fr)_32px] @4xl:grid-cols-[36px_minmax(200px,2fr)_minmax(0,3fr)_88px_32px]";
+  "grid grid-cols-[40px_minmax(0,1fr)_36px] @2xl:grid-cols-[40px_minmax(180px,2fr)_minmax(0,3fr)_36px] @4xl:grid-cols-[40px_minmax(200px,2fr)_minmax(0,3fr)_88px_36px]";
 
 /** Moves the caret to the end once the field mounts. */
 function useFocusEnd(active: boolean) {
@@ -58,7 +58,7 @@ export function TaskRow({
     }
   };
 
-  const titleCls = `block w-full truncate text-[14px] leading-5 ${task.done ? "text-label-3" : "text-label"}`;
+  const titleCls = `block w-full truncate text-[14px] leading-5 transition-colors duration-200 ${task.done ? "text-label-3" : "text-label"}`;
   const notesCls = "block w-full truncate text-[13px] leading-[19px] text-label-2";
 
   const title = editingField === "title" ? (
@@ -116,11 +116,11 @@ export function TaskRow({
         actions.select(task.id);
         onMenu(task, { x: e.clientX, y: e.clientY });
       }}
-      className={`group/row relative ${COLS} min-h-10 items-start rounded-[7px] px-1 transition-colors duration-100 after:pointer-events-none after:absolute after:right-2 after:bottom-0 after:left-11 after:h-px after:bg-separator ${
-        selected || editing ? "bg-accent-soft after:opacity-0" : "hover:bg-fill-3"
+      className={`group/row relative ${COLS} min-h-11 items-start rounded-[14px] px-1 transition-[background-color,box-shadow] duration-200 ease-glass after:pointer-events-none after:absolute after:right-3 after:bottom-0 after:left-12 after:h-px after:bg-separator ${
+        selected || editing ? "lens z-[1] after:opacity-0" : "hover:bg-fill-3"
       }`}
     >
-      <div role="gridcell" className="col-start-1 row-start-1 flex h-10 items-center justify-center">
+      <div role="gridcell" className="col-start-1 row-start-1 flex h-11 items-center justify-center">
         <Checkbox
           checked={task.done}
           onToggle={() => {
@@ -130,19 +130,19 @@ export function TaskRow({
           label={task.done ? `Mark “${task.title}” as not done` : `Mark “${task.title}” as done`}
         />
       </div>
-      <div role="gridcell" className="col-start-2 row-start-1 min-w-0 py-[10px] pr-3">
+      <div role="gridcell" className="col-start-2 row-start-1 min-w-0 py-3 pr-3">
         {title}
       </div>
       <div
         role="gridcell"
-        className={`col-start-2 row-start-2 -mt-2 min-w-0 pr-3 pb-[10px] @2xl:col-start-3 @2xl:row-start-1 @2xl:mt-0 @2xl:pt-[10px] ${hasNotes ? "" : "@max-2xl:hidden"}`}
+        className={`col-start-2 row-start-2 -mt-2.5 min-w-0 pr-3 pb-3 @2xl:col-start-3 @2xl:row-start-1 @2xl:mt-0 @2xl:pt-3 ${hasNotes ? "" : "@max-2xl:hidden"}`}
       >
         {notes}
       </div>
-      <div role="gridcell" className="tabular hidden py-[11px] pr-2 text-right text-[12.5px] leading-[18px] text-label-3 @4xl:col-start-4 @4xl:row-start-1 @4xl:block">
+      <div role="gridcell" className="tabular hidden py-[13px] pr-2 text-right text-[12.5px] leading-[18px] text-label-3 @4xl:col-start-4 @4xl:row-start-1 @4xl:block">
         {formatStamp(task.createdAt, todayKey)}
       </div>
-      <div role="gridcell" className="col-start-3 row-start-1 flex h-10 items-center justify-end @2xl:col-start-4 @4xl:col-start-5">
+      <div role="gridcell" className="col-start-3 row-start-1 flex h-11 items-center justify-end pr-0.5 @2xl:col-start-4 @4xl:col-start-5">
         <IconButton
           label="More actions"
           size="sm"

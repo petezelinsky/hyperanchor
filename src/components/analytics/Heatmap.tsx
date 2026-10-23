@@ -5,10 +5,10 @@ import type { DayStat } from "@/lib/stats";
 
 const LEVELS = [
   "var(--fill-2)",
-  "color-mix(in srgb, var(--accent) 28%, transparent)",
-  "color-mix(in srgb, var(--accent) 50%, transparent)",
-  "color-mix(in srgb, var(--accent) 75%, transparent)",
-  "var(--accent)",
+  "color-mix(in srgb, var(--ink) 24%, transparent)",
+  "color-mix(in srgb, var(--ink) 46%, transparent)",
+  "color-mix(in srgb, var(--ink) 70%, transparent)",
+  "var(--ink)",
 ];
 
 /** A year of days, one column per week (Monday on top), colored by how many tasks were completed. */
@@ -55,7 +55,7 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
                     onClick={() => onPick(d.key)}
                     title={`${formatMedium(d.date)} — ${d.total ? `${d.done} of ${d.total} done` : "no tasks"}`}
                     aria-label={`${formatMedium(d.date)}: ${d.done} of ${d.total} done`}
-                    className={`aspect-square w-full rounded-[3px] transition-transform hover:scale-125 ${d.isToday ? "ring-[1.5px] ring-label-2 ring-offset-1 ring-offset-card" : ""}`}
+                    className={`aspect-square w-full rounded-[3px] transition-transform duration-200 ease-liquid hover:scale-125 ${d.isToday ? "outline-[1.5px] outline-offset-1 outline-label-2 outline-solid" : ""}`}
                     style={{ background: d.elapsed ? LEVELS[level(d)] : "var(--fill-3)" }}
                   />
                 );
