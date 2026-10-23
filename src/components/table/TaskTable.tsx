@@ -23,7 +23,7 @@ export function taskMenu(task: Task, todayKey: string, actions: TableActions): M
     { label: "Move to Tomorrow", disabled: task.date === tomorrow, onSelect: () => actions.move(task, tomorrow) },
     { label: "Move to Next Week", disabled: task.date === nextWeek, onSelect: () => actions.move(task, nextWeek) },
     { separator: true },
-    { label: "Delete", shortcut: "⌫", onSelect: () => actions.remove(task) },
+    { label: "Delete", shortcut: "⌫", destructive: true, onSelect: () => actions.remove(task) },
   ];
 }
 
@@ -33,7 +33,7 @@ function SortHeader({ label, k, state, actions, className = "" }: { label: strin
     <button
       type="button"
       onClick={() => actions.sort(k)}
-      className={`flex items-center gap-1 text-left uppercase transition-colors hover:text-label-2 ${on ? "text-label-2" : ""} ${className}`}
+      className={`flex items-center gap-1 text-left transition-colors hover:text-ink ${on ? "text-ink" : ""} ${className}`}
     >
       {label}
       {on && (state.sort.dir === "asc" ? <ChevronUp size={11} strokeWidth={2} /> : <ChevronDown size={11} strokeWidth={2} />)}
@@ -59,9 +59,9 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
   const input = "m-0 block w-full bg-transparent p-0 outline-none";
 
   return (
-    <div role="row" data-editing="true" className={`lens relative z-[1] ${COLS} min-h-11 animate-rise items-start rounded-[14px] px-1`}>
+    <div role="row" data-editing="true" className={`relative ${COLS} min-h-11 animate-rise items-start rounded-[10px] bg-accent-soft px-1`}>
       <div className="flex h-11 items-center justify-center">
-        <span className="size-5 rounded-full border-[1.5px] border-dashed border-label-3" />
+        <span className="size-5 rounded-full border-[1.5px] border-dashed border-accent/60" />
       </div>
       <div className="min-w-0 py-3 pr-3">
         <input
@@ -95,7 +95,7 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
           className={`${input} text-[13px] leading-[19px]`}
         />
       </div>
-      <div className="hidden py-[13px] pr-2 text-right text-[12px] leading-[18px] text-label-3 @4xl:block">↩ to add</div>
+      <div className="hidden py-[13px] pr-2 text-right text-[12px] leading-[18px] text-ink-3 @4xl:block">↩ to add</div>
       <div />
     </div>
   );
@@ -106,7 +106,7 @@ function NewTaskRow({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className={`${COLS} h-11 w-full items-center rounded-[14px] px-1 text-left text-[14px] text-label-3 transition-colors duration-200 hover:bg-fill-3 hover:text-label-2`}
+      className={`${COLS} h-11 w-full items-center rounded-[10px] px-1 text-left text-[14px] text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-accent-ink`}
     >
       <span className="flex justify-center">
         <PlusIcon size={15} />
@@ -144,11 +144,13 @@ export function TaskTable({
 
   const openMenu = (task: Task, anchor: Anchor, trigger?: HTMLElement) => setMenu({ task, anchor, trigger });
   const total = sections.reduce((n, s) => n + s.tasks.length, 0);
+  // Nothing to list: the empty state alone, without an empty header and placeholder row above it.
+  if (!total && !state.composer && empty) return <div ref={root}>{empty}</div>;
 
   return (
     <div ref={root} className="@container">
       <div role="grid" aria-label="Tasks">
-        <div role="row" className={`${COLS} h-9 items-center border-b border-separator px-1 text-[11px] font-semibold tracking-[0.06em] text-label-3 uppercase`}>
+        <div role="row" className={`${COLS} h-9 items-center border-b border-line px-1 text-[12px] font-medium text-ink-3`}>
           <div />
           <SortHeader label="Task" k="title" state={state} actions={actions} />
           <div className="hidden @2xl:block">Notes</div>
@@ -163,11 +165,13 @@ export function TaskTable({
           return (
             <div key={s.date} role="rowgroup" aria-label={grouped ? `${DOW_FULL[dowIndex(d)]}, ${formatShort(d)}` : undefined}>
               {grouped && (
-                <div className="flex items-center gap-2.5 border-b border-separator pt-7 pr-1 pb-2 pl-3">
-                  <span className="text-[15px] font-semibold tracking-[-0.015em] text-label">{DOW_FULL[dowIndex(d)]}</span>
-                  <span className="text-[13px] text-label-2">{formatShort(d)}</span>
-                  {isToday && <span className="ink rounded-full px-2 py-px text-[10.5px] font-semibold">Today</span>}
-                  <span className="tabular ml-auto text-[12px] text-label-3">{s.tasks.length ? `${doneN} of ${s.tasks.length}` : ""}</span>
+                <div className="flex items-center gap-2.5 border-b border-line pt-7 pr-1 pb-2 pl-3">
+                  <span className="text-[15px] font-semibold tracking-[-0.015em] text-ink">{DOW_FULL[dowIndex(d)]}</span>
+                  <span className="text-[13px] text-ink-3">{formatShort(d)}</span>
+                  {isToday && <span className="rounded-full bg-accent px-2 py-px text-[10.5px] font-semibold text-on-accent">Today</span>}
+                  <span className={`tabular ml-auto text-[12px] ${s.tasks.length && doneN === s.tasks.length ? "font-medium text-green-ink" : "text-ink-3"}`}>
+                    {s.tasks.length ? `${doneN} of ${s.tasks.length}` : ""}
+                  </span>
                   <IconButton label={`Add task to ${DOW_FULL[dowIndex(d)]}`} size="sm" variant="secondary" onClick={() => actions.openComposer(s.date)}>
                     <PlusIcon size={13} strokeWidth={2} />
                   </IconButton>
@@ -190,15 +194,13 @@ export function TaskTable({
                 ) : placeholderRow ? (
                   <NewTaskRow onClick={() => actions.openComposer(s.date)} />
                 ) : (
-                  grouped && !s.tasks.length && <div className="py-3 pl-12 text-[13px] text-label-3">No tasks</div>
+                  grouped && !s.tasks.length && <div className="py-3 pl-12 text-[13px] text-ink-4">No tasks</div>
                 )}
               </div>
             </div>
           );
         })}
       </div>
-
-      {!total && !state.composer && empty}
 
       {menu && (
         <Menu

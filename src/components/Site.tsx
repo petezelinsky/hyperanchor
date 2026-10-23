@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { Wordmark } from "./Brand";
 
-/** Top bar for public pages (landing, legal): a floating glass capsule. */
+/** Top bar for public pages (landing, legal): frosted, sticky. */
 export function SiteHeader({ children }: { children?: React.ReactNode }) {
   return (
-    <header className="sticky top-3 z-30 px-3">
-      <div className="glass rim relative mx-auto flex h-14 max-w-[1080px] items-center justify-between gap-4 rounded-full pr-2 pl-6">
+    <header className="glass sticky top-0 z-40 shadow-[0_1px_0_var(--line)]">
+      <div className="mx-auto flex h-16 max-w-[1120px] items-center justify-between gap-4 px-5">
         <Wordmark href="/" size={20} />
         {children}
       </div>
@@ -15,14 +15,17 @@ export function SiteHeader({ children }: { children?: React.ReactNode }) {
 
 export function SiteFooter() {
   return (
-    <footer className="mx-auto max-w-[1080px] px-6">
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-separator py-8 text-[12.5px] text-label-3">
-        <span>© 2026 Hyperanchor</span>
+    <footer className="border-t border-line">
+      <div className="mx-auto flex max-w-[1120px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-8 text-[12.5px] text-ink-3">
+        <span className="flex items-center gap-3">
+          <Wordmark size={15} />
+          <span>© 2026</span>
+        </span>
         <nav className="flex gap-5">
-          <Link href="/privacy" className="text-label-2 no-underline hover:text-label">
+          <Link href="/privacy" className="no-underline hover:text-ink">
             Privacy Policy
           </Link>
-          <Link href="/terms" className="text-label-2 no-underline hover:text-label">
+          <Link href="/terms" className="no-underline hover:text-ink">
             Terms of Service
           </Link>
         </nav>

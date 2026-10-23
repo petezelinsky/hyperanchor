@@ -2,25 +2,24 @@
 
 import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckIcon } from "./icons";
 
-// ── Buttons (capsules) ───────────────────────────────────────────────────────
+// ── Buttons ──────────────────────────────────────────────────────────────────
 
 type Variant = "primary" | "secondary" | "plain";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
-  primary: "ink hover:brightness-[1.35] active:scale-[0.97] dark:hover:brightness-[0.92]",
-  secondary: "control text-label hover:bg-control-hover active:scale-[0.97]",
-  plain: "text-label-2 hover:bg-fill-2 hover:text-label active:bg-fill",
+  primary: "bg-accent text-on-accent shadow-accent hover:bg-accent-hover active:scale-[0.98]",
+  secondary: "bg-surface text-ink shadow-lift hover:bg-surface-2 active:scale-[0.98]",
+  plain: "text-ink-2 hover:bg-surface-3 hover:text-ink active:bg-line",
 };
 const sizes: Record<Size, string> = {
-  sm: "h-7 px-3 text-[12.5px]",
-  md: "h-8 px-3.5 text-[13px]",
-  lg: "h-11 px-5 text-[15px]",
+  sm: "h-7 rounded-[8px] px-2.5 text-[12.5px]",
+  md: "h-8 rounded-[9px] px-3 text-[13px]",
+  lg: "h-11 rounded-[12px] px-5 text-[15px]",
 };
-const iconSizes: Record<Size, string> = { sm: "size-7", md: "size-8", lg: "size-11" };
-const base = "rounded-full transition-[background-color,color,box-shadow,filter,transform] duration-200 ease-glass select-none disabled:pointer-events-none";
+const iconSizes: Record<Size, string> = { sm: "size-7 rounded-[8px]", md: "size-8 rounded-[9px]", lg: "size-11 rounded-[12px]" };
+const base = "transition-[background-color,color,box-shadow,transform] duration-150 ease-out select-none disabled:pointer-events-none";
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size };
 
@@ -54,7 +53,7 @@ export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { label: s
   );
 });
 
-// ── Segmented control: a glass lens slides over a recessed track ─────────────
+// ── Segmented control: a raised thumb slides over a recessed track ──────────
 
 export function SegmentedControl<T extends string>({
   value,
@@ -74,12 +73,12 @@ export function SegmentedControl<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className={`track relative grid rounded-full p-[3px] ${className}`}
+      className={`relative grid rounded-[10px] bg-surface-3 p-[3px] ${className}`}
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
     >
       <span
         aria-hidden="true"
-        className="lens absolute inset-y-[3px] left-[3px] rounded-full transition-transform duration-500 ease-liquid"
+        className="absolute inset-y-[3px] left-[3px] rounded-[7px] bg-surface shadow-lift transition-transform duration-300 ease-spring"
         style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${index * 100}%)` }}
       />
       {options.map((o) => {
@@ -91,8 +90,8 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={`relative h-[26px] rounded-full px-3.5 text-[12.5px] font-medium whitespace-nowrap transition-colors duration-200 ${
-              on ? "text-label" : "text-label-2 hover:text-label"
+            className={`relative h-[26px] rounded-[7px] px-3 text-[12.5px] font-medium whitespace-nowrap transition-colors duration-150 ${
+              on ? "text-ink" : "text-ink-2 hover:text-ink"
             }`}
           >
             {o.label}
@@ -103,7 +102,7 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-// ── Checkbox (round; fills with ink) ─────────────────────────────────────────
+// ── Checkbox: round; completing it pops, draws the tick and ripples ─────────
 
 export function Checkbox({
   checked,
@@ -118,6 +117,15 @@ export function Checkbox({
   size?: number;
   className?: string;
 }) {
+  // Animate only a change the user just made, not tasks that were already done when they rendered.
+  const [celebrate, setCelebrate] = useState(false);
+  const prev = useRef(checked);
+  useEffect(() => {
+    if (prev.current === checked) return;
+    prev.current = checked;
+    setCelebrate(checked);
+  }, [checked]);
+
   return (
     <button
       type="button"
@@ -128,15 +136,88 @@ export function Checkbox({
         e.stopPropagation();
         onToggle();
       }}
-      style={{ width: size, height: size }}
-      className={`flex flex-none items-center justify-center rounded-full transition-[background-color,box-shadow,transform] duration-200 ease-glass active:scale-90 ${
+      style={{ width: size, height: size, animation: celebrate ? "check-pop 0.35s cubic-bezier(0.2,0.8,0.2,1)" : undefined }}
+      className={`relative flex flex-none items-center justify-center rounded-full transition-[background-color,box-shadow] duration-200 ${
         checked
-          ? "bg-ink bg-[image:var(--ink-sheen)] text-on-ink shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
-          : "shadow-[inset_0_0_0_1.5px_var(--label-3)] hover:shadow-[inset_0_0_0_1.5px_var(--label-2)]"
+          ? "bg-accent text-on-accent"
+          : "shadow-[inset_0_0_0_1.5px_var(--check-ring)] hover:bg-accent-soft hover:shadow-[inset_0_0_0_1.5px_var(--accent)]"
       } ${className}`}
     >
-      {checked && <CheckIcon size={Math.round(size * 0.52)} strokeWidth={2.4} className="animate-pop" />}
+      {celebrate && (
+        <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-full bg-accent" style={{ animation: "ripple 0.55s ease-out both" }} />
+      )}
+      {checked && (
+        <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 12 12" fill="none" aria-hidden="true" className="relative">
+          <path
+            d="M2.6 6.3 5 8.6 9.4 3.7"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="16"
+            style={{ animation: celebrate ? "check-draw 0.32s 0.06s ease-out both" : undefined }}
+          />
+        </svg>
+      )}
     </button>
+  );
+}
+
+// ── Progress ring ────────────────────────────────────────────────────────────
+
+/** A small ring that fills with the accent (0…1); turns green when complete. */
+export function ProgressRing({ value, size = 16, stroke = 2.5, className = "" }: { value: number | null; size?: number; stroke?: number; className?: string }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const v = Math.max(0, Math.min(1, value ?? 0));
+  const full = v >= 1;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className={`flex-none -rotate-90 ${className}`}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={full ? "var(--green-soft)" : "var(--accent-track)"} strokeWidth={stroke} />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke={full ? "var(--green)" : "var(--accent)"}
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - v)}
+        style={{ opacity: v > 0 ? 1 : 0 }}
+        className="transition-[stroke-dashoffset,stroke] duration-700 ease-out"
+      />
+    </svg>
+  );
+}
+
+// ── Celebration ──────────────────────────────────────────────────────────────
+
+const BURST = ["var(--accent)", "var(--orange)", "var(--green)", "var(--pink)", "var(--sky)", "var(--amber)", "var(--accent)", "var(--green)"];
+
+/** Wraps a small mark; when `active` turns on (not on first render), a ring of confetti bursts from it. */
+export function Burst({ active, children }: { active: boolean; children: React.ReactNode }) {
+  const [key, setKey] = useState(0);
+  const prev = useRef(active);
+  useEffect(() => {
+    if (active && !prev.current) setKey((k) => k + 1);
+    prev.current = active;
+  }, [active]);
+  return (
+    <span className="relative inline-flex">
+      {children}
+      {key > 0 && (
+        <span key={key} aria-hidden="true" className="pointer-events-none absolute top-1/2 left-1/2">
+          {BURST.map((c, i) => (
+            <span
+              key={i}
+              className="absolute top-0 left-0 size-[5px] rounded-full"
+              style={{ background: c, "--a": `${i * 45 + 20}deg`, "--r": `${16 + (i % 3) * 5}px`, animation: `burst 0.8s ${i * 15}ms cubic-bezier(0.2,0.8,0.2,1) both` } as React.CSSProperties}
+            />
+          ))}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -250,7 +331,7 @@ export function Popover({
       aria-label={label}
       data-floating=""
       style={style}
-      className={`glass-float rim fixed z-[100] animate-glass-in rounded-[22px] ${className}`}
+      className={`fixed z-[100] animate-pop-in rounded-[14px] bg-elevated shadow-float ${className}`}
     >
       {children}
     </div>,
@@ -259,7 +340,7 @@ export function Popover({
 }
 
 export type MenuEntry =
-  | { label: string; onSelect: () => void; disabled?: boolean; shortcut?: string; icon?: React.ReactNode }
+  | { label: string; onSelect: () => void; destructive?: boolean; disabled?: boolean; shortcut?: string; icon?: React.ReactNode }
   | { separator: true }
   | { heading: string };
 
@@ -314,13 +395,13 @@ export function Menu({
       data-floating=""
       onKeyDown={onKeyDown}
       style={style}
-      className="glass-float rim fixed z-[100] min-w-[220px] animate-glass-in rounded-[16px] p-1.5 text-[13px] outline-none"
+      className="fixed z-[100] min-w-[220px] animate-pop-in rounded-[12px] bg-elevated p-1 text-[13px] shadow-float outline-none"
     >
       {entries.map((e, i) => {
-        if ("separator" in e) return <div key={i} role="separator" className="mx-2.5 my-1 h-px bg-separator-strong" />;
+        if ("separator" in e) return <div key={i} role="separator" className="mx-2 my-1 h-px bg-line" />;
         if ("heading" in e)
           return (
-            <div key={i} className="px-2.5 pt-1.5 pb-1 text-[11.5px] font-semibold text-label-3">
+            <div key={i} className="px-2.5 pt-1.5 pb-1 text-[11.5px] font-medium text-ink-3">
               {e.heading}
             </div>
           );
@@ -334,13 +415,13 @@ export function Menu({
             onMouseEnter={() => setActive(i)}
             onMouseLeave={() => setActive(-1)}
             onClick={() => run(e)}
-            className={`flex h-[30px] w-full items-center gap-2 rounded-[9px] px-2.5 text-left whitespace-nowrap disabled:opacity-35 ${
-              on ? "bg-ink text-on-ink" : "text-label"
+            className={`flex h-8 w-full items-center gap-2.5 rounded-[8px] px-2.5 text-left whitespace-nowrap disabled:opacity-35 ${
+              e.destructive ? `text-red-ink ${on ? "bg-red-soft" : ""}` : `text-ink ${on ? "bg-surface-3" : ""}`
             }`}
           >
-            {e.icon && <span className={on ? "text-on-ink" : "text-label-2"}>{e.icon}</span>}
+            {e.icon && <span className={e.destructive ? "text-red-ink" : "text-ink-3"}>{e.icon}</span>}
             <span className="flex-1">{e.label}</span>
-            {e.shortcut && <span className={`pl-6 text-[12px] ${on ? "text-on-ink/60" : "text-label-3"}`}>{e.shortcut}</span>}
+            {e.shortcut && <span className="pl-6 text-[12px] text-ink-3">{e.shortcut}</span>}
           </button>
         );
       })}
@@ -351,5 +432,9 @@ export function Menu({
 
 /** Small key hint, e.g. ⏎ or N. */
 export function Kbd({ children }: { children: React.ReactNode }) {
-  return <kbd className="control rounded-[6px] px-1.5 py-px font-sans text-[11px] font-medium text-label-2">{children}</kbd>;
+  return (
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] bg-surface px-1.5 font-sans text-[11px] font-medium text-ink-2 shadow-[0_0_0_1px_var(--line-2),0_1px_0_var(--line-2)]">
+      {children}
+    </kbd>
+  );
 }

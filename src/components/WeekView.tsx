@@ -5,6 +5,7 @@ import { ListIcon } from "./icons";
 import { TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
 import { EmptyState, NavGroup, NewTaskButton, SearchField, Toolbar } from "./Toolbar";
+import { ProgressRing } from "./ui";
 
 export function WeekView({
   selected,
@@ -32,7 +33,17 @@ export function WeekView({
 
   return (
     <>
-      <Toolbar title={title} subtitle={`${rangeLabel(start, addDays(start, 6))} · ${tasks.length ? `${done} of ${tasks.length} done` : "No tasks"}`}>
+      <Toolbar
+        title={title}
+        subtitle={
+          <>
+            <span>{rangeLabel(start, addDays(start, 6))}</span>
+            <span className="text-ink-4">·</span>
+            {tasks.length > 0 && <ProgressRing value={done / tasks.length} size={14} stroke={2.4} />}
+            <span>{tasks.length ? `${done} of ${tasks.length} done` : "No tasks"}</span>
+          </>
+        }
+      >
         <SearchField value={query} onChange={onQuery} />
         <NavGroup
           prevLabel="Previous week"
@@ -46,7 +57,7 @@ export function WeekView({
         <NewTaskButton onClick={() => actions.openComposer(selected)} />
       </Toolbar>
 
-      <div className="px-3 pt-1 pb-16 md:px-6">
+      <div className="mx-auto max-w-[1184px] px-3 pb-16 md:px-8">
         <TaskTable
           sections={sections}
           state={state}

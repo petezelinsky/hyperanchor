@@ -3,15 +3,10 @@
 import { addDays, dayDiff, formatMedium, MONTHS_SHORT, startOfWeek, ymd } from "@/lib/dates";
 import type { DayStat } from "@/lib/stats";
 
-const LEVELS = [
-  "var(--fill-2)",
-  "color-mix(in srgb, var(--ink) 24%, transparent)",
-  "color-mix(in srgb, var(--ink) 46%, transparent)",
-  "color-mix(in srgb, var(--ink) 70%, transparent)",
-  "var(--ink)",
-];
+// Sequential: one hue, more completed is darker (lighter in dark mode). Zero recedes toward the surface.
+const LEVELS = ["var(--heat-0)", "var(--heat-1)", "var(--heat-2)", "var(--heat-3)", "var(--heat-4)"];
 
-/** A year of days, one column per week (Monday on top), colored by how many tasks were completed. */
+/** A year of days, one column per week (Monday on top), shaded by how many tasks were completed. */
 export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: string) => void }) {
   if (!days.length) return null;
   const byKey = new Map(days.map((d) => [d.key, d]));
@@ -28,7 +23,7 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
     <div>
       <div className="overflow-x-auto pb-1">
         <div className="min-w-[620px]">
-          <div className="relative ml-8 h-4 text-[11px] text-label-2">
+          <div className="relative ml-8 h-4 text-[11px] text-ink-3">
             {monthCols.map((col, m) => (
               <span key={m} className="absolute" style={{ left: `${(col / weeks) * 100}%` }}>
                 {MONTHS_SHORT[m]}
@@ -36,7 +31,7 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
             ))}
           </div>
           <div className="mt-1 flex gap-2">
-            <div className="grid w-6 flex-none grid-rows-7 gap-[3px] text-[10.5px] text-label-3">
+            <div className="grid w-6 flex-none grid-rows-7 gap-[3px] text-[10.5px] text-ink-3">
               {["Mon", "", "Wed", "", "Fri", "", ""].map((l, i) => (
                 <span key={i} className="flex items-center">
                   {l}
@@ -55,8 +50,8 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
                     onClick={() => onPick(d.key)}
                     title={`${formatMedium(d.date)} — ${d.total ? `${d.done} of ${d.total} done` : "no tasks"}`}
                     aria-label={`${formatMedium(d.date)}: ${d.done} of ${d.total} done`}
-                    className={`aspect-square w-full rounded-[3px] transition-transform duration-200 ease-liquid hover:scale-125 ${d.isToday ? "outline-[1.5px] outline-offset-1 outline-label-2 outline-solid" : ""}`}
-                    style={{ background: d.elapsed ? LEVELS[level(d)] : "var(--fill-3)" }}
+                    className={`aspect-square w-full rounded-[3px] transition-transform duration-150 hover:scale-125 ${d.isToday ? "outline-[1.5px] outline-offset-1 outline-ink-2 outline-solid" : ""}`}
+                    style={{ background: d.elapsed ? LEVELS[level(d)] : "var(--surface-2)" }}
                   />
                 );
               })}
@@ -64,7 +59,7 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
           </div>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-label-3">
+      <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-ink-3">
         Less
         {LEVELS.map((c, i) => (
           <span key={i} className="size-3 rounded-[3px]" style={{ background: c }} />

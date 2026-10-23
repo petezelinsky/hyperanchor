@@ -1,151 +1,157 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — monochrome liquid glass, light and dark (follows the system setting).
- * Surfaces are translucent: they blur and brighten whatever is behind them and catch light on their rim.
- * The canvas underneath carries soft studio light so the glass has something to refract.
- * Components use these through the Tailwind theme below (bg-sheet, text-label-2, shadow-lens, …).
+ * Design tokens — clean and bright, light and dark (follows the system setting).
+ * One accent (iris) carries action and selection; a few semantic colors carry meaning
+ * (green = done/up, amber = needs attention, red = destructive/down, orange = today/streak).
+ * Solid surfaces everywhere; translucent glass only for floating chrome (menus, the phone tab bar,
+ * a sticky header while content scrolls beneath it).
+ * Components use these through the Tailwind theme below (bg-surface, text-ink-2, shadow-lift, …).
  */
 :root {
   color-scheme: light dark;
 
-  /* Canvas */
-  --canvas: #d9d9de;
-  --ambient:
-    radial-gradient(60% 55% at 18% 8%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 70%),
-    radial-gradient(45% 45% at 88% 78%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 70%),
-    radial-gradient(55% 60% at 0% 100%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0) 70%),
-    radial-gradient(45% 50% at 100% 0%, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0) 70%),
-    linear-gradient(160deg, #e6e6ea, #cfcfd5);
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  --grain-opacity: 0.07;
-  --orb-dark: rgba(0, 0, 0, 0.34);
-  --orb-light: rgba(255, 255, 255, 0.95);
+  --canvas: #f3f3f6; /* app background around the content sheet */
+  --surface: #ffffff; /* sheet, cards */
+  --surface-2: #f7f7f9; /* recessed: tracks, inputs, table headers */
+  --surface-3: #f0f0f4; /* hover */
+  --elevated: #ffffff; /* menus, popovers */
+  --glass: rgba(255, 255, 255, 0.78);
 
-  /* Glass */
-  --glass: rgba(255, 255, 255, 0.46); /* sidebar, floating bars, panels on the canvas */
-  --sheet: rgba(255, 255, 255, 0.66); /* the content sheet */
-  --float: rgba(251, 251, 252, 0.8); /* menus, popovers, tooltips */
-  --card: rgba(255, 255, 255, 0.62); /* cards on the sheet */
-  --control: rgba(255, 255, 255, 0.74); /* capsule buttons and fields */
-  --control-hover: rgba(255, 255, 255, 0.98);
-  --lens: rgba(255, 255, 255, 0.95); /* the raised selection */
-  --track: rgba(0, 0, 0, 0.055); /* recessed tracks */
-  --edge: rgba(250, 250, 251, 0.58); /* tint under a sticky header */
-  --hud: rgba(20, 20, 22, 0.82);
-  --on-hud: #ffffff;
-  --sheen: radial-gradient(130% 90% at 0% 0%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 55%);
-  --rim: linear-gradient(160deg, #fff 0%, rgba(255, 255, 255, 0.75) 20%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.45) 80%, #fff 100%);
+  --ink: #17171c;
+  --ink-2: #5b5b68;
+  --ink-3: #8a8a99;
+  --ink-4: #c9c9d3;
+  --line: #ececf1;
+  --line-2: #e0e0e7;
+  --check-ring: #b4b4c0; /* an open checkbox */
 
-  /* Ink: the one solid tone — primary actions, today, completed */
-  --ink: #0d0d0e;
-  --on-ink: #ffffff;
-  --ink-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 52%);
-  --title-to: #6b6b70;
+  --accent: #5b5bd6;
+  --accent-hover: #5050cc;
+  --accent-ink: #5753c6; /* accent as text */
+  --accent-soft: #f0f0fe; /* selection tint */
+  --accent-track: #d6d8fc; /* the unfilled part of an accent meter or bar */
+  --on-accent: #ffffff;
 
-  /* Text and lines */
-  --label: rgba(0, 0, 0, 0.88);
-  --label-2: rgba(0, 0, 0, 0.55);
-  --label-3: rgba(0, 0, 0, 0.32);
-  --label-4: rgba(0, 0, 0, 0.12);
-  --separator: rgba(0, 0, 0, 0.07);
-  --separator-strong: rgba(0, 0, 0, 0.12);
-  --fill: rgba(0, 0, 0, 0.065);
-  --fill-2: rgba(0, 0, 0, 0.045);
-  --fill-3: rgba(0, 0, 0, 0.028);
+  --green: #30a46c;
+  --green-ink: #218358;
+  --green-soft: #e9f6ef;
+  --amber: #f5a524;
+  --amber-ink: #925000;
+  --amber-soft: #fff6e5;
+  --orange: #f76b15;
+  --red: #e5484d;
+  --red-ink: #ce2c31;
+  --red-soft: #fdecec;
+  --sky: #0ea5e9;
+  --pink: #e93d82;
 
-  --shadow-glass: 0 0 0 0.5px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.05), 0 12px 32px -12px rgba(0, 0, 0, 0.2), 0 32px 80px -32px rgba(0, 0, 0, 0.22), inset 0 -1px 1px rgba(0, 0, 0, 0.03);
-  --shadow-float: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 4px 10px -2px rgba(0, 0, 0, 0.06), 0 22px 48px -12px rgba(0, 0, 0, 0.26);
-  --shadow-card: 0 0 0 0.5px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03), 0 10px 28px -16px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --shadow-control: 0 0 0 0.5px rgba(0, 0, 0, 0.09), 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  --shadow-lens: 0 0 0 0.5px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 18px -6px rgba(0, 0, 0, 0.18), inset 0 1px 0 #fff;
-  --shadow-ink: 0 1px 2px rgba(0, 0, 0, 0.18), 0 6px 14px -6px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  --shadow-track: inset 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  --shine-1: #7c3aed;
+  --shine-2: #5b5bd6;
+  --shine-3: #db2777;
+  --shine-4: #ea580c;
+
+  /* Sequential ramp for the activity heatmap: one hue, more is darker (lighter in dark mode). */
+  --heat-0: #ededf2;
+  --heat-1: #d6d8fc;
+  --heat-2: #a9acf2;
+  --heat-3: #7c7fe4;
+  --heat-4: #5b5bd6;
+
+  --shadow-lift: 0 0 0 1px rgba(20, 20, 30, 0.05), 0 1px 2px rgba(20, 20, 30, 0.06), 0 2px 6px rgba(20, 20, 30, 0.04);
+  --shadow-sheet: 0 0 0 1px rgba(20, 20, 30, 0.045), 0 1px 3px rgba(20, 20, 30, 0.04), 0 10px 30px -10px rgba(20, 20, 30, 0.08);
+  --shadow-float: 0 0 0 1px rgba(20, 20, 30, 0.06), 0 4px 12px -2px rgba(20, 20, 30, 0.08), 0 18px 40px -12px rgba(20, 20, 30, 0.18);
+  --shadow-accent: 0 1px 2px rgba(60, 60, 180, 0.25), 0 6px 16px -6px rgba(91, 91, 214, 0.55);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --canvas: #070708;
-    --ambient:
-      radial-gradient(70% 55% at 15% 0%, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0) 70%),
-      radial-gradient(50% 45% at 100% 30%, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 70%),
-      radial-gradient(55% 50% at 70% 100%, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 70%),
-      linear-gradient(180deg, #0d0d0f, #050506);
-    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    --grain-opacity: 0.045;
-    --orb-dark: rgba(255, 255, 255, 0.11);
-    --orb-light: rgba(255, 255, 255, 0.05);
+    --canvas: #0a0a0d;
+    --surface: #131317;
+    --surface-2: #18181d;
+    --surface-3: #202027;
+    --elevated: #1b1b21;
+    --glass: rgba(27, 27, 33, 0.74);
 
-    --glass: rgba(30, 30, 33, 0.48);
-    --sheet: rgba(18, 18, 20, 0.66);
-    --float: rgba(38, 38, 41, 0.84);
-    --card: rgba(255, 255, 255, 0.035);
-    --control: rgba(255, 255, 255, 0.075);
-    --control-hover: rgba(255, 255, 255, 0.13);
-    --lens: rgba(255, 255, 255, 0.12);
-    --track: rgba(255, 255, 255, 0.06);
-    --edge: rgba(18, 18, 20, 0.58);
-    --hud: rgba(242, 242, 244, 0.9);
-    --on-hud: #0b0b0c;
-    --sheen: radial-gradient(130% 90% at 0% 0%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 55%);
-    --rim: linear-gradient(160deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.1) 22%, rgba(255, 255, 255, 0.025) 50%, rgba(255, 255, 255, 0.06) 78%, rgba(255, 255, 255, 0.22) 100%);
+    --ink: #ededf2;
+    --ink-2: #a3a3b2;
+    --ink-3: #6f6f80;
+    --ink-4: #3b3b47;
+    --line: #222229;
+    --line-2: #2d2d36;
+    --check-ring: #4d4d5b;
 
-    --ink: #f4f4f5;
-    --on-ink: #0b0b0c;
-    --ink-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 60%);
-    --title-to: #8e8e93;
+    --accent: #5b5bd6;
+    --accent-hover: #6a69e0;
+    --accent-ink: #b1a9ff;
+    --accent-soft: #1d1e3a;
+    --accent-track: #2b2e63;
+    --on-accent: #ffffff;
 
-    --label: rgba(255, 255, 255, 0.93);
-    --label-2: rgba(255, 255, 255, 0.58);
-    --label-3: rgba(255, 255, 255, 0.34);
-    --label-4: rgba(255, 255, 255, 0.14);
-    --separator: rgba(255, 255, 255, 0.07);
-    --separator-strong: rgba(255, 255, 255, 0.12);
-    --fill: rgba(255, 255, 255, 0.085);
-    --fill-2: rgba(255, 255, 255, 0.055);
-    --fill-3: rgba(255, 255, 255, 0.032);
+    --green: #33b074;
+    --green-ink: #3dd68c;
+    --green-soft: #132a1f;
+    --amber: #ffc53d;
+    --amber-ink: #ffca16;
+    --amber-soft: #2a2008;
+    --orange: #ff801f;
+    --red: #e5484d;
+    --red-ink: #ff9592;
+    --red-soft: #351318;
+    --sky: #38bdf8;
+    --pink: #f0569a;
 
-    --shadow-glass: 0 0 0 0.5px rgba(0, 0, 0, 0.7), 0 24px 60px -24px rgba(0, 0, 0, 0.9);
-    --shadow-float: 0 0 0 0.5px rgba(0, 0, 0, 0.8), 0 24px 56px -12px rgba(0, 0, 0, 0.75);
-    --shadow-card: inset 0 0 0 0.5px rgba(255, 255, 255, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    --shadow-control: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-lens: inset 0 0 0 0.5px rgba(255, 255, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 6px 18px -6px rgba(0, 0, 0, 0.7);
-    --shadow-ink: 0 0 0 0.5px rgba(255, 255, 255, 0.5), 0 6px 22px -8px rgba(255, 255, 255, 0.32), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
-    --shadow-track: inset 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+    --shine-1: #a78bfa;
+    --shine-2: #8b8bff;
+    --shine-3: #f472b6;
+    --shine-4: #fb923c;
+
+    --heat-0: #202027;
+    --heat-1: #2b2e63;
+    --heat-2: #3d3e82;
+    --heat-3: #5958b1;
+    --heat-4: #8580ea;
+
+    --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-sheet: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+    --shadow-float: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 40px -12px rgba(0, 0, 0, 0.7);
+    --shadow-accent: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px -6px rgba(91, 91, 214, 0.6);
   }
 }
 
 @theme inline {
   --color-canvas: var(--canvas);
-  --color-glass: var(--glass);
-  --color-sheet: var(--sheet);
-  --color-float: var(--float);
-  --color-card: var(--card);
-  --color-control: var(--control);
-  --color-control-hover: var(--control-hover);
-  --color-lens: var(--lens);
-  --color-track: var(--track);
-  --color-hud: var(--hud);
-  --color-on-hud: var(--on-hud);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-elevated: var(--elevated);
   --color-ink: var(--ink);
-  --color-on-ink: var(--on-ink);
-  --color-label: var(--label);
-  --color-label-2: var(--label-2);
-  --color-label-3: var(--label-3);
-  --color-label-4: var(--label-4);
-  --color-separator: var(--separator);
-  --color-separator-strong: var(--separator-strong);
-  --color-fill: var(--fill);
-  --color-fill-2: var(--fill-2);
-  --color-fill-3: var(--fill-3);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-track: var(--accent-track);
+  --color-on-accent: var(--on-accent);
+  --color-green: var(--green);
+  --color-green-ink: var(--green-ink);
+  --color-green-soft: var(--green-soft);
+  --color-amber: var(--amber);
+  --color-amber-ink: var(--amber-ink);
+  --color-amber-soft: var(--amber-soft);
+  --color-orange: var(--orange);
+  --color-red: var(--red);
+  --color-red-ink: var(--red-ink);
+  --color-red-soft: var(--red-soft);
 
-  --shadow-glass: var(--shadow-glass);
+  --shadow-lift: var(--shadow-lift);
+  --shadow-sheet: var(--shadow-sheet);
   --shadow-float: var(--shadow-float);
-  --shadow-card: var(--shadow-card);
-  --shadow-control: var(--shadow-control);
-  --shadow-lens: var(--shadow-lens);
-  --shadow-ink: var(--shadow-ink);
-  --shadow-track: var(--shadow-track);
+  --shadow-accent: var(--shadow-accent);
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-inter), "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-inter), "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -153,32 +159,23 @@
 }
 
 @theme {
-  /* A little overshoot, like a drop of liquid settling. */
-  --ease-liquid: cubic-bezier(0.32, 1.25, 0.5, 1);
-  --ease-glass: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* A touch of overshoot for things that slide into place. */
+  --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
 
-  --animate-glass-in: glass-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  --animate-rise: rise 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  --animate-pop: pop 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pop-in: pop-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-rise: rise 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 
-  @keyframes glass-in {
+  @keyframes pop-in {
     from {
       opacity: 0;
-      transform: scale(0.95) translateY(-4px);
+      transform: scale(0.96) translateY(-3px);
     }
   }
   @keyframes rise {
     from {
       opacity: 0;
-      transform: translateY(12px) scale(0.98);
-    }
-  }
-  @keyframes pop {
-    0% {
-      transform: scale(0.4);
-    }
-    60% {
-      transform: scale(1.15);
+      transform: translateY(8px);
     }
   }
 }
@@ -188,55 +185,40 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    min-height: 100dvh;
-    background: var(--canvas);
-    color: var(--label);
+    background: var(--surface);
+    color: var(--ink);
     font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  /* The lit canvas and a whisper of grain, fixed behind everything. */
-  body::before,
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-  }
-  body::before {
-    background: var(--ambient);
-  }
-  body::after {
-    background-image: var(--grain);
-    opacity: var(--grain-opacity);
-  }
   a {
     color: inherit;
     text-decoration: underline;
-    text-decoration-color: var(--label-4);
+    text-decoration-color: var(--ink-4);
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
-    transition: text-decoration-color 0.15s;
+    transition:
+      text-decoration-color 0.15s,
+      color 0.15s;
   }
   a:hover {
     text-decoration-color: currentColor;
   }
   ::selection {
-    background: color-mix(in srgb, var(--ink) 18%, transparent);
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
   }
   ::placeholder {
-    color: var(--label-3);
+    color: var(--ink-3);
   }
   :focus-visible {
-    outline: 2px solid var(--label);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--label-4) transparent;
+    scrollbar-color: var(--ink-4) transparent;
   }
 }
 
@@ -250,153 +232,174 @@
   }
 }
 
-/* Numbers that line up in columns and counters. */
+/* Numbers that line up in columns (tables, axes, counters) — not for big standalone figures. */
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Glass ───────────────────────────────────────────────────────────────────
- * glass        panels on the canvas (sidebar, floating bars)
- * glass-sheet  the content sheet — denser, for long reading; no blur of its own
- * glass-float  menus, popovers, tooltips — densest, they sit over busy content
- * rim          the light-catching edge; needs a positioned element
- */
+/* Translucent chrome that floats over content: menus, the phone tab bar, a scrolled header. */
 @utility glass {
-  background: var(--sheen), var(--glass);
-  -webkit-backdrop-filter: blur(26px) saturate(180%);
-  backdrop-filter: blur(26px) saturate(180%);
-  box-shadow: var(--shadow-glass);
+  background-color: var(--glass);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
 }
 
-/* No backdrop blur on the sheet: only soft light sits behind it, and a blurring ancestor would stop
-   the sticky header inside from blurring the rows that scroll beneath it. Isolated so its rim stays inside. */
-@utility glass-sheet {
-  isolation: isolate;
-  background: var(--sheen), var(--sheet);
-  box-shadow: var(--shadow-glass);
-}
+/* ── Micro-interactions ─────────────────────────────────────────────────────── */
 
-@utility glass-float {
-  background: var(--float);
-  -webkit-backdrop-filter: blur(30px) saturate(190%);
-  backdrop-filter: blur(30px) saturate(190%);
-  box-shadow: var(--shadow-float);
-}
-
-@utility rim {
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 30;
-    padding: 1px;
-    border-radius: inherit;
-    background: var(--rim);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
+/* Completing a task: the circle pops, the tick draws itself, a ring ripples out. */
+@keyframes check-pop {
+  0% {
+    transform: scale(0.75);
+  }
+  55% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
   }
 }
-
-/* Capsule controls sitting on glass. */
-@utility control {
-  background-color: var(--control);
-  box-shadow: var(--shadow-control);
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 16;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
-
-/* The raised, brighter selection — slides between options. */
-@utility lens {
-  background-color: var(--lens);
-  box-shadow: var(--shadow-lens);
-}
-
-/* Recessed track under a lens. */
-@utility track {
-  background-color: var(--track);
-  box-shadow: var(--shadow-track);
-}
-
-@utility card {
-  background-color: var(--card);
-  box-shadow: var(--shadow-card);
-}
-
-/* Solid, glossy ink. */
-@utility ink {
-  background: var(--ink-sheen), var(--ink);
-  color: var(--on-ink);
-  box-shadow: var(--shadow-ink);
-}
-
-/* Sticky header over scrolling content: once something scrolls beneath it (an ancestor carries
-   data-scrolled), that content is blurred and tinted, then fades back in below the header.
-   Two layers because Chromium drops a backdrop blur that also carries a mask. */
-@utility scroll-edge {
-  &::before,
-  &::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    z-index: -1;
+@keyframes ripple {
+  from {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  to {
     opacity: 0;
-    transition: opacity 0.2s;
-    pointer-events: none;
-  }
-  [data-scrolled="true"] &::before,
-  [data-scrolled="true"] &::after {
-    opacity: 1;
-  }
-  &::before {
-    top: 0;
-    bottom: 0;
-    background: var(--edge);
-    -webkit-backdrop-filter: blur(16px) saturate(160%);
-    backdrop-filter: blur(16px) saturate(160%);
-  }
-  &::after {
-    top: 100%;
-    height: 20px;
-    background: linear-gradient(var(--edge), transparent);
+    transform: scale(2.1);
   }
 }
 
-/* Headline set in a soft ink gradient. */
-@utility title-gradient {
-  background: linear-gradient(180deg, var(--ink) 35%, var(--title-to));
+/* A small burst when the last task of the day is done. */
+@keyframes burst {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--a)) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(var(--r) * -1)) scale(0.4);
+  }
+}
+
+/* ── Landing ────────────────────────────────────────────────────────────────── */
+
+@keyframes aurora-a {
+  50% {
+    transform: translate3d(6%, 4%, 0) scale(1.08);
+  }
+}
+@keyframes aurora-b {
+  50% {
+    transform: translate3d(-7%, 5%, 0) scale(1.12);
+  }
+}
+@keyframes aurora-c {
+  50% {
+    transform: translate3d(4%, -6%, 0) scale(0.94);
+  }
+}
+@keyframes float-y {
+  50% {
+    transform: translateY(-10px);
+  }
+}
+@keyframes word-cycle {
+  0%,
+  28% {
+    transform: translateY(0);
+  }
+  33%,
+  61% {
+    transform: translateY(-1.2em);
+  }
+  66%,
+  94% {
+    transform: translateY(-2.4em);
+  }
+  100% {
+    transform: translateY(-3.6em);
+  }
+}
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes shimmer {
+  to {
+    background-position: 200% center;
+  }
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 45%, transparent);
+  }
+  60% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+@keyframes key-press {
+  0%,
+  14%,
+  100% {
+    transform: translateY(0);
+    box-shadow:
+      0 0 0 1px var(--line-2),
+      0 3px 0 var(--line-2);
+  }
+  6% {
+    transform: translateY(2px);
+    box-shadow:
+      0 0 0 1px var(--accent),
+      0 1px 0 var(--accent);
+  }
+}
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes ring-fill {
+  from {
+    stroke-dashoffset: var(--c);
+  }
+}
+
+/* Headline accent: a slow-moving gradient through the brand colors. */
+@utility text-shine {
+  background: linear-gradient(90deg, var(--shine-1), var(--shine-2), var(--shine-3), var(--shine-4), var(--shine-1));
+  background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  animation: shimmer 8s linear infinite;
 }
 
-/* Landing: slow-drifting light behind the glass. */
-@utility orb {
-  position: absolute;
-  border-radius: 9999px;
-  animation: drift 28s ease-in-out infinite alternate;
+/* Reveal on scroll (see Reveal.tsx): hidden until the element enters the viewport. */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition-delay: var(--delay, 0ms);
 }
-
-@keyframes drift {
-  50% {
-    transform: translate3d(4%, -3%, 0) scale(1.06);
-  }
-  100% {
-    transform: translate3d(-3%, 4%, 0) scale(0.96);
-  }
+[data-reveal="in"] {
+  opacity: 1;
+  transform: none;
 }
-
-/* Landing: the app preview settles into place as it scrolls into view. */
-@supports (animation-timeline: view()) {
-  .settle {
-    animation: settle linear both;
-    animation-timeline: view();
-    animation-range: entry 0% cover 30%;
-  }
-}
-
-@keyframes settle {
-  from {
-    transform: translateY(48px) scale(0.94);
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
   }
 }

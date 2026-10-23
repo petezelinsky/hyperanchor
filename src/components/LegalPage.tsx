@@ -1,23 +1,27 @@
 import Link from "next/link";
 import { ChevronLeft } from "./icons";
+import { Aurora } from "./landing/Aurora";
 import { SiteFooter, SiteHeader } from "./Site";
 
 export function LegalPage({ title, effective, children }: { title: string; effective: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh overflow-x-clip">
       <SiteHeader>
-        <Link href="/" className="control flex h-10 items-center gap-1 rounded-full pr-4 pl-3 text-[13px] font-medium no-underline transition-colors hover:bg-control-hover">
+        <Link href="/" className="flex h-9 items-center gap-1 rounded-[10px] bg-surface pr-3.5 pl-2.5 text-[13px] font-medium no-underline shadow-lift transition-colors hover:bg-surface-2">
           <ChevronLeft size={14} strokeWidth={2} />
           Back
         </Link>
       </SiteHeader>
 
-      <main className="mx-auto max-w-[800px] px-3 pt-8 pb-14 md:pt-14">
-        <div className="glass-sheet rim relative animate-rise rounded-[32px] px-6 py-10 md:px-14 md:py-14">
-          <p className="text-[11.5px] font-semibold tracking-[0.08em] text-label-3 uppercase">Legal</p>
-          <h1 className="mt-3 font-display text-[36px] leading-[1.08] font-bold tracking-[-0.035em] md:text-[48px]">{title}</h1>
-          <p className="mt-3 text-[15px] text-label-2">Effective {effective}</p>
-          <article className="mt-10 border-t border-separator text-[16px] leading-[1.65] text-label">{children}</article>
+      <main className="relative isolate">
+        <div className="absolute inset-x-0 top-0 -z-10 h-[360px]">
+          <Aurora className="opacity-60 [mask-image:linear-gradient(to_bottom,#000,transparent)]" />
+        </div>
+        <div className="mx-auto max-w-[720px] animate-rise px-5 pt-14 pb-20 md:pt-20">
+          <p className="text-[13px] font-semibold text-accent-ink">Legal</p>
+          <h1 className="mt-3 font-display text-[40px] leading-[1.06] font-bold tracking-[-0.035em] md:text-[52px]">{title}</h1>
+          <p className="mt-3 text-[15px] text-ink-2">Effective {effective}</p>
+          <article className="mt-10 border-t border-line text-[16px] leading-[1.7] text-ink">{children}</article>
         </div>
       </main>
 
@@ -28,9 +32,9 @@ export function LegalPage({ title, effective, children }: { title: string; effec
 
 export function LegalSection({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3 border-b border-separator py-8 text-pretty last:border-0">
+    <section className="flex flex-col gap-3 border-b border-line py-8 text-pretty last:border-0">
       <h2 className="flex items-baseline gap-3 text-[20px] leading-7 font-semibold tracking-[-0.015em]">
-        <span className="tabular text-[15px] font-medium text-label-3">{String(n).padStart(2, "0")}</span>
+        <span className="tabular text-[15px] font-medium text-accent-ink">{String(n).padStart(2, "0")}</span>
         {title}
       </h2>
       {children}
@@ -39,9 +43,9 @@ export function LegalSection({ n, title, children }: { n: number; title: string;
 }
 
 export function LegalList({ children }: { children: React.ReactNode }) {
-  return <ul className="flex list-disc flex-col gap-2 pl-5 marker:text-label-3">{children}</ul>;
+  return <ul className="flex list-disc flex-col gap-2 pl-5 marker:text-ink-4">{children}</ul>;
 }
 
 export function Strong({ children }: { children: React.ReactNode }) {
-  return <strong className="font-semibold text-label">{children}</strong>;
+  return <strong className="font-semibold text-ink">{children}</strong>;
 }

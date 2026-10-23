@@ -109,6 +109,34 @@ export function monthStats(days: DayStat[]): MonthStat[] {
   return out;
 }
 
+/**
+ * Consecutive days with at least one completed task, ending today — or yesterday while today
+ * has nothing done yet, so a streak doesn't read as broken in the morning.
+ */
+export function currentStreak(todayKey: string, byDate: (key: string) => Task[], limit = 366): number {
+  const doneOn = (d: Date) => byDate(ymd(d)).some((t) => t.done);
+  let d = parseYmd(todayKey);
+  if (!doneOn(d)) d = addDays(d, -1);
+  let n = 0;
+  while (n < limit && doneOn(d)) {
+    n += 1;
+    d = addDays(d, -1);
+  }
+  return n;
+}
+
+/** The longest run of consecutive elapsed days with at least one completed task. */
+export function longestStreak(days: DayStat[]): number {
+  let best = 0;
+  let run = 0;
+  for (const d of days) {
+    if (!d.elapsed) break;
+    run = d.done > 0 ? run + 1 : 0;
+    best = Math.max(best, run);
+  }
+  return best;
+}
+
 /** A round axis maximum ≥ v (at least 4). */
 export function niceMax(v: number) {
   if (v <= 4) return 4;

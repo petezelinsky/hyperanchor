@@ -2,11 +2,11 @@
 
 import { addDays, DOW_FULL, DOW_SHORT, dowIndex, formatLong, parseYmd, relativeDay, startOfWeek, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
-import { SunIcon } from "./icons";
+import { CheckIcon, ChevronLeft, ChevronRight, PlusIcon, SunIcon } from "./icons";
 import { TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
-import { EmptyState, NavGroup, NewTaskButton, SearchField, Toolbar } from "./Toolbar";
-import { Button, Kbd } from "./ui";
+import { EmptyState, NewTaskButton, SearchField, Toolbar } from "./Toolbar";
+import { Burst, Button, IconButton, Kbd, ProgressRing } from "./ui";
 
 export function DayView({
   selected,
@@ -34,32 +34,58 @@ export function DayView({
   const all = byDate(selected);
   const doneN = all.filter((t) => t.done).length;
   const open = all.filter((t) => !t.done);
+  const allDone = all.length > 0 && doneN === all.length;
   const past = selected < todayKey;
   const year = d.getFullYear() !== parseYmd(todayKey).getFullYear() ? `, ${d.getFullYear()}` : "";
+  const pills = <WeekPills selected={selected} todayKey={todayKey} byDate={byDate} onSelect={onSelectDate} />;
 
   return (
     <>
       <Toolbar
         title={relativeDay(selected, todayKey) ?? DOW_FULL[dowIndex(d)]}
-        subtitle={`${formatLong(d)}${year} · ${all.length ? `${doneN} of ${all.length} done` : "No tasks"}`}
+        subtitle={
+          <>
+            <span>
+              {formatLong(d)}
+              {year}
+            </span>
+            <span className="text-ink-4">·</span>
+            {all.length ? (
+              <>
+                <Burst active={allDone}>
+                  <ProgressRing value={doneN / all.length} size={14} stroke={2.4} />
+                </Burst>
+                <span className={allDone ? "font-medium text-green-ink" : ""}>{allDone ? "All done" : `${doneN} of ${all.length} done`}</span>
+              </>
+            ) : (
+              <span>No tasks</span>
+            )}
+          </>
+        }
       >
         <SearchField value={query} onChange={onQuery} />
-        <NavGroup
-          prevLabel="Previous day"
-          nextLabel="Next day"
-          onPrev={() => onSelectDate(ymd(addDays(d, -1)))}
-          onNext={() => onSelectDate(ymd(addDays(d, 1)))}
-          onToday={() => onSelectDate(todayKey)}
-          todayDisabled={selected === todayKey}
-        />
+        {selected !== todayKey && (
+          <Button onClick={() => onSelectDate(todayKey)} className="max-lg:hidden">
+            Today
+          </Button>
+        )}
+        <div className="max-lg:hidden">{pills}</div>
         <NewTaskButton onClick={() => actions.openComposer(selected)} />
       </Toolbar>
 
-      <div className="px-3 pb-16 md:px-6">
-        <WeekStrip selected={selected} todayKey={todayKey} byDate={byDate} onSelect={onSelectDate} />
+      <div className="mx-auto max-w-[1184px] px-3 pb-16 md:px-8">
+        <div className="mb-2 flex items-center gap-2 lg:hidden">
+          <div className="min-w-0 flex-1">{pills}</div>
+          {selected !== todayKey && (
+            <Button size="sm" onClick={() => onSelectDate(todayKey)}>
+              Today
+            </Button>
+          )}
+        </div>
 
         {past && open.length > 0 && !query && (
-          <div className="card mt-4 flex animate-rise flex-wrap items-center gap-x-3 gap-y-2 rounded-[18px] py-2.5 pr-2.5 pl-4 text-[13px] text-label-2">
+          <div className="mt-1 mb-3 flex animate-rise flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-amber-soft py-2 pr-2 pl-3.5 text-[13px] text-amber-ink">
+            <span className="size-1.5 flex-none rounded-full bg-amber" />
             <span className="flex-1">
               {open.length === 1 ? "1 task wasn’t completed on this day." : `${open.length} tasks weren’t completed on this day.`}
             </span>
@@ -69,78 +95,88 @@ export function DayView({
           </div>
         )}
 
-        <div className="mt-3">
-          <TaskTable
-            sections={[section]}
-            state={state}
-            actions={actions}
-            placeholderRow
-            empty={
-              query ? (
-                <EmptyState icon={<SunIcon size={22} />} title="No matching tasks">
-                  Nothing on this day matches “{query}”.
-                </EmptyState>
-              ) : (
-                <EmptyState icon={<SunIcon size={22} />} title={past ? "Nothing was planned" : "Nothing planned yet"}>
-                  Press <Kbd>N</Kbd> or click New Task to add one.
-                </EmptyState>
-              )
-            }
-          />
-        </div>
+        <TaskTable
+          sections={[section]}
+          state={state}
+          actions={actions}
+          placeholderRow
+          empty={
+            query ? (
+              <EmptyState icon={<SunIcon size={22} />} title="No matching tasks">
+                Nothing on this day matches “{query}”.
+              </EmptyState>
+            ) : (
+              <EmptyState
+                icon={<SunIcon size={22} />}
+                title={past ? "Nothing was planned" : "Nothing planned yet"}
+                action={
+                  <Button onClick={() => actions.openComposer(selected)} className="pl-2.5">
+                    <PlusIcon size={14} strokeWidth={2.2} />
+                    Add a task
+                  </Button>
+                }
+              >
+                Press <Kbd>N</Kbd> anywhere to add one in a second.
+              </EmptyState>
+            )
+          }
+        />
+
+        {allDone && !query && (
+          <p className="mt-5 flex animate-rise items-center justify-center gap-2 text-[13px] font-medium text-green-ink">
+            <span className="flex size-[18px] items-center justify-center rounded-full bg-green text-white">
+              <CheckIcon size={10} strokeWidth={2.6} />
+            </span>
+            {selected === todayKey ? "All done for today. Nice work!" : "Everything on this day is done."}
+          </p>
+        )}
       </div>
     </>
   );
 }
 
-function WeekStrip({ selected, todayKey, byDate, onSelect }: { selected: string; todayKey: string; byDate: (key: string) => Task[]; onSelect: (key: string) => void }) {
-  const start = startOfWeek(parseYmd(selected));
-  const index = dowIndex(parseYmd(selected));
+/** The week around the selected day, compact: weekday, date and a dot for how the day went. */
+function WeekPills({ selected, todayKey, byDate, onSelect }: { selected: string; todayKey: string; byDate: (key: string) => Task[]; onSelect: (key: string) => void }) {
+  const sel = parseYmd(selected);
+  const start = startOfWeek(sel);
   return (
-    <div className="relative mt-1 grid grid-cols-7">
-      {/* The selection is a glass lens that slides between days; today is the ink circle. */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-[calc(100%/7)] px-0.5 transition-transform duration-500 ease-liquid sm:px-1"
-        style={{ transform: `translateX(${index * 100}%)` }}
-      >
-        <span className="lens block h-full rounded-[20px]" />
-      </span>
-      {Array.from({ length: 7 }, (_, i) => {
-        const day = addDays(start, i);
-        const key = ymd(day);
-        const sel = key === selected;
-        const tasks = byDate(key);
-        const done = tasks.filter((t) => t.done).length;
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onSelect(key)}
-            aria-pressed={sel}
-            aria-label={`${formatLong(day)}: ${tasks.length ? `${done} of ${tasks.length} done` : "no tasks"}`}
-            className="group relative px-0.5 sm:px-1"
-          >
-            <span
-              className={`flex flex-col items-center gap-1.5 rounded-[20px] pt-2.5 pb-3 transition-colors duration-200 ${sel ? "" : "group-hover:bg-fill-3"}`}
+    <div className="flex items-center gap-0.5">
+      <IconButton label="Previous week" size="sm" onClick={() => onSelect(ymd(addDays(sel, -7)))}>
+        <ChevronLeft size={14} strokeWidth={2} />
+      </IconButton>
+      <div className="flex min-w-0 flex-1 items-center gap-0.5">
+        {Array.from({ length: 7 }, (_, i) => {
+          const day = addDays(start, i);
+          const key = ymd(day);
+          const on = key === selected;
+          const isToday = key === todayKey;
+          const tasks = byDate(key);
+          const done = tasks.filter((t) => t.done).length;
+          // Green: all done. Amber: an earlier day left unfinished. Gray: still to do.
+          const dot = !tasks.length ? "" : done === tasks.length ? "bg-green" : key < todayKey ? "bg-amber" : "bg-ink-4";
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelect(key)}
+              aria-pressed={on}
+              aria-label={`${formatLong(day)}: ${tasks.length ? `${done} of ${tasks.length} done` : "no tasks"}`}
+              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-[11px] transition-[background-color,color,box-shadow] duration-150 lg:w-10 lg:flex-none ${
+                on ? "bg-accent text-on-accent shadow-accent" : "hover:bg-surface-3"
+              }`}
             >
-              <span className={`text-[11px] font-medium ${sel ? "text-label" : "text-label-2"}`}>{DOW_SHORT[i]}</span>
-              <span
-                className={`tabular flex size-9 items-center justify-center rounded-full text-[17px] font-semibold tracking-[-0.01em] ${
-                  key === todayKey ? "ink" : key < todayKey ? "text-label-2" : "text-label"
-                }`}
-              >
+              <span className={`text-[10.5px] leading-[13px] font-medium ${on ? "text-on-accent/80" : isToday ? "text-accent-ink" : "text-ink-3"}`}>{DOW_SHORT[i]}</span>
+              <span className={`tabular text-[15px] leading-5 font-semibold ${on ? "" : isToday ? "text-accent-ink" : key < todayKey ? "text-ink-2" : "text-ink"}`}>
                 {day.getDate()}
               </span>
-              <span className={`h-[3px] w-7 overflow-hidden rounded-full ${tasks.length ? "bg-fill" : ""}`}>
-                {tasks.length > 0 && (
-                  <span className="block h-full rounded-full bg-ink transition-[width] duration-500 ease-glass" style={{ width: `${(done / tasks.length) * 100}%` }} />
-                )}
-              </span>
-            </span>
-          </button>
-        );
-      })}
+              <span className={`mt-px size-1 rounded-full ${dot ? (on ? "bg-on-accent/80" : dot) : ""}`} />
+            </button>
+          );
+        })}
+      </div>
+      <IconButton label="Next week" size="sm" onClick={() => onSelect(ymd(addDays(sel, 7)))}>
+        <ChevronRight size={14} strokeWidth={2} />
+      </IconButton>
     </div>
   );
 }
