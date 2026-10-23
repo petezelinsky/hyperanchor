@@ -1,16 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addDays, monthGrid, parseYmd, startOfWeek, ymd } from "@/lib/dates";
-import { periodRange, type StatsRange } from "@/lib/analytics";
+import { addDays, formatMedium, monthGrid, parseYmd, relativeDay, startOfWeek, ymd } from "@/lib/dates";
+import { statsRange, type Period } from "@/lib/stats";
+import { DEFAULT_SORT, matchesQuery, nextSort, sortTasks, type Sort } from "@/lib/tasks";
 import type { AppUser, Task } from "@/lib/types";
-import { AnalyticsView } from "./AnalyticsView";
-import { CalendarView } from "./CalendarView";
-import { DayView, type Composer } from "./DayView";
-import { Header, type View } from "./Header";
+import { AnalyticsView } from "./analytics/AnalyticsView";
+import { DayView } from "./DayView";
+import { MonthView } from "./MonthView";
+import { MiniMonth, MobileBar, Sidebar, type View } from "./Sidebar";
+import type { Composer, Editing, Section, TableActions } from "./table/types";
 import { useTasks } from "./useTasks";
+import { WeekView } from "./WeekView";
 
 const SAVE_DELAY = 600; // ms of typing inactivity before a PATCH
+type Toast = { id: number; message: string; action?: { label: string; run: () => void } };
 
 /** Today's local date key; refreshes periodically and when the tab regains focus (e.g. after midnight). */
 function useTodayKey() {
@@ -27,44 +31,61 @@ function useTodayKey() {
   return key;
 }
 
+const isTyping = (t: EventTarget | null) =>
+  t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+
+const monthOf = (key: string) => {
+  const d = parseYmd(key);
+  return { y: d.getFullYear(), m: d.getMonth() };
+};
+
 export function TaskApp({ user }: { user: AppUser }) {
   const todayKey = useTodayKey();
   const [view, setView] = useState<View>("day");
   const [selected, setSelected] = useState(todayKey);
-  const [cal, setCal] = useState(() => ({ y: new Date().getFullYear(), m: new Date().getMonth() }));
-  const [stats, setStats] = useState<{ range: StatsRange; offset: number }>({ range: "week", offset: 0 });
-  const [editing, setEditing] = useState<{ id: string; snapshot: string } | null>(null);
+  const [cal, setCal] = useState(() => monthOf(todayKey));
+  const [mini, setMini] = useState(() => monthOf(todayKey));
+  const [stats, setStats] = useState<{ period: Period; offset: number }>({ period: "week", offset: 0 });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
   const [composer, setComposer] = useState<Composer | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
+  const [query, setQuery] = useState("");
+  const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const showError = useCallback((message: string) => {
-    setToast(message);
+  const notify = useCallback((message: string, action?: Toast["action"]) => {
+    setToast({ id: Date.now(), message, action });
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 4000);
+    toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : 4000);
   }, []);
 
-  const { tasks, load, create, edit, remove } = useTasks(showError);
+  const { tasks, load, create, edit, remove, restore } = useTasks(notify);
 
-  // Fetch whatever range is on screen.
-  const [from, to] = useMemo(() => {
-    if (view === "day") {
-      const ws = startOfWeek(parseYmd(selected));
-      return [ymd(ws), ymd(addDays(ws, 6))];
+  // ── Data ────────────────────────────────────────────────────────────────────
+  const mainRange = useMemo((): [string, string] => {
+    if (view === "analytics") return statsRange(stats.period, stats.offset, todayKey);
+    if (view === "month") {
+      const g = monthGrid(cal.y, cal.m);
+      return [ymd(g.start), ymd(g.end)];
     }
-    if (view === "analytics") return periodRange(stats.range, stats.offset, todayKey);
-    const { start, end } = monthGrid(cal.y, cal.m);
-    return [ymd(start), ymd(end)];
-  }, [view, selected, cal, stats, todayKey]);
-
+    const ws = startOfWeek(parseYmd(selected));
+    return [ymd(ws), ymd(addDays(ws, 6))];
+  }, [view, stats, cal, selected, todayKey]);
+  const miniRange = useMemo((): [string, string] => {
+    const g = monthGrid(mini.y, mini.m);
+    return [ymd(g.start), ymd(g.end)];
+  }, [mini]);
   useEffect(() => {
-    load(from, to);
-  }, [load, from, to]);
+    load(...mainRange);
+  }, [load, mainRange]);
+  useEffect(() => {
+    load(...miniRange);
+  }, [load, miniRange]);
 
   const byDateMap = useMemo(() => {
     const map = new Map<string, Task[]>();
-    const sorted = Object.values(tasks).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    for (const t of sorted) {
+    for (const t of sortTasks(Object.values(tasks), DEFAULT_SORT)) {
       const list = map.get(t.date);
       if (list) list.push(t);
       else map.set(t.date, [t]);
@@ -73,82 +94,174 @@ export function TaskApp({ user }: { user: AppUser }) {
   }, [tasks]);
   const byDate = useCallback((key: string) => byDateMap.get(key) ?? [], [byDateMap]);
 
-  // --- Inline editing -------------------------------------------------------
+  const sections = useMemo((): Section[] => {
+    const make = (date: string) => ({ date, tasks: sortTasks(byDate(date).filter((t) => matchesQuery(t, query)), sort) });
+    if (view === "day") return [make(selected)];
+    if (view !== "week") return [];
+    const ws = startOfWeek(parseYmd(selected));
+    const all = Array.from({ length: 7 }, (_, i) => make(ymd(addDays(ws, i))));
+    return query ? all.filter((s) => s.tasks.length) : all;
+  }, [view, selected, byDate, query, sort]);
+  const visibleIds = useMemo(() => sections.flatMap((s) => s.tasks.map((t) => t.id)), [sections]);
 
-  const finishEdit = useCallback(() => {
-    if (!editing) return;
-    const t = tasks[editing.id];
-    if (t) {
-      const title = t.title.trim() || editing.snapshot || "Untitled";
-      const description = t.description.trim();
-      const patch: Partial<Pick<Task, "title" | "description">> = {};
-      if (title !== t.title) patch.title = title;
-      if (description !== t.description) patch.description = description;
-      // Saves the cleaned values now; also flushes any pending debounced save.
-      edit(t.id, patch);
-    }
-    setEditing(null);
-    if (document.activeElement instanceof HTMLTextAreaElement) document.activeElement.blur();
-  }, [editing, tasks, edit]);
+  // Latest state for stable callbacks and global listeners.
+  const latest = useRef({ tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey });
+  latest.current = { tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey };
 
-  const startEdit = (id: string, focus: boolean) => {
-    if (editing?.id === id) return;
-    const t = tasks[id];
-    if (!t) return;
-    setEditing({ id, snapshot: t.title });
-    if (focus) {
-      // The title textarea is always rendered, so focus it synchronously and no keystrokes are lost.
-      const el = document.querySelector<HTMLTextAreaElement>(`[data-title-for="${id}"]`);
-      if (el) {
-        el.focus();
-        el.setSelectionRange(el.value.length, el.value.length);
+  // ── Navigation ──────────────────────────────────────────────────────────────
+  const selectDate = useCallback((key: string) => {
+    setSelected(key);
+    setMini(monthOf(key));
+    setSelectedId(null);
+  }, []);
+
+  const showView = useCallback((v: View) => {
+    if (v === "month") setCal(monthOf(latest.current.selected));
+    setSelectedId(null);
+    setView(v);
+  }, []);
+
+  const openDay = useCallback(
+    (key: string) => {
+      selectDate(key);
+      setView("day");
+    },
+    [selectDate],
+  );
+
+  // ── Table actions ───────────────────────────────────────────────────────────
+  const actions = useMemo((): TableActions => {
+    const finishEdit = () => {
+      const { editing, tasks } = latest.current;
+      if (!editing) return;
+      const t = tasks[editing.id];
+      if (t) {
+        const title = t.title.trim() || editing.snapshot.title || "Untitled";
+        const description = t.description.trim();
+        const patch: Partial<Task> = {};
+        if (title !== t.title) patch.title = title;
+        if (description !== t.description) patch.description = description;
+        edit(t.id, patch); // also flushes any pending debounced save
       }
-    }
+      latest.current.editing = null;
+      setEditing(null);
+    };
+    const composerSubmit = (keepOpen: boolean) => {
+      const c = latest.current.composer;
+      if (!c) return;
+      const title = c.title.trim();
+      if (title) create({ title, description: c.description.trim(), date: c.date, done: false });
+      const next = title && keepOpen ? { date: c.date, title: "", description: "", nonce: Date.now() } : null;
+      latest.current.composer = next;
+      setComposer(next);
+    };
+    return {
+      select: (id) => setSelectedId(id),
+      startEdit: (id, field) => {
+        const { editing, tasks } = latest.current;
+        if (editing && editing.id !== id) finishEdit();
+        const t = tasks[id];
+        if (!t) return;
+        const snapshot = editing?.id === id ? editing.snapshot : { title: t.title, description: t.description };
+        const next = { id, field, snapshot };
+        latest.current.editing = next;
+        setEditing(next);
+        setSelectedId(id);
+      },
+      finishEdit,
+      cancelEdit: () => {
+        const { editing, tasks } = latest.current;
+        if (!editing) return;
+        const t = tasks[editing.id];
+        if (t && (t.title !== editing.snapshot.title || t.description !== editing.snapshot.description)) edit(t.id, editing.snapshot);
+        latest.current.editing = null;
+        setEditing(null);
+      },
+      change: (id, patch) => edit(id, patch, SAVE_DELAY),
+      toggle: (task) => edit(task.id, { done: !task.done }),
+      move: (task, date) => {
+        const from = task.date;
+        edit(task.id, { date });
+        const name = relativeDay(date, latest.current.todayKey) ?? formatMedium(parseYmd(date));
+        notify(`Moved to ${name}`, { label: "Undo", run: () => edit(task.id, { date: from }) });
+      },
+      remove: (task) => {
+        const { visibleIds, editing } = latest.current;
+        const i = visibleIds.indexOf(task.id);
+        setSelectedId(i >= 0 ? (visibleIds[i + 1] ?? visibleIds[i - 1] ?? null) : null);
+        if (editing?.id === task.id) setEditing(null);
+        remove(task.id);
+        notify(`Deleted “${task.title}”`, { label: "Undo", run: () => restore(task) });
+      },
+      openComposer: (date) => {
+        finishEdit();
+        const next = { date, title: "", description: "", nonce: Date.now() };
+        latest.current.composer = next;
+        setComposer(next);
+      },
+      composerChange: (patch) => setComposer((c) => (c ? { ...c, ...patch } : c)),
+      composerSubmit,
+      composerCancel: () => {
+        latest.current.composer = null;
+        setComposer(null);
+      },
+      sort: (key) => setSort((s) => nextSort(s, key)),
+    };
+  }, [create, edit, remove, restore, notify]);
+
+  const moveAllToToday = (list: Task[]) => {
+    for (const t of list) edit(t.id, { date: todayKey });
+    notify(list.length === 1 ? "Moved 1 task to Today" : `Moved ${list.length} tasks to Today`, {
+      label: "Undo",
+      run: () => list.forEach((t) => edit(t.id, { date: t.date })),
+    });
   };
 
-  // --- Inline creation ------------------------------------------------------
-
-  const openComposer = () => {
-    finishEdit();
-    setView("day");
-    setComposer((c) => c ?? { title: "", description: "", nonce: Date.now() });
-  };
-
-  const addFromComposer = useCallback(
-    (keepOpen: boolean) => {
-      if (!composer) return;
-      const title = composer.title.trim();
-      if (!title) return;
-      create({ title, description: composer.description.trim(), date: selected, done: false });
-      setComposer(keepOpen ? { title: "", description: "", nonce: Date.now() } : null);
-    },
-    [composer, create, selected],
-  );
-
-  const closeComposer = useCallback(
-    (commit: boolean) => {
-      if (commit && composer?.title.trim()) addFromComposer(false);
-      else setComposer(null);
-    },
-    [composer, addFromComposer],
-  );
-
-  // Click outside the active card, Esc and Cmd/Ctrl+Enter.
+  // ── Global pointer + keyboard handling ─────────────────────────────────────
   useEffect(() => {
-    if (!editing && !composer) return;
     const onDown = (e: PointerEvent) => {
-      if ((e.target as Element).closest?.('[data-editing="true"]')) return;
-      if (editing) finishEdit();
-      if (composer) closeComposer(true);
+      const el = e.target as Element;
+      const l = latest.current;
+      if (el.closest?.('[data-editing="true"]')) return;
+      if (l.editing) actions.finishEdit();
+      if (l.composer) actions.composerSubmit(false);
+      if (!el.closest?.("[data-task-row], [data-floating]")) setSelectedId(null);
+    };
+    const step = (dir: number) => {
+      const l = latest.current;
+      if (l.view === "day" || l.view === "week") selectDate(ymd(addDays(parseYmd(l.selected), dir * (l.view === "day" ? 1 : 7))));
+      else if (l.view === "month") setCal(({ y, m }) => monthOf(ymd(new Date(y, m + dir, 1))));
+      else setStats((s) => ({ ...s, offset: Math.min(0, s.offset + dir) }));
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (editing) finishEdit();
-        else closeComposer(false);
-      } else if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        if (editing) finishEdit();
-        else addFromComposer(true);
-      }
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+      if (document.querySelector("[data-floating]")) return; // a menu or popover handles its own keys
+      const l = latest.current;
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      const views: Record<string, View> = { d: "day", w: "week", m: "month", a: "analytics" };
+      const table = l.view === "day" || l.view === "week";
+      const i = l.selectedId ? l.visibleIds.indexOf(l.selectedId) : -1;
+      const sel = l.selectedId ? l.tasks[l.selectedId] : undefined;
+
+      if (views[k]) showView(views[k]);
+      else if (k === "t") {
+        selectDate(l.todayKey);
+        setCal(monthOf(l.todayKey));
+        setStats((s) => ({ ...s, offset: 0 }));
+      } else if (k === "n") {
+        if (!table) setView("day");
+        actions.openComposer(l.selected);
+      } else if (k === "ArrowLeft" || k === "ArrowRight") step(k === "ArrowLeft" ? -1 : 1);
+      else if (table && (k === "ArrowDown" || k === "ArrowUp") && l.visibleIds.length) {
+        const n = l.visibleIds.length;
+        const next = i < 0 ? (k === "ArrowDown" ? 0 : n - 1) : Math.min(n - 1, Math.max(0, i + (k === "ArrowDown" ? 1 : -1)));
+        setSelectedId(l.visibleIds[next]);
+      } else if (table && sel && k === "Enter") actions.startEdit(sel.id, "title");
+      else if (table && sel && k === " ") actions.toggle(sel);
+      else if (table && sel && (k === "Backspace" || k === "Delete")) actions.remove(sel);
+      else if (k === "Escape") setSelectedId(null);
+      else return;
+      e.preventDefault();
     };
     window.addEventListener("pointerdown", onDown);
     window.addEventListener("keydown", onKey);
@@ -156,80 +269,104 @@ export function TaskApp({ user }: { user: AppUser }) {
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("keydown", onKey);
     };
-  }, [editing, composer, finishEdit, closeComposer, addFromComposer]);
+  }, [actions, selectDate, showView]);
 
-  const openDay = (key: string) => {
-    setSelected(key);
-    setView("day");
-  };
-
-  const showView = (v: View) => {
-    if (v === "calendar") {
-      const d = parseYmd(selected);
-      setCal({ y: d.getFullYear(), m: d.getMonth() });
-    }
-    setView(v);
-  };
+  // ── Layout ──────────────────────────────────────────────────────────────────
+  const tableState = { todayKey, selectedId, editing, composer, sort };
+  const weekStart = startOfWeek(parseYmd(selected));
+  const weekOpen = Array.from({ length: 7 }, (_, i) => byDate(ymd(addDays(weekStart, i)))).flat().filter((t) => !t.done).length;
 
   return (
-    <div className="min-h-dvh bg-bg">
-      <Header user={user} view={view} onView={showView} onNewTask={openComposer} />
-
-      {view === "day" ? (
-        <DayView
-          selected={selected}
-          todayKey={todayKey}
-          byDate={byDate}
-          editingId={editing?.id ?? null}
-          composer={composer}
-          onSelect={setSelected}
-          onStartEdit={startEdit}
-          onFinishEdit={finishEdit}
-          onEdit={(id, patch) => edit(id, patch, SAVE_DELAY)}
-          onToggle={(t) => edit(t.id, { done: !t.done })}
-          onDelete={(id) => {
-            remove(id);
-            setEditing(null);
-          }}
-          onOpenComposer={openComposer}
-          onComposerChange={(patch) => setComposer((c) => (c ? { ...c, ...patch } : c))}
-          onComposerAdd={addFromComposer}
-          onComposerCancel={() => closeComposer(false)}
-        />
-      ) : view === "analytics" ? (
-        <AnalyticsView
-          range={stats.range}
-          offset={stats.offset}
-          todayKey={todayKey}
-          byDate={byDate}
-          onRange={(range) => setStats({ range, offset: 0 })}
-          onOffset={(offset) => setStats((s) => ({ ...s, offset }))}
-          onPick={openDay}
-        />
-      ) : (
-        <CalendarView
-          year={cal.y}
-          month={cal.m}
-          selected={selected}
-          todayKey={todayKey}
-          byDate={byDate}
-          onPick={openDay}
-          onShift={(n) =>
-            setCal(({ y, m }) => {
-              const d = new Date(y, m + n, 1);
-              return { y: d.getFullYear(), m: d.getMonth() };
-            })
-          }
-          onThisMonth={() => {
-            const d = parseYmd(todayKey);
-            setCal({ y: d.getFullYear(), m: d.getMonth() });
-          }}
-        />
-      )}
+    <div className="min-h-dvh bg-window md:grid md:grid-cols-[236px_minmax(0,1fr)]">
+      <Sidebar
+        user={user}
+        view={view}
+        onView={showView}
+        badges={{ day: byDate(selected).filter((t) => !t.done).length, week: weekOpen }}
+        mini={
+          <MiniMonth
+            year={mini.y}
+            month={mini.m}
+            selected={selected}
+            todayKey={todayKey}
+            byDate={byDate}
+            onShift={(n) => setMini(({ y, m }) => monthOf(ymd(new Date(y, m + n, 1))))}
+            onSelect={(key) => {
+              selectDate(key);
+              if (view === "month") setCal(monthOf(key));
+              if (view === "analytics") setView("day");
+            }}
+          />
+        }
+      />
+      <div className="min-w-0">
+        <MobileBar user={user} view={view} onView={showView} />
+        <main className={view === "analytics" ? "min-h-dvh bg-grouped" : ""}>
+          {view === "day" && (
+            <DayView
+              selected={selected}
+              section={sections[0] ?? { date: selected, tasks: [] }}
+              state={tableState}
+              actions={actions}
+              byDate={byDate}
+              query={query}
+              onQuery={setQuery}
+              onSelectDate={selectDate}
+              onMoveToToday={moveAllToToday}
+            />
+          )}
+          {view === "week" && (
+            <WeekView selected={selected} sections={sections} state={tableState} actions={actions} query={query} onQuery={setQuery} onSelectDate={selectDate} />
+          )}
+          {view === "month" && (
+            <MonthView
+              year={cal.y}
+              month={cal.m}
+              selected={selected}
+              todayKey={todayKey}
+              byDate={byDate}
+              onShift={(n) => setCal(({ y, m }) => monthOf(ymd(new Date(y, m + n, 1))))}
+              onThisMonth={() => setCal(monthOf(todayKey))}
+              onSelectDate={selectDate}
+              onOpenDay={openDay}
+              onToggle={actions.toggle}
+              onCreate={(date, title) => create({ title, description: "", date, done: false })}
+            />
+          )}
+          {view === "analytics" && (
+            <AnalyticsView
+              period={stats.period}
+              offset={stats.offset}
+              todayKey={todayKey}
+              byDate={byDate}
+              onPeriod={(period) => setStats({ period, offset: 0 })}
+              onOffset={(offset) => setStats((s) => ({ ...s, offset: Math.min(0, offset) }))}
+              onDrill={(period, offset) => setStats({ period, offset })}
+              onOpenDay={openDay}
+              onToggle={actions.toggle}
+              onMove={actions.move}
+            />
+          )}
+        </main>
+      </div>
 
       {toast && (
-        <div role="status" className="fixed inset-x-0 bottom-6 z-60 flex justify-center px-4">
-          <div className="rounded-full bg-primary px-5 py-3 text-[13px] text-white shadow-pill-dark">{toast}</div>
+        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-[120] flex justify-center px-4">
+          <div role="status" key={toast.id} className="material pointer-events-auto flex items-center gap-4 rounded-[12px] bg-hud py-2.5 pr-3 pl-4 text-[13px] text-on-hud shadow-popover">
+            <span className="max-w-[60vw] truncate">{toast.message}</span>
+            {toast.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.action?.run();
+                  setToast(null);
+                }}
+                className="rounded-[6px] px-2 py-0.5 font-semibold text-accent hover:bg-fill-2"
+              >
+                {toast.action.label}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

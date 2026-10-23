@@ -1,14 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Onest } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const onest = Onest({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600"], variable: "--font-onest" });
-const mono = JetBrains_Mono({ subsets: ["latin", "cyrillic"], weight: ["400", "500"], variable: "--font-jetbrains-mono" });
+// SF Pro is used on Apple devices; Inter is the closest match elsewhere.
+const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://hyperanchor.app"),
   title: "Hyperanchor",
-  description: "Your whole week on one screen. Create tasks with descriptions, plan them by day and check them off when done.",
+  description:
+    "A calm, focused planner. Plan each day in a clean table, see your week and month at a glance, and understand how you get things done.",
   openGraph: {
     title: "Hyperanchor",
     description: "Your whole week on one screen.",
@@ -18,11 +19,16 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = { themeColor: "#EDEDEB" };
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#1e1e1f" },
+  ],
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${onest.variable} ${mono.variable}`}>
+    <html lang="en" className={inter.variable}>
       <body>{children}</body>
     </html>
   );
