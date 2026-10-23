@@ -71,3 +71,19 @@ export function formatStamp(iso: string, todayKey: string) {
   if (ymd(d) === todayKey) return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   return formatShort(d);
 }
+
+/** ISO 8601 week number. */
+export function isoWeek(d: Date) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7) + 3); // Thursday of this week
+  const jan4 = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+  return 1 + Math.round((dayDiff(t, jan4) - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7);
+}
+
+/** Compact span for labels: "19–25 Oct 2026", "29 Sep – 5 Oct 2026", "29 Dec 2025 – 4 Jan 2026". */
+export function spanLabel(start: Date, end: Date) {
+  const m = (d: Date) => MONTHS_SHORT[d.getMonth()];
+  if (start.getFullYear() !== end.getFullYear()) return `${start.getDate()} ${m(start)} ${start.getFullYear()} – ${end.getDate()} ${m(end)} ${end.getFullYear()}`;
+  if (start.getMonth() !== end.getMonth()) return `${start.getDate()} ${m(start)} – ${end.getDate()} ${m(end)} ${end.getFullYear()}`;
+  return `${start.getDate()}–${end.getDate()} ${m(end)} ${end.getFullYear()}`;
+}

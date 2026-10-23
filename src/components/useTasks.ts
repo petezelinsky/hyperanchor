@@ -38,6 +38,14 @@ export function useTasks(onError: (message: string) => void) {
 
   const isBusy = (id: string) => (busy.current.get(id) ?? 0) > 0 || timers.current.has(id);
 
+  // True while anything is waiting to be saved (debounced edits or requests in flight).
+  const [syncing, setSyncing] = useState(false);
+  const refreshSync = useCallback(() => {
+    let n = timers.current.size;
+    for (const v of busy.current.values()) n += v;
+    setSyncing(n > 0);
+  }, []);
+
   const load = useCallback(
     async (from: string, to: string) => {
       ranges.current.delete(`${from}|${to}`);
@@ -64,30 +72,34 @@ export function useTasks(onError: (message: string) => void) {
   const enqueue = useCallback(
     (id: string, req: () => Promise<unknown>) => {
       busy.current.set(id, (busy.current.get(id) ?? 0) + 1);
+      refreshSync();
       const run = (chains.current.get(id) ?? Promise.resolve()).then(req).catch((e) => {
         onError(e instanceof Error ? e.message : "Something went wrong");
         busy.current.set(id, 0);
+        refreshSync();
         for (const [from, to] of ranges.current.values()) load(from, to);
       });
       const tail = run.finally(() => {
         busy.current.set(id, Math.max(0, (busy.current.get(id) ?? 1) - 1));
+        refreshSync();
         if (chains.current.get(id) === tail) chains.current.delete(id);
       });
       chains.current.set(id, tail);
     },
-    [onError, load],
+    [onError, load, refreshSync],
   );
 
   const flush = useCallback(
     (id: string) => {
       clearTimeout(timers.current.get(id));
       timers.current.delete(id);
+      refreshSync();
       const patch = pendingPatch.current.get(id);
       pendingPatch.current.delete(id);
       if (!patch || !Object.keys(patch).length) return;
       enqueue(id, () => request(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(patch) }));
     },
-    [enqueue],
+    [enqueue, refreshSync],
   );
 
   const create = useCallback(
@@ -109,22 +121,24 @@ export function useTasks(onError: (message: string) => void) {
       if (delay > 0) {
         clearTimeout(timers.current.get(id));
         timers.current.set(id, setTimeout(() => flush(id), delay));
+        refreshSync();
       } else {
         flush(id);
       }
     },
-    [flush],
+    [flush, refreshSync],
   );
 
   const remove = useCallback(
     (id: string) => {
       clearTimeout(timers.current.get(id));
       timers.current.delete(id);
+      refreshSync();
       pendingPatch.current.delete(id);
       setTasks(({ [id]: _, ...rest }) => rest);
       enqueue(id, () => request(`/api/tasks/${id}`, { method: "DELETE" }));
     },
-    [enqueue],
+    [enqueue, refreshSync],
   );
 
   /** Puts a deleted task back (undo), keeping its id. */
@@ -137,5 +151,5 @@ export function useTasks(onError: (message: string) => void) {
     [enqueue],
   );
 
-  return { tasks, load, create, edit, remove, restore };
+  return { tasks, load, create, edit, remove, restore, syncing };
 }

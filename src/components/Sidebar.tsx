@@ -6,8 +6,8 @@ import { addDays, formatLong, monthGrid, MONTHS, ymd } from "@/lib/dates";
 import type { AppUser, Task } from "@/lib/types";
 import { Brand } from "./AppIcon";
 import { Avatar } from "./Avatar";
-import { CalendarIcon, ChartIcon, ChevronLeft, ChevronRight, SunIcon, WeekIcon } from "./icons";
-import { IconButton, Menu, SegmentedControl, type Anchor } from "./ui";
+import { CalendarIcon, ChartIcon, ChevronLeft, ChevronRight, KeyboardIcon, SunIcon, WeekIcon } from "./icons";
+import { DotTabs, IconButton, Kbd, Menu, type Anchor } from "./ui";
 
 export type View = "day" | "week" | "month" | "analytics";
 
@@ -24,19 +24,30 @@ export function Sidebar({
   onView,
   badges,
   mini,
+  syncing,
+  onShortcuts,
 }: {
   user: AppUser;
   view: View;
   onView: (v: View) => void;
   badges: Partial<Record<View, number>>;
   mini: React.ReactNode;
+  syncing: boolean;
+  onShortcuts: () => void;
 }) {
+  const index = VIEWS.findIndex((v) => v.value === view);
   return (
-    <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto border-r border-separator bg-sidebar px-2.5 pb-2.5 md:flex">
-      <div className="flex h-14 flex-none items-center px-2">
+    <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto border-r border-line bg-paper px-3 pb-3 md:flex">
+      <div className="flex h-[76px] flex-none items-center px-2.5">
         <Brand size={22} />
       </div>
-      <nav aria-label="Views" className="flex flex-col gap-px">
+      <nav aria-label="Views" className="relative flex flex-col gap-0.5">
+        {/* One highlight that slides to the active row. */}
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-9 rounded-[10px] bg-fill-on transition-transform duration-300 ease-quiet"
+          style={{ transform: `translateY(${index * 38}px)` }}
+        />
         {VIEWS.map((v) => {
           const on = v.value === view;
           const badge = badges[v.value];
@@ -47,18 +58,35 @@ export function Sidebar({
               onClick={() => onView(v.value)}
               aria-current={on ? "page" : undefined}
               title={`${v.label} (${v.key})`}
-              className={`flex h-8 items-center gap-2.5 rounded-[7px] px-2.5 text-[13.5px] transition-colors ${on ? "bg-selected font-medium text-label" : "text-label hover:bg-fill-3"}`}
+              className={`relative flex h-9 items-center gap-3 rounded-[10px] px-2.5 text-[13.5px] transition-colors duration-150 ${on ? "font-medium text-ink" : "text-ink-2 hover:bg-fill hover:text-ink"}`}
             >
-              <span className="text-accent">{v.icon}</span>
+              <span className={on ? "text-ink" : "text-muted"}>{v.icon}</span>
               <span className="flex-1 text-left">{v.label}</span>
-              {!!badge && <span className="tabular text-[12px] text-label-2">{badge}</span>}
+              {!!badge && <span className="tabular font-mono text-[11px] text-faint">{badge}</span>}
             </button>
           );
         })}
       </nav>
-      <div className="mt-7 px-1">{mini}</div>
-      <div className="mt-auto pt-4">
-        <AccountButton user={user} />
+      <div className="mt-9 px-1">{mini}</div>
+      <div className="mt-auto flex flex-col gap-0.5 pt-6">
+        <button
+          type="button"
+          onClick={onShortcuts}
+          className="flex h-9 items-center gap-3 rounded-[10px] px-2.5 text-[13px] text-muted transition-colors hover:bg-fill hover:text-ink"
+        >
+          <KeyboardIcon />
+          <span className="flex-1 text-left">Shortcuts</span>
+          <Kbd>?</Kbd>
+        </button>
+        <div className="flex h-8 items-center gap-3 px-2.5 text-[12px]" aria-live="polite">
+          <span className="flex w-4 justify-center">
+            <span className={`size-1.5 rounded-full ${syncing ? "animate-breathe bg-ink" : "bg-ghost"}`} />
+          </span>
+          {syncing ? <span className="shimmer-text">Saving…</span> : <span className="text-faint">All changes saved</span>}
+        </div>
+        <div className="mt-1 border-t border-line pt-2">
+          <AccountButton user={user} />
+        </div>
       </div>
     </aside>
   );
@@ -85,19 +113,19 @@ export function MiniMonth({
   return (
     <div>
       <div className="flex items-center justify-between pl-1.5">
-        <span className="text-[13px] font-semibold">
-          {MONTHS[month]} <span className="font-normal text-label-2">{year}</span>
+        <span className="text-[13px] font-medium">
+          {MONTHS[month]} <span className="text-faint">{year}</span>
         </span>
         <span className="flex">
           <IconButton label="Previous month" size="sm" onClick={() => onShift(-1)}>
-            <ChevronLeft size={13} strokeWidth={2} />
+            <ChevronLeft size={13} />
           </IconButton>
           <IconButton label="Next month" size="sm" onClick={() => onShift(1)}>
-            <ChevronRight size={13} strokeWidth={2} />
+            <ChevronRight size={13} />
           </IconButton>
         </span>
       </div>
-      <div className="mt-1.5 grid grid-cols-7 text-center text-[10.5px] font-medium text-label-3">
+      <div className="mt-2 grid grid-cols-7 text-center font-mono text-[10px] text-faint">
         {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
           <span key={i} className="py-1">
             {d}
@@ -109,30 +137,24 @@ export function MiniMonth({
           const d = addDays(start, i);
           const key = ymd(d);
           const sel = key === selected;
-          const has = byDate(key).length > 0;
+          const tasks = byDate(key);
+          const open = tasks.some((t) => !t.done);
           return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onSelect(key)}
-              aria-label={formatLong(d)}
-              aria-pressed={sel}
-              className="relative flex h-[30px] items-center justify-center"
-            >
+            <button key={key} type="button" onClick={() => onSelect(key)} aria-label={formatLong(d)} aria-pressed={sel} className="relative flex h-[31px] items-center justify-center">
               <span
-                className={`tabular flex size-[26px] items-center justify-center rounded-full text-[12px] transition-colors ${
+                className={`tabular flex size-[26px] items-center justify-center rounded-full text-[12px] transition-colors duration-150 ${
                   sel
-                    ? "bg-accent font-semibold text-white"
+                    ? "bg-ink font-medium text-on-ink"
                     : key === todayKey
-                      ? "font-semibold text-accent hover:bg-fill-2"
+                      ? "font-medium text-ink ring-[1.5px] ring-signal ring-inset hover:bg-fill"
                       : d.getMonth() !== month
-                        ? "text-label-3 hover:bg-fill-2"
-                        : "text-label hover:bg-fill-2"
+                        ? "text-ghost hover:bg-fill"
+                        : "text-ink-2 hover:bg-fill"
                 }`}
               >
                 {d.getDate()}
               </span>
-              {has && <span className={`absolute bottom-[1px] size-[3px] rounded-full ${sel ? "bg-accent" : "bg-label-3"}`} />}
+              {tasks.length > 0 && <span className={`absolute bottom-0 size-[3px] rounded-full ${open ? "bg-ink" : "bg-ghost"}`} />}
             </button>
           );
         })}
@@ -155,7 +177,7 @@ function useAccountMenu() {
         { label: "Privacy Policy", onSelect: () => window.location.assign("/privacy") },
         { label: "Terms of Service", onSelect: () => window.location.assign("/terms") },
         { separator: true },
-        { label: "Sign Out", onSelect: () => startTransition(() => signOutAction()) },
+        { label: "Sign out", onSelect: () => startTransition(() => signOutAction()) },
       ]}
     />
   );
@@ -174,12 +196,12 @@ function AccountButton({ user }: { user: AppUser }) {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => ref.current && toggle(ref.current)}
-        className={`flex w-full items-center gap-2.5 rounded-[8px] p-2 text-left transition-colors ${open ? "bg-fill-2" : "hover:bg-fill-3"}`}
+        className={`flex w-full items-center gap-3 rounded-[12px] p-2 text-left transition-colors ${open ? "bg-fill" : "hover:bg-fill"}`}
       >
-        <Avatar name={user.name} image={user.image} size={28} />
+        <Avatar name={user.name} image={user.image} size={30} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-medium">{user.name}</span>
-          <span className="block truncate text-[11.5px] text-label-2">{user.email}</span>
+          <span className="block truncate text-[11.5px] text-muted">{user.email}</span>
         </span>
       </button>
       {menu}
@@ -191,22 +213,15 @@ function AccountButton({ user }: { user: AppUser }) {
 export function MobileBar({ user, view, onView }: { user: AppUser; view: View; onView: (v: View) => void }) {
   const { menu, toggle, open } = useAccountMenu();
   return (
-    <div className="material sticky top-0 z-30 border-b border-separator bg-toolbar md:hidden">
-      <div className="flex h-12 items-center justify-between px-4">
+    <div className="sticky top-0 z-30 border-b border-line bg-paper/90 backdrop-blur-xl md:hidden">
+      <div className="flex h-14 items-center justify-between px-5">
         <Brand size={22} />
-        <button
-          type="button"
-          aria-label="Account"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          onClick={(e) => toggle(e.currentTarget)}
-          className="rounded-full"
-        >
-          <Avatar name={user.name} image={user.image} size={28} />
+        <button type="button" aria-label="Account" aria-haspopup="menu" aria-expanded={open} onClick={(e) => toggle(e.currentTarget)} className="rounded-full">
+          <Avatar name={user.name} image={user.image} size={30} />
         </button>
       </div>
-      <div className="px-4 pb-2.5">
-        <SegmentedControl label="View" value={view} onChange={onView} options={VIEWS.map(({ value, label }) => ({ value, label }))} className="w-full" />
+      <div className="-mt-1 px-3.5 pb-2">
+        <DotTabs label="View" value={view} onChange={onView} options={VIEWS.map(({ value, label }) => ({ value, label }))} />
       </div>
       {menu}
     </div>

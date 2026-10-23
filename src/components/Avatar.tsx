@@ -20,14 +20,14 @@ export function Avatar({ name, image, size }: { name: string; image: string | nu
         referrerPolicy="no-referrer"
         onError={() => setBroken(true)}
         style={style}
-        className="flex-none rounded-full bg-fill object-cover"
+        className="flex-none rounded-full bg-fill-on object-cover"
       />
     );
   }
   return (
     <span
       style={style}
-      className="flex flex-none items-center justify-center rounded-full bg-gradient-to-b from-[#a1a1a6] to-[#86868b] font-semibold text-white"
+      className="flex flex-none items-center justify-center rounded-full bg-fill-on font-semibold text-ink-2"
     >
       {initials(name)}
     </span>

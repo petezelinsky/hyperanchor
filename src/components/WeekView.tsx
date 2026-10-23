@@ -1,10 +1,10 @@
 "use client";
 
-import { addDays, dayDiff, formatShort, parseYmd, rangeLabel, startOfWeek, ymd } from "@/lib/dates";
-import { ListIcon } from "./icons";
+import { addDays, dayDiff, formatShort, isoWeek, parseYmd, spanLabel, startOfWeek, ymd } from "@/lib/dates";
 import { TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
-import { EmptyState, NavGroup, NewTaskButton, SearchField, Toolbar } from "./Toolbar";
+import { ProgressLine } from "./ui";
+import { EmptyState, NavControls, NewTaskButton, Page, SearchField, ViewHeader } from "./ViewHeader";
 
 export function WeekView({
   selected,
@@ -25,42 +25,51 @@ export function WeekView({
 }) {
   const { todayKey } = state;
   const start = startOfWeek(parseYmd(selected));
+  const end = addDays(start, 6);
   const weeks = Math.round(dayDiff(start, startOfWeek(parseYmd(todayKey))) / 7);
-  const title = weeks === 0 ? "This Week" : weeks === -1 ? "Last Week" : weeks === 1 ? "Next Week" : `Week of ${formatShort(start)}`;
+  const title = weeks === 0 ? "This week." : weeks === -1 ? "Last week." : weeks === 1 ? "Next week." : `The week of ${formatShort(start)}.`;
   const tasks = sections.flatMap((s) => s.tasks);
   const done = tasks.filter((t) => t.done).length;
 
   return (
-    <>
-      <Toolbar title={title} subtitle={`${rangeLabel(start, addDays(start, 6))} · ${tasks.length ? `${done} of ${tasks.length} done` : "No tasks"}`}>
+    <Page className="pb-20">
+      <ViewHeader
+        label={`Week ${isoWeek(start)} · ${spanLabel(start, end)}`}
+        title={title}
+        rest={tasks.length ? `${done} of ${tasks.length} done.` : "Nothing planned yet."}
+        animKey={ymd(start)}
+      >
         <SearchField value={query} onChange={onQuery} />
-        <NavGroup
+        <NavControls
           prevLabel="Previous week"
           nextLabel="Next week"
-          todayLabel="This Week"
+          todayLabel="This week"
           onPrev={() => onSelectDate(ymd(addDays(parseYmd(selected), -7)))}
           onNext={() => onSelectDate(ymd(addDays(parseYmd(selected), 7)))}
           onToday={() => onSelectDate(todayKey)}
-          todayDisabled={weeks === 0}
+          showToday={weeks !== 0}
         />
         <NewTaskButton onClick={() => actions.openComposer(selected)} />
-      </Toolbar>
+      </ViewHeader>
 
-      <div className="px-4 pt-2 pb-16 md:px-7">
+      {tasks.length > 0 && (
+        <div className="mt-5 flex items-center gap-3">
+          <ProgressLine value={done / tasks.length} className="flex-1" />
+          <span className="tabular font-mono text-[11px] text-muted">
+            {done}/{tasks.length}
+          </span>
+        </div>
+      )}
+
+      <div className="mt-6">
         <TaskTable
           sections={sections}
           state={state}
           actions={actions}
           grouped
-          empty={
-            query ? (
-              <EmptyState icon={<ListIcon size={22} />} title="No matching tasks">
-                Nothing this week matches “{query}”.
-              </EmptyState>
-            ) : null
-          }
+          empty={query ? <EmptyState title="No matches">Nothing this week matches “{query}”.</EmptyState> : null}
         />
       </div>
-    </>
+    </Page>
   );
 }

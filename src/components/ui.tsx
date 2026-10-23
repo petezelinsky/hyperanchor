@@ -2,60 +2,57 @@
 
 import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckIcon } from "./icons";
 
 // ── Buttons ──────────────────────────────────────────────────────────────────
 
-type Variant = "primary" | "secondary" | "plain";
+type Variant = "primary" | "outline" | "text";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-white shadow-[0_0.5px_1px_rgba(0,0,0,0.18)] hover:bg-accent-hover",
-  secondary: "bg-control text-label shadow-control hover:bg-fill-3 active:bg-fill-2",
-  plain: "text-label-2 hover:bg-fill-2 hover:text-label active:bg-fill",
+  primary: "rounded-full bg-ink text-on-ink active:scale-[0.98]",
+  outline: "rounded-full border border-edge bg-paper text-ink hover:border-ink",
+  text: "rounded-[10px] text-muted hover:bg-fill hover:text-ink",
 };
 const sizes: Record<Size, string> = {
-  sm: "h-6 rounded-[6px] px-2 text-[12px]",
-  md: "h-7 rounded-[7px] px-3 text-[13px]",
-  lg: "h-9 rounded-[8px] px-4 text-[14px]",
+  sm: "h-8 px-3 text-[13px]",
+  md: "h-9 px-4 text-[13.5px]",
+  lg: "h-11 px-5 text-[14.5px]",
 };
-const iconSizes: Record<Size, string> = { sm: "size-6 rounded-[6px]", md: "size-7 rounded-[7px]", lg: "size-9 rounded-[8px]" };
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = "secondary", size = "md", className = "", type = "button", ...props },
+  { variant = "outline", size = "md", className = "", type = "button", ...props },
   ref,
 ) {
   return (
     <button
       ref={ref}
       type={type}
-      className={`inline-flex items-center justify-center gap-1.5 font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 select-none disabled:pointer-events-none disabled:opacity-40 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 font-medium whitespace-nowrap transition-[transform,background-color,border-color,color] duration-150 select-none disabled:pointer-events-none disabled:opacity-35 ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     />
   );
 });
 
-export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { label: string }>(function IconButton(
-  { variant = "plain", size = "md", className = "", label, type = "button", ...props },
-  ref,
-) {
-  return (
-    <button
-      ref={ref}
-      type={type}
-      aria-label={label}
-      title={props.title ?? label}
-      className={`inline-flex flex-none items-center justify-center transition-[background-color,color,box-shadow] duration-150 disabled:pointer-events-none disabled:opacity-35 ${variants[variant]} ${iconSizes[size]} ${className}`}
-      {...props}
-    />
-  );
-});
+export const IconButton = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string; size?: "sm" | "md" }>(
+  function IconButton({ size = "md", className = "", label, type = "button", ...props }, ref) {
+    return (
+      <button
+        ref={ref}
+        type={type}
+        aria-label={label}
+        title={props.title ?? label}
+        className={`inline-flex flex-none items-center justify-center rounded-full text-ink transition-colors duration-150 hover:bg-fill disabled:pointer-events-none disabled:opacity-30 ${size === "sm" ? "size-7" : "size-9"} ${className}`}
+        {...props}
+      />
+    );
+  },
+);
 
-// ── Segmented control ────────────────────────────────────────────────────────
+// ── Dot toggles: a dot and a word, not a pill switch ─────────────────────────
 
-export function SegmentedControl<T extends string>({
+export function DotTabs<T extends string>({
   value,
   options,
   onChange,
@@ -69,7 +66,7 @@ export function SegmentedControl<T extends string>({
   className?: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className={`inline-flex rounded-[8px] bg-fill p-[2px] ${className}`}>
+    <div role="radiogroup" aria-label={label} className={`flex items-center ${className}`}>
       {options.map((o) => {
         const on = o.value === value;
         return (
@@ -79,10 +76,15 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={`h-6 flex-1 rounded-[6px] px-3 text-[12.5px] font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 ${
-              on ? "bg-control text-label shadow-raised" : "text-label/75 hover:text-label"
+            className={`group inline-flex h-9 items-center gap-2 rounded-full pr-3 pl-2.5 text-[13.5px] font-medium transition-[color,background-color] duration-200 hover:bg-fill ${
+              on ? "text-ink" : "text-muted hover:text-ink"
             }`}
           >
+            <span
+              className={`size-2 rounded-full border-[1.3px] transition-[background-color,border-color,transform] duration-300 ease-quiet ${
+                on ? "scale-115 border-ink bg-ink" : "border-current bg-transparent"
+              }`}
+            />
             {o.label}
           </button>
         );
@@ -91,21 +93,10 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-// ── Checkbox (round, Reminders-style) ────────────────────────────────────────
+// ── Checkbox: ink circle, the check draws itself when completed ──────────────
 
-export function Checkbox({
-  checked,
-  onToggle,
-  label,
-  size = 18,
-  className = "",
-}: {
-  checked: boolean;
-  onToggle: () => void;
-  label: string;
-  size?: number;
-  className?: string;
-}) {
+export function Checkbox({ checked, onToggle, label, size = 20, className = "" }: { checked: boolean; onToggle: () => void; label: string; size?: number; className?: string }) {
+  const [fresh, setFresh] = useState(false);
   return (
     <button
       type="button"
@@ -114,19 +105,34 @@ export function Checkbox({
       aria-label={label}
       onClick={(e) => {
         e.stopPropagation();
+        setFresh(!checked);
         onToggle();
       }}
+      onAnimationEnd={() => setFresh(false)}
       style={{ width: size, height: size }}
-      className={`flex flex-none items-center justify-center rounded-full border-[1.5px] transition-colors duration-150 ${
-        checked ? "border-accent bg-accent text-white" : "border-label-4 bg-transparent hover:border-accent"
-      } ${className}`}
+      className={`flex flex-none items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color] duration-200 ${
+        checked ? "border-ink bg-ink text-on-ink" : "border-ghost bg-transparent hover:border-ink"
+      } ${fresh ? "animate-bump" : ""} ${className}`}
     >
-      {checked && <CheckIcon size={Math.round(size * 0.56)} strokeWidth={2.2} />}
+      {checked && (
+        <svg width={size * 0.5} height={size * 0.5} viewBox="0 0 10 10" aria-hidden="true">
+          <path
+            d="M2 5.3 4.1 7.3 8 3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={12}
+            className={fresh ? "animate-draw" : ""}
+          />
+        </svg>
+      )}
     </button>
   );
 }
 
-// ── Floating surfaces (menus, popovers) ──────────────────────────────────────
+// ── Floating surfaces ────────────────────────────────────────────────────────
 
 export type Anchor = DOMRect | { x: number; y: number };
 
@@ -146,8 +152,8 @@ function useFloating(anchor: Anchor, align: "start" | "end") {
     let top: number;
     if ("width" in anchor) {
       left = align === "end" ? anchor.right - w : anchor.left;
-      top = anchor.bottom + 4;
-      if (top + h > vh - m && anchor.top - h - 4 > m) top = anchor.top - h - 4;
+      top = anchor.bottom + 6;
+      if (top + h > vh - m && anchor.top - h - 6 > m) top = anchor.top - h - 6;
     } else {
       left = anchor.x;
       top = anchor.y;
@@ -205,22 +211,28 @@ export function Popover({
   const { ref, style } = useFloating(anchor, align);
   useDismiss(ref, onClose, true, trigger);
   return createPortal(
-    <div
-      ref={ref}
-      role="dialog"
-      aria-label={label}
-      data-floating=""
-      style={style}
-      className={`material fixed z-[100] rounded-[12px] bg-elevated shadow-popover ${className}`}
-    >
+    <div ref={ref} role="dialog" aria-label={label} data-floating="" style={style} className={`fixed z-[100] animate-pop rounded-[22px] bg-paper shadow-card ${className}`}>
       {children}
     </div>,
     document.body,
   );
 }
 
+export function Modal({ onClose, label, className = "", children }: { onClose: () => void; label: string; className?: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDismiss(ref, onClose);
+  return createPortal(
+    <div data-floating="" className="fixed inset-0 z-[110] flex animate-fade items-center justify-center bg-scrim p-4">
+      <div ref={ref} role="dialog" aria-modal="true" aria-label={label} className={`w-full animate-pop rounded-[22px] bg-paper shadow-lift ${className}`}>
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export type MenuEntry =
-  | { label: string; onSelect: () => void; destructive?: boolean; disabled?: boolean; shortcut?: string; icon?: React.ReactNode }
+  | { label: string; onSelect: () => void; disabled?: boolean; shortcut?: string; icon?: React.ReactNode }
   | { separator: true }
   | { heading: string };
 
@@ -275,42 +287,56 @@ export function Menu({
       data-floating=""
       onKeyDown={onKeyDown}
       style={style}
-      className="material fixed z-[100] min-w-[210px] rounded-[10px] bg-elevated p-[5px] text-[13px] shadow-popover outline-none"
+      className="fixed z-[100] min-w-[220px] animate-pop rounded-[14px] bg-paper p-1.5 shadow-menu outline-none"
     >
-      {entries.map((e, i) => {
-        if ("separator" in e) return <div key={i} role="separator" className="mx-2 my-[5px] h-px bg-separator-strong" />;
-        if ("heading" in e)
+      <>
+        {entries.map((e, i) => {
+          if ("separator" in e) return <div key={i} role="separator" className="mx-2 my-1.5 h-px bg-line" />;
+          if ("heading" in e)
+            return (
+              <div key={i} className="mono-label px-3 pt-2 pb-1.5">
+                {e.heading}
+              </div>
+            );
           return (
-            <div key={i} className="px-2.5 pt-1 pb-1 text-[11.5px] font-semibold text-label-3">
-              {e.heading}
-            </div>
+            <button
+              key={i}
+              type="button"
+              role="menuitem"
+              disabled={e.disabled}
+              onMouseEnter={() => setActive(i)}
+              onMouseLeave={() => setActive(-1)}
+              onClick={() => run(e)}
+              className={`flex h-9 w-full items-center gap-3 rounded-[9px] px-3 text-left text-[13.5px] whitespace-nowrap text-ink transition-colors duration-100 disabled:text-ghost ${
+                i === active ? "bg-fill" : ""
+              }`}
+            >
+              {e.icon && <span className="text-muted">{e.icon}</span>}
+              <span className="flex-1">{e.label}</span>
+              {e.shortcut && <span className="pl-6 font-mono text-[11px] text-faint">{e.shortcut}</span>}
+            </button>
           );
-        const on = i === active;
-        return (
-          <button
-            key={i}
-            type="button"
-            role="menuitem"
-            disabled={e.disabled}
-            onMouseEnter={() => setActive(i)}
-            onMouseLeave={() => setActive(-1)}
-            onClick={() => run(e)}
-            className={`flex h-[26px] w-full items-center gap-2 rounded-[5px] px-2.5 text-left whitespace-nowrap disabled:opacity-40 ${
-              on ? (e.destructive ? "bg-red text-white" : "bg-accent text-white") : e.destructive ? "text-red" : "text-label"
-            }`}
-          >
-            {e.icon && <span className={on ? "text-white" : "text-label-2"}>{e.icon}</span>}
-            <span className="flex-1">{e.label}</span>
-            {e.shortcut && <span className={`pl-6 text-[12px] ${on ? "text-white/75" : "text-label-3"}`}>{e.shortcut}</span>}
-          </button>
-        );
-      })}
+        })}
+      </>
     </div>,
     document.body,
   );
 }
 
-/** Small key hint, e.g. ⏎ or N. */
+/** Key cap, e.g. N or ⏎. */
 export function Kbd({ children }: { children: React.ReactNode }) {
-  return <kbd className="rounded-[4px] bg-fill-2 px-1 font-sans text-[11px] text-label-3">{children}</kbd>;
+  return (
+    <kbd className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[6px] border border-edge bg-paper px-1.5 font-mono text-[11px] text-ink-2">
+      {children}
+    </kbd>
+  );
+}
+
+/** Thin progress line (0…1). */
+export function ProgressLine({ value, className = "" }: { value: number; className?: string }) {
+  return (
+    <span className={`block h-[2px] overflow-hidden rounded-full bg-track ${className}`}>
+      <span className="block h-full rounded-full bg-ink transition-[width] duration-700 ease-quiet" style={{ width: `${Math.min(1, Math.max(0, value)) * 100}%` }} />
+    </span>
+  );
 }
