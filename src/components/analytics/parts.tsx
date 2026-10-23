@@ -1,85 +1,49 @@
-"use client";
+import { fmt1, pct, type Period, type Summary } from "@/lib/stats";
 
-import { useEffect, useRef, useState } from "react";
-import { fmt1, type Period, type Summary } from "@/lib/stats";
-
-/** A titled section: mono label on a hairline, content below. No boxes. */
-export function Section({ label, aside, className = "", children }: { label: string; aside?: React.ReactNode; className?: string; children: React.ReactNode }) {
+export function Card({ title, aside, className = "", children }: { title: string; aside?: React.ReactNode; className?: string; children: React.ReactNode }) {
   return (
-    <section className={className}>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
-        <h2 className="mono-label text-ink-2">{label}</h2>
+    <section className={`rounded-[12px] bg-card p-4 shadow-card md:p-5 ${className}`}>
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
         {aside}
-      </div>
-      <div className="pt-6">{children}</div>
+      </header>
+      {children}
     </section>
   );
 }
 
-/** Animates a number towards `value` (ease-out), e.g. for KPI counters. */
-export function useCountUp(value: number, ms = 700) {
-  const [shown, setShown] = useState(0);
-  const from = useRef(0);
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setShown(value);
-      return;
-    }
-    const start = performance.now();
-    const a = from.current;
-    let raf = 0;
-    const tick = (t: number) => {
-      const k = Math.min(1, (t - start) / ms);
-      const v = a + (value - a) * (1 - Math.pow(1 - k, 3));
-      setShown(v);
-      from.current = v;
-      if (k < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [value, ms]);
-  return shown;
-}
-
-function Count({ value, format }: { value: number; format: (n: number) => string }) {
-  return <>{format(useCountUp(value))}</>;
-}
-
-/** Progress ring (0…1). */
-export function Ring({ value, size = 44, stroke = 4 }: { value: number | null; size?: number; stroke?: number }) {
+/** Activity-ring style progress (0…1). */
+export function Ring({ value, size = 40, stroke = 5 }: { value: number | null; size?: number; stroke?: number }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setV(value ?? 0));
-    return () => cancelAnimationFrame(id);
-  }, [value]);
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="flex-none -rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={stroke} />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke="var(--ink)"
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={c * (1 - Math.min(1, v))}
-        className={`transition-[stroke-dashoffset] duration-1000 ease-quiet ${v > 0 ? "" : "opacity-0"}`}
-      />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--fill)" strokeWidth={stroke} />
+      {value != null && value > 0 && (
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - Math.min(1, value))}
+          className="transition-[stroke-dashoffset] duration-700 ease-out"
+        />
+      )}
     </svg>
   );
 }
 
 function Delta({ value, unit, digits, suffix = "" }: { value: number; unit: string; digits: number; suffix?: string }) {
   const r = Number(value.toFixed(digits));
-  if (r === 0) return <>Same as the previous {unit}</>;
+  if (r === 0) return <>Same as previous {unit}</>;
   return (
     <>
-      <span className={r > 0 ? "font-medium text-ink" : "text-ink-2"}>
-        {r > 0 ? "↑" : "↓"} {Math.abs(r).toFixed(digits).replace(/\.0$/, "")}
+      <span className={r > 0 ? "font-medium text-green" : "font-medium text-label"}>
+        {r > 0 ? "▲" : "▼"} {Math.abs(r).toFixed(digits).replace(/\.0$/, "")}
         {suffix}
       </span>{" "}
       vs previous {unit}
@@ -87,43 +51,36 @@ function Delta({ value, unit, digits, suffix = "" }: { value: number; unit: stri
   );
 }
 
-const BORDERS = ["max-lg:pl-0 lg:pl-0", "border-l", "max-lg:border-t max-lg:pl-0 lg:border-l", "border-l max-lg:border-t"];
+function Tile({ label, value, extra, foot, visual }: { label: string; value: React.ReactNode; extra?: string; foot: React.ReactNode; visual?: React.ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col rounded-[12px] bg-card p-4 shadow-card">
+      <div className="text-[12px] font-medium text-label-2">{label}</div>
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <div className="tabular font-display text-[28px] leading-8 font-semibold tracking-[-0.02em]">
+          {value}
+          {extra && <span className="text-[15px] font-medium tracking-normal text-label-3">{extra}</span>}
+        </div>
+        {visual}
+      </div>
+      <div className="mt-1.5 text-[12px] leading-4 text-label-2">{foot}</div>
+    </div>
+  );
+}
 
-export function KpiStrip({ sum, prev, period, className = "" }: { sum: Summary; prev: Summary; period: Period; className?: string }) {
+export function Kpis({ sum, prev, period }: { sum: Summary; prev: Summary; period: Period }) {
   const prevHas = prev.planned > 0;
   const none = <>No data for the previous {period}</>;
-  const tiles: { label: string; value: React.ReactNode; foot: React.ReactNode; visual?: React.ReactNode }[] = [
-    { label: "Completed", value: <Count value={sum.completed} format={(n) => String(Math.round(n))} />, foot: sum.planned ? `of ${sum.planned} planned` : "Nothing planned yet" },
-    {
-      label: "Completion rate",
-      value: sum.rate == null ? "—" : <Count value={sum.rate * 100} format={(n) => `${Math.round(n)}%`} />,
-      visual: <Ring value={sum.rate} />,
-      foot: sum.rate == null ? "Plan tasks to see it" : prevHas && prev.rate != null ? <Delta value={(sum.rate - prev.rate) * 100} unit={period} digits={0} suffix=" pts" /> : none,
-    },
-    { label: "Daily average", value: <Count value={sum.avg} format={fmt1} />, foot: prevHas ? <Delta value={sum.avg - prev.avg} unit={period} digits={1} /> : none },
-    {
-      label: "Active days",
-      value: (
-        <>
-          <Count value={sum.activeDays} format={(n) => String(Math.round(n))} />
-          <span className="text-[20px] tracking-normal text-faint"> / {sum.elapsedDays}</span>
-        </>
-      ),
-      foot: "Days with something done",
-    },
-  ];
   return (
-    <div className={`grid grid-cols-2 border-y border-line lg:grid-cols-4 ${className}`}>
-      {tiles.map((t, i) => (
-        <div key={t.label} className={`border-line px-5 py-6 ${BORDERS[i]}`}>
-          <div className="mono-label">{t.label}</div>
-          <div className="mt-4 flex items-end justify-between gap-2">
-            <span className="tabular text-[40px] leading-none font-medium tracking-[-0.045em] md:text-[46px]">{t.value}</span>
-            {t.visual}
-          </div>
-          <div className="mt-3 text-[12.5px] leading-snug text-muted">{t.foot}</div>
-        </div>
-      ))}
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Tile label="Completed" value={sum.completed} foot={sum.planned ? `of ${sum.planned} planned` : "Nothing planned yet"} />
+      <Tile
+        label="Completion rate"
+        value={sum.rate == null ? "—" : pct(sum.rate)}
+        visual={<Ring value={sum.rate} />}
+        foot={sum.rate == null ? "Plan tasks to see your rate" : prevHas && prev.rate != null ? <Delta value={(sum.rate - prev.rate) * 100} unit={period} digits={0} suffix=" pts" /> : none}
+      />
+      <Tile label="Daily average" value={fmt1(sum.avg)} foot={prevHas ? <Delta value={sum.avg - prev.avg} unit={period} digits={1} /> : none} />
+      <Tile label="Active days" value={sum.activeDays} extra={` / ${sum.elapsedDays}`} foot="Days with completed tasks" />
     </div>
   );
 }

@@ -19,7 +19,6 @@ export type TableActions = {
   toggle: (task: Task) => void;
   move: (task: Task, date: string) => void;
   remove: (task: Task) => void;
-  duplicate: (task: Task) => void;
   openComposer: (date: string) => void;
   composerChange: (patch: Partial<Composer>) => void;
   composerSubmit: (keepOpen: boolean) => void;

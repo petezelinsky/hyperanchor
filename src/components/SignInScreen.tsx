@@ -1,104 +1,80 @@
 import Link from "next/link";
 import { signInWithGoogle } from "@/app/actions";
+import { AppIcon } from "./AppIcon";
+import { AppPreview } from "./AppPreview";
 import { GoogleButton } from "./GoogleButton";
-import { LiveDemo } from "./LiveDemo";
+import { ChartIcon, ListIcon, WeekIcon } from "./icons";
 import { SiteFooter, SiteHeader } from "./Site";
 
 const FEATURES = [
   {
-    title: "Type it. It lands.",
-    text: "Quick add understands dates — “Report fri”, “Dentist oct 28”, “Review in 3 days” — and puts the task on the right day.",
+    icon: <ListIcon size={18} />,
+    title: "A table built for planning",
+    text: "Add, edit and check off tasks inline. Keyboard shortcuts for everything — N for a new task, Space to complete it.",
   },
   {
-    title: "A list with a spine.",
-    text: "Every task in a strict, keyboard-first table. Edit in place, sort, carry unfinished work over in one click.",
+    icon: <WeekIcon size={18} />,
+    title: "Your week and month at a glance",
+    text: "See the whole week grouped by day or the month on a calendar. Move anything to today or tomorrow in a click.",
   },
   {
-    title: "Numbers without noise.",
-    text: "Week, month and year at a glance: what you finished, your strongest days, and what is still open.",
+    icon: <ChartIcon size={18} />,
+    title: "Analytics that stay calm",
+    text: "Completion rate, daily average, your strongest weekdays and a year of activity. Clear, private, no noise.",
   },
 ];
 
-function SignIn({ error }: { error?: boolean }) {
-  return (
-    <div className="flex flex-col items-start gap-3">
-      <form action={signInWithGoogle}>
-        <GoogleButton />
-      </form>
-      {error && (
-        <p role="alert" className="text-[13px] text-signal">
-          Sign-in didn’t work. Please try again.
-        </p>
-      )}
-      <p className="max-w-[320px] text-[12.5px] leading-relaxed text-muted">
-        Free. By continuing, you agree to the{" "}
-        <Link href="/terms" className="text-ink-2 underline decoration-ghost underline-offset-[3px] hover:decoration-ink">
-          Terms
-        </Link>{" "}
-        and the{" "}
-        <span className="whitespace-nowrap">
-          <Link href="/privacy" className="text-ink-2 underline decoration-ghost underline-offset-[3px] hover:decoration-ink">
-            Privacy Policy
-          </Link>
-          .
-        </span>
-      </p>
-    </div>
-  );
-}
-
 export function SignInScreen({ error }: { error?: boolean }) {
   return (
-    <div className="min-h-dvh bg-paper">
+    <div className="min-h-dvh bg-window">
       <SiteHeader>
         <form action={signInWithGoogle}>
-          <button type="submit" className="h-9 rounded-[10px] px-3 text-[13.5px] text-muted transition-colors hover:bg-fill hover:text-ink">
+          <button type="submit" className="text-[13px] font-medium text-accent hover:underline">
             Sign in
           </button>
         </form>
       </SiteHeader>
 
       <main>
-        <section className="mx-auto max-w-[1040px] px-5 pt-16 md:pt-28">
-          <div className="mono-label flex animate-up items-center gap-2">
-            <span className="size-1.5 rounded-full bg-signal" />
-            Task planner
-          </div>
-          <h1 className="mt-6 max-w-[900px] animate-up text-[46px] leading-[1.02] font-medium tracking-[-0.045em] [animation-delay:80ms] md:text-[80px]">
-            Your whole week,
+        <section className="mx-auto max-w-[1100px] px-5 pt-14 pb-12 text-center md:pt-24">
+          <AppIcon size={72} className="mx-auto shadow-[0_14px_32px_-10px_rgba(0,96,223,0.55)]" />
+          <h1 className="mt-8 font-display text-[42px] leading-[1.05] font-bold tracking-[-0.035em] text-balance md:text-[64px]">
+            Your whole week
             <br />
-            <span className="text-faint">on one screen.</span>
+            on one screen.
           </h1>
-          <div className="mt-10 grid animate-up items-end gap-8 [animation-delay:200ms] md:grid-cols-[minmax(0,1fr)_auto] md:gap-16">
-            <p className="max-w-[520px] text-[17px] leading-relaxed text-ink-2 md:text-[19px]">
-              A calm planner for people who like their lists strict. Type a task and it lands on the right day. Check it off and watch the week
-              fill up.
+          <p className="mx-auto mt-5 max-w-[620px] text-[17px] leading-relaxed text-pretty text-label-2 md:text-[20px]">
+            Hyperanchor is a calm, focused planner. Plan each day in a clean table, see the week and month at a glance, and understand how you
+            get things done.
+          </p>
+          <form action={signInWithGoogle} className="mt-9 flex justify-center">
+            <GoogleButton />
+          </form>
+          {error && (
+            <p role="alert" className="mt-4 text-[13px] text-red">
+              Sign-in didn’t work. Please try again.
             </p>
-            <SignIn error={error} />
-          </div>
+          )}
+          <p className="mt-4 text-[12.5px] text-label-3">
+            Free. By continuing, you agree to the <Link href="/terms">Terms of Service</Link> and{" "}
+            <span className="whitespace-nowrap">
+              <Link href="/privacy">Privacy Policy</Link>.
+            </span>
+          </p>
         </section>
 
-        <section className="mx-auto mt-16 max-w-[1040px] animate-up px-5 [animation-delay:340ms] md:mt-24">
-          <LiveDemo />
+        <section className="mx-auto max-w-[1040px] px-5">
+          <AppPreview />
         </section>
 
-        <section className="mx-auto mt-24 grid max-w-[1040px] gap-10 px-5 md:mt-32 md:grid-cols-3 md:gap-8">
-          {FEATURES.map((f, i) => (
-            <div key={f.title} className="border-t border-ink pt-5">
-              <div className="mono-label">0{i + 1}</div>
-              <h2 className="mt-5 text-[20px] font-medium tracking-[-0.02em]">{f.title}</h2>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-muted">{f.text}</p>
+        <section className="mx-auto grid max-w-[1040px] gap-10 px-5 py-20 md:grid-cols-3 md:py-24">
+          {FEATURES.map((f) => (
+            <div key={f.title}>
+              <div className="flex size-9 items-center justify-center rounded-[9px] bg-accent-soft text-accent">{f.icon}</div>
+              <h2 className="mt-4 text-[17px] font-semibold tracking-[-0.01em]">{f.title}</h2>
+              <p className="mt-1.5 text-[14.5px] leading-relaxed text-label-2">{f.text}</p>
             </div>
           ))}
-        </section>
-
-        <section className="mx-auto mt-28 mb-24 max-w-[1040px] px-5 md:mt-36">
-          <div className="grid items-end gap-8 border-t border-line pt-12 md:grid-cols-[minmax(0,1fr)_auto]">
-            <h2 className="text-[34px] leading-[1.08] font-medium tracking-[-0.035em] md:text-[48px]">
-              Plan less. <span className="text-faint">Finish more.</span>
-            </h2>
-            <SignIn />
-          </div>
         </section>
       </main>
 

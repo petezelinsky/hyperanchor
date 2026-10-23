@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MONTHS_SHORT, ymd } from "@/lib/dates";
+import { formatStamp } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { AutoTextarea } from "../AutoTextarea";
 import { EllipsisIcon } from "../icons";
@@ -10,14 +10,7 @@ import type { Field, TableActions } from "./types";
 
 // Responsive columns (container queries): check | task | notes | added | menu.
 export const COLS =
-  "grid grid-cols-[44px_minmax(0,1fr)_36px] @2xl:grid-cols-[44px_minmax(180px,2fr)_minmax(0,3fr)_36px] @4xl:grid-cols-[44px_minmax(200px,2fr)_minmax(0,3fr)_76px_36px]";
-
-/** "09:10" for today, "OCT 21" otherwise. */
-function stamp(iso: string, todayKey: string) {
-  const d = new Date(iso);
-  if (ymd(d) === todayKey) return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`.toUpperCase();
-}
+  "grid grid-cols-[36px_minmax(0,1fr)_32px] @2xl:grid-cols-[36px_minmax(180px,2fr)_minmax(0,3fr)_32px] @4xl:grid-cols-[36px_minmax(200px,2fr)_minmax(0,3fr)_88px_32px]";
 
 /** Moves the caret to the end once the field mounts. */
 function useFocusEnd(active: boolean) {
@@ -33,7 +26,6 @@ function useFocusEnd(active: boolean) {
 
 export function TaskRow({
   task,
-  index,
   todayKey,
   selected,
   editingField,
@@ -41,7 +33,6 @@ export function TaskRow({
   onMenu,
 }: {
   task: Task;
-  index: number;
   todayKey: string;
   selected: boolean;
   editingField: Field | null;
@@ -51,7 +42,6 @@ export function TaskRow({
   const titleRef = useFocusEnd(editingField === "title");
   const notesRef = useFocusEnd(editingField === "description");
   const editing = editingField !== null;
-  const active = selected || editing;
 
   const keys = (field: Field) => (e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return;
@@ -68,34 +58,27 @@ export function TaskRow({
     }
   };
 
-  const title =
-    editingField === "title" ? (
-      <input
-        ref={titleRef}
-        value={task.title}
-        onChange={(e) => actions.change(task.id, { title: e.target.value })}
-        onKeyDown={keys("title")}
-        aria-label="Task title"
-        maxLength={500}
-        className="m-0 block w-full bg-transparent p-0 text-[15px] leading-[22px] text-ink"
-      />
-    ) : (
-      <span
-        onClick={() => actions.startEdit(task.id, "title")}
-        className={`relative inline-block max-w-full truncate align-top text-[15px] leading-[22px] transition-colors duration-300 ${task.done ? "text-faint" : "text-ink"}`}
-      >
-        {task.title}
-        {/* The strike sweeps across when a task is completed. */}
-        <span
-          aria-hidden="true"
-          className={`pointer-events-none absolute top-1/2 left-0 h-px w-full origin-left bg-current transition-transform duration-300 ease-sweep ${task.done ? "scale-x-100" : "scale-x-0"}`}
-        />
-      </span>
-    );
+  const titleCls = `block w-full truncate text-[14px] leading-5 ${task.done ? "text-label-3" : "text-label"}`;
+  const notesCls = "block w-full truncate text-[13px] leading-[19px] text-label-2";
+
+  const title = editingField === "title" ? (
+    <input
+      ref={titleRef}
+      value={task.title}
+      onChange={(e) => actions.change(task.id, { title: e.target.value })}
+      onKeyDown={keys("title")}
+      aria-label="Task title"
+      maxLength={500}
+      className={`${titleCls} m-0 bg-transparent p-0 text-label outline-none`}
+    />
+  ) : (
+    <span className={titleCls} onClick={() => actions.startEdit(task.id, "title")}>
+      {task.title}
+    </span>
+  );
 
   // One notes element: under the title in narrow tables, in its own column from @2xl (grid placement below).
   const hasNotes = !!task.description || editingField === "description";
-  const notesCls = "block w-full truncate text-[13.5px] leading-[20px]";
   const notes =
     editingField === "description" ? (
       <AutoTextarea
@@ -106,15 +89,15 @@ export function TaskRow({
         placeholder="Notes"
         aria-label="Notes"
         maxLength={5000}
-        className="text-[13.5px] leading-[20px] text-ink"
+        className="text-[13px] leading-[19px] text-label"
       />
     ) : task.description ? (
-      <span className={`${notesCls} text-muted`} onClick={() => actions.startEdit(task.id, "description")}>
+      <span className={notesCls} onClick={() => actions.startEdit(task.id, "description")}>
         {task.description.replace(/\s*\n\s*/g, " · ")}
       </span>
     ) : (
       <span
-        className={`${notesCls} text-ghost transition-opacity duration-150 ${active ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"}`}
+        className={`${notesCls} text-label-3 transition-opacity duration-150 ${selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"}`}
         onClick={() => actions.startEdit(task.id, "description")}
       >
         Add note
@@ -133,12 +116,11 @@ export function TaskRow({
         actions.select(task.id);
         onMenu(task, { x: e.clientX, y: e.clientY });
       }}
-      style={{ animationDelay: `${Math.min(index, 14) * 22}ms` }}
-      className={`group/row relative ${COLS} min-h-[52px] animate-up items-start border-b border-line transition-colors duration-150 before:absolute before:top-3 before:bottom-3 before:left-0 before:w-[2px] before:rounded-full before:bg-ink before:transition-opacity before:duration-200 ${
-        active ? "bg-fill-row before:opacity-100" : "before:opacity-0 hover:bg-fill-row"
+      className={`group/row relative ${COLS} min-h-10 items-start rounded-[7px] px-1 transition-colors duration-100 after:pointer-events-none after:absolute after:right-2 after:bottom-0 after:left-11 after:h-px after:bg-separator ${
+        selected || editing ? "bg-accent-soft after:opacity-0" : "hover:bg-fill-3"
       }`}
     >
-      <div role="gridcell" className="col-start-1 row-start-1 flex h-[52px] items-center justify-center">
+      <div role="gridcell" className="col-start-1 row-start-1 flex h-10 items-center justify-center">
         <Checkbox
           checked={task.done}
           onToggle={() => {
@@ -148,19 +130,19 @@ export function TaskRow({
           label={task.done ? `Mark “${task.title}” as not done` : `Mark “${task.title}” as done`}
         />
       </div>
-      <div role="gridcell" className="col-start-2 row-start-1 min-w-0 py-[15px] pr-4">
+      <div role="gridcell" className="col-start-2 row-start-1 min-w-0 py-[10px] pr-3">
         {title}
       </div>
       <div
         role="gridcell"
-        className={`col-start-2 row-start-2 -mt-3 min-w-0 pr-4 pb-[14px] @2xl:col-start-3 @2xl:row-start-1 @2xl:mt-0 @2xl:pt-[16px] ${hasNotes ? "" : "@max-2xl:hidden"}`}
+        className={`col-start-2 row-start-2 -mt-2 min-w-0 pr-3 pb-[10px] @2xl:col-start-3 @2xl:row-start-1 @2xl:mt-0 @2xl:pt-[10px] ${hasNotes ? "" : "@max-2xl:hidden"}`}
       >
         {notes}
       </div>
-      <div role="gridcell" className="tabular hidden pt-[18px] pr-3 text-right font-mono text-[11px] leading-4 text-faint @4xl:col-start-4 @4xl:row-start-1 @4xl:block">
-        {stamp(task.createdAt, todayKey)}
+      <div role="gridcell" className="tabular hidden py-[11px] pr-2 text-right text-[12.5px] leading-[18px] text-label-3 @4xl:col-start-4 @4xl:row-start-1 @4xl:block">
+        {formatStamp(task.createdAt, todayKey)}
       </div>
-      <div role="gridcell" className="col-start-3 row-start-1 flex h-[52px] items-center justify-end pr-1 @2xl:col-start-4 @4xl:col-start-5">
+      <div role="gridcell" className="col-start-3 row-start-1 flex h-10 items-center justify-end @2xl:col-start-4 @4xl:col-start-5">
         <IconButton
           label="More actions"
           size="sm"
@@ -169,7 +151,7 @@ export function TaskRow({
             actions.select(task.id);
             onMenu(task, e.currentTarget.getBoundingClientRect(), e.currentTarget);
           }}
-          className={`text-muted ${active ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}`}
+          className={selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}
         >
           <EllipsisIcon />
         </IconButton>

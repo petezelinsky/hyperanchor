@@ -16,25 +16,27 @@ export function taskMenu(task: Task, todayKey: string, actions: TableActions): M
   const tomorrow = ymd(addDays(today, 1));
   const nextWeek = ymd(addDays(startOfWeek(today), 7));
   return [
-    { label: task.done ? "Mark as not done" : "Mark as done", shortcut: "SPACE", onSelect: () => actions.toggle(task) },
-    { label: "Edit", shortcut: "↵", onSelect: () => actions.startEdit(task.id, "title") },
-    { label: "Duplicate", onSelect: () => actions.duplicate(task) },
+    { label: task.done ? "Mark as Not Done" : "Mark as Done", shortcut: "Space", onSelect: () => actions.toggle(task) },
+    { label: "Edit", shortcut: "↩", onSelect: () => actions.startEdit(task.id, "title") },
     { separator: true },
-    { heading: "Move to" },
-    { label: "Today", disabled: task.date === todayKey, onSelect: () => actions.move(task, todayKey) },
-    { label: "Tomorrow", disabled: task.date === tomorrow, onSelect: () => actions.move(task, tomorrow) },
-    { label: "Next week", disabled: task.date === nextWeek, onSelect: () => actions.move(task, nextWeek) },
+    { label: "Move to Today", disabled: task.date === todayKey, onSelect: () => actions.move(task, todayKey) },
+    { label: "Move to Tomorrow", disabled: task.date === tomorrow, onSelect: () => actions.move(task, tomorrow) },
+    { label: "Move to Next Week", disabled: task.date === nextWeek, onSelect: () => actions.move(task, nextWeek) },
     { separator: true },
-    { label: "Delete", shortcut: "⌫", onSelect: () => actions.remove(task) },
+    { label: "Delete", shortcut: "⌫", destructive: true, onSelect: () => actions.remove(task) },
   ];
 }
 
 function SortHeader({ label, k, state, actions, className = "" }: { label: string; k: SortKey; state: TableState; actions: TableActions; className?: string }) {
   const on = state.sort.key === k && !(k === "added" && state.sort.dir === "asc");
   return (
-    <button type="button" onClick={() => actions.sort(k)} className={`flex items-center gap-1 uppercase transition-colors hover:text-ink ${on ? "text-ink" : ""} ${className}`}>
+    <button
+      type="button"
+      onClick={() => actions.sort(k)}
+      className={`flex items-center gap-1 text-left transition-colors hover:text-label ${on ? "text-label" : ""} ${className}`}
+    >
       {label}
-      {on && (state.sort.dir === "asc" ? <ChevronUp size={10} strokeWidth={2} /> : <ChevronDown size={10} strokeWidth={2} />)}
+      {on && (state.sort.dir === "asc" ? <ChevronUp size={11} strokeWidth={2} /> : <ChevronDown size={11} strokeWidth={2} />)}
     </button>
   );
 }
@@ -54,41 +56,63 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
       actions.composerCancel();
     }
   };
-  const input = "m-0 block w-full bg-transparent p-0";
-  const notes = (cls: string) => (
-    <input
-      value={composer.description}
-      onChange={(e) => actions.composerChange({ description: e.target.value })}
-      onKeyDown={keys}
-      placeholder="Notes"
-      aria-label="New task notes"
-      maxLength={5000}
-      className={`${input} text-[13.5px] leading-[20px] ${cls}`}
-    />
-  );
+  const input = "m-0 block w-full bg-transparent p-0 outline-none";
 
   return (
-    <div role="row" data-editing="true" className={`relative ${COLS} min-h-[52px] animate-up items-start border-b border-line bg-fill-row`}>
-      <div className="flex h-[52px] items-center justify-center">
-        <span className="size-5 rounded-full border-[1.5px] border-dashed border-faint" />
+    <div role="row" data-editing="true" className={`relative ${COLS} min-h-10 items-start rounded-[7px] bg-accent-soft px-1`}>
+      <div className="flex h-10 items-center justify-center">
+        <span className="size-[18px] rounded-full border-[1.5px] border-dashed border-label-3" />
       </div>
-      <div className="min-w-0 py-[15px] pr-4">
+      <div className="min-w-0 py-[10px] pr-3">
         <input
           ref={titleRef}
           value={composer.title}
           onChange={(e) => actions.composerChange({ title: e.target.value })}
           onKeyDown={keys}
-          placeholder="New task"
+          placeholder="New Task"
           aria-label="New task title"
           maxLength={500}
-          className={`${input} text-[15px] leading-[22px]`}
+          className={`${input} text-[14px] leading-5`}
         />
-        {notes("mt-1 @2xl:hidden")}
+        <input
+          value={composer.description}
+          onChange={(e) => actions.composerChange({ description: e.target.value })}
+          onKeyDown={keys}
+          placeholder="Notes"
+          aria-label="New task notes"
+          maxLength={5000}
+          className={`${input} mt-0.5 text-[13px] leading-[19px] @2xl:hidden`}
+        />
       </div>
-      <div className="hidden min-w-0 pt-[16px] pr-4 @2xl:block">{notes("")}</div>
-      <div className="mono-label hidden pt-[18px] pr-3 text-right @4xl:block">↵ add</div>
+      <div className="hidden min-w-0 py-[10px] pr-3 @2xl:block">
+        <input
+          value={composer.description}
+          onChange={(e) => actions.composerChange({ description: e.target.value })}
+          onKeyDown={keys}
+          placeholder="Notes"
+          aria-label="New task notes"
+          maxLength={5000}
+          className={`${input} text-[13px] leading-[19px]`}
+        />
+      </div>
+      <div className="hidden py-[11px] pr-2 text-right text-[12px] leading-[18px] text-label-3 @4xl:block">↩ to add</div>
       <div />
     </div>
+  );
+}
+
+function NewTaskRow({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${COLS} h-10 w-full items-center rounded-[7px] px-1 text-left text-[14px] text-label-3 transition-colors hover:bg-fill-3 hover:text-label-2`}
+    >
+      <span className="flex justify-center">
+        <PlusIcon size={15} />
+      </span>
+      <span>New Task</span>
+    </button>
   );
 }
 
@@ -97,13 +121,16 @@ export function TaskTable({
   state,
   actions,
   grouped = false,
+  placeholderRow = false,
   empty,
 }: {
   sections: Section[];
   state: TableState;
   actions: TableActions;
-  /** Week view: a header per day. */
+  /** Week view: a header row per day. */
   grouped?: boolean;
+  /** Day view: an always-visible "New Task" row. */
+  placeholderRow?: boolean;
   empty?: React.ReactNode;
 }) {
   const [menu, setMenu] = useState<MenuState>(null);
@@ -117,16 +144,15 @@ export function TaskTable({
 
   const openMenu = (task: Task, anchor: Anchor, trigger?: HTMLElement) => setMenu({ task, anchor, trigger });
   const total = sections.reduce((n, s) => n + s.tasks.length, 0);
-  let index = 0;
 
   return (
     <div ref={root} className="@container">
       <div role="grid" aria-label="Tasks">
-        <div role="row" className={`${COLS} mono-label h-9 items-center border-b border-line`}>
+        <div role="row" className={`${COLS} h-8 items-center border-b border-separator px-1 text-[12px] font-medium text-label-2`}>
           <div />
           <SortHeader label="Task" k="title" state={state} actions={actions} />
           <div className="hidden @2xl:block">Notes</div>
-          <SortHeader label="Added" k="added" state={state} actions={actions} className="hidden justify-end pr-3 @4xl:flex" />
+          <SortHeader label="Added" k="added" state={state} actions={actions} className="hidden justify-end pr-2 @4xl:flex" />
           <div />
         </div>
 
@@ -137,38 +163,36 @@ export function TaskTable({
           return (
             <div key={s.date} role="rowgroup" aria-label={grouped ? `${DOW_FULL[dowIndex(d)]}, ${formatShort(d)}` : undefined}>
               {grouped && (
-                <div className="flex items-center gap-3 border-b border-line pt-8 pb-2 pl-1">
-                  <span className="text-[15px] font-medium tracking-[-0.01em]">{DOW_FULL[dowIndex(d)]}</span>
-                  <span className="mono-label">{formatShort(d)}</span>
-                  {isToday && (
-                    <span className="flex items-center gap-1.5 text-[12px] font-medium text-ink">
-                      <span className="size-1.5 rounded-full bg-signal" />
-                      Today
-                    </span>
-                  )}
-                  <span className="tabular ml-auto font-mono text-[11px] text-faint">{s.tasks.length ? `${doneN}/${s.tasks.length}` : ""}</span>
-                  <IconButton label={`Add task to ${DOW_FULL[dowIndex(d)]}`} size="sm" onClick={() => actions.openComposer(s.date)} className="text-muted">
+                <div className="flex items-center gap-2 border-b border-separator px-2 pt-5 pb-1.5">
+                  <span className={`text-[13px] font-semibold ${isToday ? "text-accent" : "text-label"}`}>{DOW_FULL[dowIndex(d)]}</span>
+                  <span className="text-[13px] text-label-2">{formatShort(d)}</span>
+                  {isToday && <span className="rounded-full bg-accent px-1.5 py-px text-[10.5px] font-semibold text-white">Today</span>}
+                  <span className="tabular ml-auto text-[12px] text-label-3">{s.tasks.length ? `${doneN} of ${s.tasks.length}` : ""}</span>
+                  <IconButton label={`Add task to ${DOW_FULL[dowIndex(d)]}`} size="sm" onClick={() => actions.openComposer(s.date)}>
                     <PlusIcon size={14} />
                   </IconButton>
                 </div>
               )}
-              {s.tasks.map((t) => (
-                <TaskRow
-                  key={t.id}
-                  task={t}
-                  index={index++}
-                  todayKey={state.todayKey}
-                  selected={state.selectedId === t.id}
-                  editingField={state.editing?.id === t.id ? state.editing.field : null}
-                  actions={actions}
-                  onMenu={openMenu}
-                />
-              ))}
-              {state.composer?.date === s.date ? (
-                <ComposerRow composer={state.composer} actions={actions} />
-              ) : (
-                grouped && !s.tasks.length && <div className="border-b border-line py-3.5 pl-11 text-[13.5px] text-ghost">Nothing planned</div>
-              )}
+              <div className="py-0.5">
+                {s.tasks.map((t) => (
+                  <TaskRow
+                    key={t.id}
+                    task={t}
+                    todayKey={state.todayKey}
+                    selected={state.selectedId === t.id}
+                    editingField={state.editing?.id === t.id ? state.editing.field : null}
+                    actions={actions}
+                    onMenu={openMenu}
+                  />
+                ))}
+                {state.composer?.date === s.date ? (
+                  <ComposerRow composer={state.composer} actions={actions} />
+                ) : placeholderRow ? (
+                  <NewTaskRow onClick={() => actions.openComposer(s.date)} />
+                ) : (
+                  grouped && !s.tasks.length && <div className="py-2.5 pl-11 text-[13px] text-label-3">No tasks</div>
+                )}
+              </div>
             </div>
           );
         })}

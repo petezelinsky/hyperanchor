@@ -1,18 +1,17 @@
 "use client";
 
-import { DOW_FULL, DOW_SHORT, dowIndex, formatLong, formatMedium, formatShort, MONTHS, MONTHS_SHORT, parseYmd, relativeDay, spanLabel } from "@/lib/dates";
-import { dayStats, monthStats, pct, periodBounds, summarize, type Period } from "@/lib/stats";
+import { DOW_SHORT, dowIndex, formatLong, formatMedium, MONTHS, MONTHS_SHORT, parseYmd, rangeLabel, relativeDay } from "@/lib/dates";
+import { dayStats, monthStats, periodBounds, summarize, type Period } from "@/lib/stats";
 import type { Task } from "@/lib/types";
-import { DotTabs } from "../ui";
-import { NavControls, Page, ViewHeader } from "../ViewHeader";
+import { NavGroup, Toolbar } from "../Toolbar";
+import { SegmentedControl } from "../ui";
 import { BarChart, type Bar } from "./BarChart";
-import { OpenSection, WeekdaySection } from "./Breakdown";
+import { OpenCard, WeekdayCard } from "./Breakdown";
 import { Heatmap } from "./Heatmap";
-import { HistorySection, type HistoryRow } from "./History";
-import { KpiStrip, Section } from "./parts";
+import { HistoryCard, type HistoryRow } from "./History";
+import { Card, Kpis } from "./parts";
 
-const NOW: Record<Period, string> = { week: "This week", month: "This month", year: "This year" };
-const plural = (n: number, w: string) => `${n} ${n === 1 ? w : w + "s"}`;
+const NOW: Record<Period, string> = { week: "This Week", month: "This Month", year: "This Year" };
 
 export function AnalyticsView({
   period,
@@ -43,37 +42,17 @@ export function AnalyticsView({
   const prev = summarize(dayStats(periodBounds(period, offset - 1, todayKey), todayKey, byDate));
   const today = parseYmd(todayKey);
   const year = b.start.getFullYear();
-  const months = period === "year" ? monthStats(days) : [];
 
-  // The headline: what got done, in plain words.
-  const when =
-    period === "week"
-      ? offset === 0 ? "this week" : offset === -1 ? "last week" : `the week of ${formatShort(b.start)}`
-      : period === "month"
-        ? offset === 0 ? "this month" : `in ${MONTHS[b.start.getMonth()]}`
-        : offset === 0 ? "this year" : `in ${year}`;
-  const bestMonth = months.reduce<(typeof months)[number] | null>((best, m) => (m.done > (best?.done ?? 0) ? m : best), null);
-  const strongest =
-    period === "year"
-      ? bestMonth && ` — ${MONTHS[bestMonth.month]} was the strongest month`
-      : sum.best && ` — ${period === "week" ? DOW_FULL[dowIndex(sum.best.date)] : formatShort(sum.best.date)} was your best day`;
-  const headline = `${plural(sum.completed, "task")} done ${when}.`;
-  const rest = !sum.planned
-    ? "Nothing was planned yet."
-    : !sum.completed
-      ? `${plural(sum.planned, "task")} planned so far.`
-      : `That’s ${pct(sum.rate ?? 0)} of what you planned${strongest || ""}.`;
-
-  const label = `${period === "week" ? `${offset === 0 ? "This week" : "Week"} · ${spanLabel(b.start, b.end)}` : period === "month" ? `${MONTHS[b.start.getMonth()]} ${year}` : String(year)}`;
+  const label = period === "week" ? rangeLabel(b.start, b.end) : period === "month" ? `${MONTHS[b.start.getMonth()]} ${year}` : String(year);
 
   let bars: Bar[];
   let history: HistoryRow[];
   if (period === "year") {
+    const months = monthStats(days);
     const monthOffset = (m: number) => (year - today.getFullYear()) * 12 + (m - today.getMonth());
     bars = months.map((m) => ({
       key: `m${m.month}`,
       label: MONTHS_SHORT[m.month],
-      major: true,
       title: `${MONTHS[m.month]} ${year}`,
       done: m.done,
       total: m.planned,
@@ -116,14 +95,13 @@ export function AnalyticsView({
         onPick: () => onOpenDay(d.key),
       }));
   }
-  const elapsedBars = bars.filter((x) => x.elapsed).length;
-  const avg = period === "year" ? (elapsedBars ? sum.completed / elapsedBars : 0) : sum.avg;
-  const key = `${period}:${offset}`;
+
+  const avg = period === "year" ? (bars.filter((x) => x.elapsed).length ? sum.completed / bars.filter((x) => x.elapsed).length : 0) : sum.avg;
 
   return (
-    <Page className="pb-24">
-      <ViewHeader label={label} title={headline} rest={rest} animKey={key}>
-        <DotTabs
+    <>
+      <Toolbar title="Analytics" subtitle={label}>
+        <SegmentedControl
           label="Period"
           value={period}
           onChange={onPeriod}
@@ -132,64 +110,74 @@ export function AnalyticsView({
             { value: "month", label: "Month" },
             { value: "year", label: "Year" },
           ]}
-          className="mr-1"
         />
-        <NavControls
+        <NavGroup
           prevLabel={`Previous ${period}`}
           nextLabel={`Next ${period}`}
           todayLabel={NOW[period]}
           onPrev={() => onOffset(offset - 1)}
           onNext={() => onOffset(offset + 1)}
           onToday={() => onOffset(0)}
-          showToday={offset !== 0}
+          todayDisabled={offset === 0}
           nextDisabled={offset === 0}
         />
-      </ViewHeader>
+      </Toolbar>
 
-      <KpiStrip key={`k${key}`} sum={sum} prev={prev} period={period} className="mt-10" />
+      <div className="mx-auto max-w-[1180px] space-y-4 px-4 py-5 md:px-7 md:py-6">
+        <Kpis sum={sum} prev={prev} period={period} />
 
-      <Section
-        label={period === "year" ? "Done per month" : "Done per day"}
-        className="mt-14"
-        aside={
-          <span className="flex items-center gap-4 font-mono text-[10px] tracking-[0.06em] text-muted uppercase">
-            <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-[2px] bg-ink" />
-              Done
+        <Card
+          title={period === "year" ? "Completed per month" : "Completed per day"}
+          aside={
+            <span className="flex items-center gap-4 text-[12px] text-label-2">
+              <span className="flex items-center gap-1.5">
+                <span className="size-2.5 rounded-[3px] bg-accent" />
+                Done
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="size-2.5 rounded-[3px] bg-fill" />
+                Open
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 border-t border-dashed border-accent" />
+                Average
+              </span>
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-[2px] bg-track" />
-              Open
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 border-t border-dashed border-ink/50" />
-              Average
-            </span>
-          </span>
-        }
-      >
-        <BarChart key={`c${key}`} bars={bars} avg={avg} onPick={(bar) => (period === "year" ? history.find((h) => h.key === bar.key)?.onPick() : onOpenDay(bar.key))} />
-        {sum.upcoming > 0 && (
-          <p className="mt-4 text-[13px] text-muted">
-            {sum.upcoming === 1 ? "1 more task is" : `${sum.upcoming} more tasks are`} planned for the rest of this {period}.
-          </p>
+          }
+        >
+          <BarChart
+            bars={bars}
+            avg={avg}
+            avgLabel="avg"
+            onPick={(bar) => (period === "year" ? history.find((h) => h.key === bar.key)?.onPick() : onOpenDay(bar.key))}
+          />
+          {sum.upcoming > 0 && (
+            <p className="mt-3 text-[12px] text-label-2">
+              {sum.upcoming === 1 ? "1 more task is" : `${sum.upcoming} more tasks are`} planned for the rest of this {period}.
+            </p>
+          )}
+        </Card>
+
+        {period === "year" && (
+          <Card title="Activity" aside={<span className="text-[12px] text-label-2">Completed tasks per day</span>}>
+            <Heatmap days={days} onPick={onOpenDay} />
+          </Card>
         )}
-      </Section>
 
-      {period === "year" && (
-        <Section label="Activity" className="mt-14" aside={<span className="mono-label">Completed per day</span>}>
-          <Heatmap days={days} onPick={onOpenDay} />
-        </Section>
-      )}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {period !== "week" && <WeekdayCard days={days} />}
+          <OpenCard
+            open={sum.open}
+            todayKey={todayKey}
+            onToggle={onToggle}
+            onMove={onMove}
+            onOpenDay={onOpenDay}
+            className={period === "week" ? "lg:col-span-2" : ""}
+          />
+        </div>
 
-      <div className="mt-14 grid gap-14 lg:grid-cols-2 lg:gap-12">
-        {period !== "week" && <WeekdaySection days={days} />}
-        <OpenSection open={sum.open} todayKey={todayKey} onToggle={onToggle} onMove={onMove} onOpenDay={onOpenDay} className={period === "week" ? "lg:col-span-2" : ""} />
+        <HistoryCard rows={history} unit={period === "year" ? "months" : "days"} />
       </div>
-
-      <div className="mt-14">
-        <HistorySection rows={history} unit={period === "year" ? "months" : "days"} />
-      </div>
-    </Page>
+    </>
   );
 }
