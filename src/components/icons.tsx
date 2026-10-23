@@ -145,3 +145,11 @@ export function GoogleG({ size = 18 }: { size?: number }) {
     </svg>
   );
 }
+
+export function FlameIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M8.6 1c.5 2.2-.5 3.4-1.6 4.6C5.9 6.8 4.6 8.1 4.6 10.3c0 2.6 1.7 4.7 4 4.7s4-1.9 4-4.5c0-1.9-.9-3.3-1.9-4.4 0 1.1-.4 2-1.2 2.4.3-2.3.1-5.6-.9-7.5Z" />
+    </svg>
+  );
+}

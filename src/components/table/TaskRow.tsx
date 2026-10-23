@@ -58,8 +58,8 @@ export function TaskRow({
     }
   };
 
-  const titleCls = `block w-full truncate text-[14px] leading-5 transition-colors duration-200 ${task.done ? "text-label-3" : "text-label"}`;
-  const notesCls = "block w-full truncate text-[13px] leading-[19px] text-label-2";
+  const titleCls = `block w-full truncate text-[14px] leading-5 transition-colors duration-300 ${task.done ? "text-ink-3" : "text-ink"}`;
+  const notesCls = "block w-full truncate text-[13px] leading-[19px] text-ink-2";
 
   const title = editingField === "title" ? (
     <input
@@ -69,7 +69,7 @@ export function TaskRow({
       onKeyDown={keys("title")}
       aria-label="Task title"
       maxLength={500}
-      className={`${titleCls} m-0 bg-transparent p-0 text-label outline-none`}
+      className={`${titleCls} m-0 bg-transparent p-0 text-ink outline-none`}
     />
   ) : (
     <span className={titleCls} onClick={() => actions.startEdit(task.id, "title")}>
@@ -89,7 +89,7 @@ export function TaskRow({
         placeholder="Notes"
         aria-label="Notes"
         maxLength={5000}
-        className="text-[13px] leading-[19px] text-label"
+        className="text-[13px] leading-[19px] text-ink"
       />
     ) : task.description ? (
       <span className={notesCls} onClick={() => actions.startEdit(task.id, "description")}>
@@ -97,7 +97,7 @@ export function TaskRow({
       </span>
     ) : (
       <span
-        className={`${notesCls} text-label-3 transition-opacity duration-150 ${selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"}`}
+        className={`${notesCls} text-ink-3 transition-opacity duration-150 ${selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"}`}
         onClick={() => actions.startEdit(task.id, "description")}
       >
         Add note
@@ -116,8 +116,8 @@ export function TaskRow({
         actions.select(task.id);
         onMenu(task, { x: e.clientX, y: e.clientY });
       }}
-      className={`group/row relative ${COLS} min-h-11 items-start rounded-[14px] px-1 transition-[background-color,box-shadow] duration-200 ease-glass after:pointer-events-none after:absolute after:right-3 after:bottom-0 after:left-12 after:h-px after:bg-separator ${
-        selected || editing ? "lens z-[1] after:opacity-0" : "hover:bg-fill-3"
+      className={`group/row relative ${COLS} min-h-11 items-start rounded-[10px] px-1 transition-colors duration-150 after:pointer-events-none after:absolute after:right-3 after:bottom-0 after:left-12 after:h-px after:bg-line ${
+        selected || editing ? "bg-accent-soft after:opacity-0" : "hover:bg-surface-2"
       }`}
     >
       <div role="gridcell" className="col-start-1 row-start-1 flex h-11 items-center justify-center">
@@ -139,7 +139,7 @@ export function TaskRow({
       >
         {notes}
       </div>
-      <div role="gridcell" className="tabular hidden py-[13px] pr-2 text-right text-[12.5px] leading-[18px] text-label-3 @4xl:col-start-4 @4xl:row-start-1 @4xl:block">
+      <div role="gridcell" className="tabular hidden py-[13px] pr-2 text-right text-[12.5px] leading-[18px] text-ink-3 @4xl:col-start-4 @4xl:row-start-1 @4xl:block">
         {formatStamp(task.createdAt, todayKey)}
       </div>
       <div role="gridcell" className="col-start-3 row-start-1 flex h-11 items-center justify-end pr-0.5 @2xl:col-start-4 @4xl:col-start-5">

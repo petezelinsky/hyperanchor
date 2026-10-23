@@ -5,7 +5,7 @@ import { addDays, DOW_SHORT, formatLong, monthGrid, MONTHS, plural, ymd } from "
 import type { Task } from "@/lib/types";
 import { ArrowRightIcon, PlusIcon, XIcon } from "./icons";
 import { NavGroup, Toolbar } from "./Toolbar";
-import { Button, Checkbox, IconButton, Popover } from "./ui";
+import { Button, Checkbox, IconButton, Popover, ProgressRing } from "./ui";
 
 export function MonthView({
   year,
@@ -44,10 +44,22 @@ export function MonthView({
       <Toolbar
         title={
           <>
-            {MONTHS[month]} <span className="font-normal text-label-2">{year}</span>
+            {MONTHS[month]} <span className="font-normal text-ink-3">{year}</span>
           </>
         }
-        subtitle={inMonth.length ? `${plural(inMonth.length, "task")} · ${done} done` : "No tasks this month"}
+        subtitle={
+          inMonth.length ? (
+            <>
+              <ProgressRing value={done / inMonth.length} size={14} stroke={2.4} />
+              <span>
+                {plural(inMonth.length, "task")} · {done} done
+              </span>
+            </>
+          ) : (
+            "No tasks this month"
+          )
+        }
+        wide
       >
         <NavGroup
           prevLabel="Previous month"
@@ -69,9 +81,9 @@ export function MonthView({
       </Toolbar>
 
       <div className="pb-6">
-        <div className="grid grid-cols-7 border-b border-separator">
-          {DOW_SHORT.map((d) => (
-            <div key={d} className="px-2 py-2 text-right text-[11px] font-semibold tracking-[0.06em] text-label-3 uppercase md:px-3">
+        <div className="grid grid-cols-7 border-y border-line bg-surface-2">
+          {DOW_SHORT.map((d, i) => (
+            <div key={d} className={`px-2 py-2 text-right text-[12px] font-medium md:px-3 ${i >= 5 ? "text-ink-3" : "text-ink-2"}`}>
               <span className="sm:hidden">{d[0]}</span>
               <span className="max-sm:hidden">{d}</span>
             </div>
@@ -95,14 +107,14 @@ export function MonthView({
                 }}
                 onDoubleClick={() => onOpenDay(key)}
                 aria-label={`${formatLong(d)}${tasks.length ? `, ${plural(tasks.length, "task")}` : ""}`}
-                className={`flex min-w-0 flex-col gap-1 border-separator p-1.5 text-left transition-[background-color,box-shadow] duration-200 md:p-2 ${i % 7 < 6 ? "border-r" : ""} ${
+                className={`flex min-w-0 flex-col gap-1 border-line p-1.5 text-left transition-[background-color,box-shadow] duration-150 md:p-2 ${i % 7 < 6 ? "border-r" : ""} ${
                   i < cells.length - 7 ? "border-b" : ""
-                } ${isSel ? "bg-fill-2 shadow-[inset_0_0_0_1px_var(--separator-strong)]" : weekend ? "bg-fill-3 hover:bg-fill-2" : "hover:bg-fill-3"}`}
+                } ${isSel ? "bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--accent)]" : weekend ? "bg-surface-2 hover:bg-surface-3" : "hover:bg-surface-2"}`}
               >
                 <span className="flex justify-end">
                   <span
                     className={`tabular flex size-[26px] items-center justify-center rounded-full text-[13px] ${
-                      isToday ? "ink font-semibold" : isSel ? "font-semibold text-label" : out ? "text-label-3" : "text-label"
+                      isToday ? "bg-accent font-semibold text-on-accent" : isSel ? "font-semibold text-accent-ink" : out ? "text-ink-4" : "text-ink"
                     }`}
                   >
                     {d.getDate()}
@@ -110,17 +122,17 @@ export function MonthView({
                 </span>
                 <span className="flex min-w-0 flex-col gap-[3px] max-md:hidden">
                   {tasks.slice(0, 3).map((t) => (
-                    <span key={t.id} className={`flex min-w-0 items-center gap-1.5 text-[12px] leading-4 ${t.done ? "text-label-3" : out ? "text-label-2" : "text-label"}`}>
-                      <span className={`size-[7px] flex-none rounded-full ${t.done ? "bg-label-4" : "shadow-[inset_0_0_0_1.5px_currentColor]"}`} />
+                    <span key={t.id} className={`flex min-w-0 items-center gap-1.5 text-[12px] leading-4 ${t.done ? "text-ink-3" : out ? "text-ink-3" : "text-ink"}`}>
+                      <span className={`size-[7px] flex-none rounded-full ${t.done ? "bg-green" : "shadow-[inset_0_0_0_1.5px_var(--accent)]"}`} />
                       <span className="truncate">{t.title}</span>
                     </span>
                   ))}
-                  {tasks.length > 3 && <span className="pl-3 text-[11.5px] text-label-2">{tasks.length - 3} more</span>}
+                  {tasks.length > 3 && <span className="pl-3 text-[11.5px] font-medium text-ink-3">+{tasks.length - 3} more</span>}
                 </span>
                 {tasks.length > 0 && (
                   <span className="flex flex-wrap justify-end gap-[3px] md:hidden">
                     {tasks.slice(0, 4).map((t) => (
-                      <span key={t.id} className={`size-[5px] rounded-full ${t.done ? "bg-label-4" : "bg-label"}`} />
+                      <span key={t.id} className={`size-[5px] rounded-full ${t.done ? "bg-green" : "bg-accent"}`} />
                     ))}
                   </span>
                 )}
@@ -176,7 +188,7 @@ function DayPopover({
       <div className="flex items-start justify-between gap-3 px-1">
         <div>
           <div className="text-[16px] font-semibold tracking-[-0.015em]">{formatLong(d)}</div>
-          <div className="tabular text-[12px] text-label-2">{tasks.length ? `${done} of ${tasks.length} done` : "No tasks"}</div>
+          <div className="tabular text-[12px] text-ink-3">{tasks.length ? `${done} of ${tasks.length} done` : "No tasks"}</div>
         </div>
         <IconButton label="Close" size="sm" onClick={onClose} className="-mt-0.5 -mr-1">
           <XIcon size={13} />
@@ -188,15 +200,15 @@ function DayPopover({
             <li key={t.id} className="flex items-start gap-2.5 rounded-[10px] px-1 py-1.5">
               <Checkbox size={18} checked={t.done} onToggle={() => onToggle(t)} label={t.done ? `Mark “${t.title}” as not done` : `Mark “${t.title}” as done`} className="mt-0.5" />
               <div className="min-w-0">
-                <div className={`text-[13.5px] leading-5 break-words ${t.done ? "text-label-3" : "text-label"}`}>{t.title}</div>
-                {t.description && <div className="truncate text-[12px] text-label-2">{t.description}</div>}
+                <div className={`text-[13.5px] leading-5 break-words transition-colors duration-300 ${t.done ? "text-ink-3" : "text-ink"}`}>{t.title}</div>
+                {t.description && <div className="truncate text-[12px] text-ink-3">{t.description}</div>}
               </div>
             </li>
           ))}
         </ul>
       )}
       <form
-        className="control mt-2 flex h-10 items-center gap-2 rounded-full pr-3 pl-3"
+        className="mt-2 flex h-9 items-center gap-2 rounded-[10px] bg-surface-2 px-3 transition-shadow focus-within:bg-surface focus-within:shadow-[0_0_0_1px_var(--accent),0_0_0_4px_var(--accent-soft)]"
         onSubmit={(e) => {
           e.preventDefault();
           if (!title.trim()) return;
@@ -204,7 +216,7 @@ function DayPopover({
           setTitle("");
         }}
       >
-        <PlusIcon size={15} className="flex-none text-label-3" />
+        <PlusIcon size={14} className="flex-none text-ink-3" />
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}

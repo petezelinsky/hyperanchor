@@ -83,6 +83,10 @@ export function TaskApp({ user }: { user: AppUser }) {
   useEffect(() => {
     load(...miniRange);
   }, [load, miniRange]);
+  // Analytics shows the current streak, which can reach further back than the period on screen.
+  useEffect(() => {
+    if (view === "analytics") load(ymd(addDays(parseYmd(todayKey), -365)), todayKey);
+  }, [load, view, todayKey]);
 
   const byDateMap = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -294,7 +298,7 @@ export function TaskApp({ user }: { user: AppUser }) {
   const weekOpen = Array.from({ length: 7 }, (_, i) => byDate(ymd(addDays(weekStart, i)))).flat().filter((t) => !t.done).length;
 
   return (
-    <div className="md:flex md:h-dvh md:gap-2.5 md:p-2.5">
+    <div className="min-h-dvh md:flex md:h-dvh md:min-h-0 md:bg-canvas">
       <Sidebar
         user={user}
         view={view}
@@ -316,11 +320,11 @@ export function TaskApp({ user }: { user: AppUser }) {
           />
         }
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
         <MobileHeader user={user} />
-        {/* The content sheet. Desktop: fixed height, scrolls inside (the toolbar sticks). Phone: grows, the page scrolls. */}
-        <div className="glass-sheet rim relative mx-2 mb-[calc(env(safe-area-inset-bottom)+96px)] min-h-[calc(100dvh-160px)] overflow-hidden rounded-[26px] md:m-0 md:min-h-0 md:flex-1 md:rounded-[28px]">
-          <main ref={scroller} className="md:h-full md:scroll-pt-32 md:overflow-y-auto">
+        {/* The content sheet. Desktop: an inset white sheet that scrolls inside (the toolbar sticks). Phone: the page scrolls. */}
+        <div className="min-h-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+92px)] md:pb-0">
+          <main ref={scroller} className="group/sheet md:h-full md:scroll-pt-32 md:overflow-y-auto md:rounded-[14px] md:bg-surface md:shadow-sheet">
             {view === "day" && (
               <DayView
                 selected={selected}
@@ -372,11 +376,11 @@ export function TaskApp({ user }: { user: AppUser }) {
       <TabBar view={view} onView={showView} />
 
       {toast && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+92px)] z-[120] flex justify-center px-4 md:bottom-6">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+90px)] z-[120] flex justify-center px-4 md:bottom-6">
           <div
             role="status"
             key={toast.id}
-            className="pointer-events-auto flex animate-rise items-center gap-3 rounded-full bg-hud py-2 pr-2 pl-5 text-[13px] text-on-hud shadow-float backdrop-blur-xl backdrop-saturate-150"
+            className="pointer-events-auto flex animate-rise items-center gap-3 rounded-[12px] bg-ink py-1.5 pr-1.5 pl-4 text-[13px] text-surface shadow-float"
           >
             <span className="max-w-[60vw] truncate">{toast.message}</span>
             {toast.action && (
@@ -386,7 +390,7 @@ export function TaskApp({ user }: { user: AppUser }) {
                   toast.action?.run();
                   setToast(null);
                 }}
-                className="rounded-full bg-on-hud/12 px-3 py-1 font-semibold transition-colors hover:bg-on-hud/20"
+                className="rounded-[8px] bg-surface/12 px-2.5 py-1 font-semibold transition-colors hover:bg-surface/20"
               >
                 {toast.action.label}
               </button>

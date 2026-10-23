@@ -1,7 +1,7 @@
 "use client";
 
-import { DOW_SHORT, dowIndex, formatLong, formatMedium, MONTHS, MONTHS_SHORT, parseYmd, rangeLabel, relativeDay } from "@/lib/dates";
-import { dayStats, monthStats, periodBounds, summarize, type Period } from "@/lib/stats";
+import { addDays, DOW_SHORT, dowIndex, formatLong, formatMedium, MONTHS, MONTHS_SHORT, parseYmd, rangeLabel, relativeDay, ymd } from "@/lib/dates";
+import { currentStreak, dayStats, longestStreak, monthStats, periodBounds, summarize, type Period } from "@/lib/stats";
 import type { Task } from "@/lib/types";
 import { NavGroup, Toolbar } from "../Toolbar";
 import { SegmentedControl } from "../ui";
@@ -9,7 +9,7 @@ import { BarChart, type Bar } from "./BarChart";
 import { OpenCard, WeekdayCard } from "./Breakdown";
 import { Heatmap } from "./Heatmap";
 import { HistoryCard, type HistoryRow } from "./History";
-import { Card, Kpis } from "./parts";
+import { Card, Kpis, type SparkPoint } from "./parts";
 
 const NOW: Record<Period, string> = { week: "This Week", month: "This Month", year: "This Year" };
 
@@ -42,14 +42,17 @@ export function AnalyticsView({
   const prev = summarize(dayStats(periodBounds(period, offset - 1, todayKey), todayKey, byDate));
   const today = parseYmd(todayKey);
   const year = b.start.getFullYear();
+  const current = offset === 0;
 
   const label = period === "week" ? rangeLabel(b.start, b.end) : period === "month" ? `${MONTHS[b.start.getMonth()]} ${year}` : String(year);
 
   let bars: Bar[];
   let history: HistoryRow[];
+  let spark: SparkPoint[];
   if (period === "year") {
     const months = monthStats(days);
     const monthOffset = (m: number) => (year - today.getFullYear()) * 12 + (m - today.getMonth());
+    const isNow = (m: number) => year === today.getFullYear() && m === today.getMonth();
     bars = months.map((m) => ({
       key: `m${m.month}`,
       label: MONTHS_SHORT[m.month],
@@ -57,8 +60,9 @@ export function AnalyticsView({
       done: m.done,
       total: m.planned,
       elapsed: m.elapsedDays > 0,
-      current: year === today.getFullYear() && m.month === today.getMonth(),
+      current: isNow(m.month),
     }));
+    spark = months.map((m) => ({ value: m.done, current: isNow(m.month), elapsed: m.elapsedDays > 0 }));
     history = months
       .filter((m) => m.planned > 0)
       .map((m) => ({
@@ -83,6 +87,7 @@ export function AnalyticsView({
       current: d.isToday,
       tasks: d.tasks,
     }));
+    spark = days.map((d) => ({ value: d.done, current: d.isToday, elapsed: d.elapsed }));
     history = days
       .filter((d) => d.elapsed && d.total > 0)
       .map((d) => ({
@@ -96,11 +101,16 @@ export function AnalyticsView({
       }));
   }
 
-  const avg = period === "year" ? (bars.filter((x) => x.elapsed).length ? sum.completed / bars.filter((x) => x.elapsed).length : 0) : sum.avg;
+  const elapsedBars = bars.filter((x) => x.elapsed).length;
+  const avg = period === "year" ? (elapsedBars ? sum.completed / elapsedBars : 0) : sum.avg;
+  const longest = longestStreak(days);
+  // The last seven days up to today (or up to the end of an earlier period).
+  const end = current ? today : b.end;
+  const recent = Array.from({ length: 7 }, (_, i) => byDate(ymd(addDays(end, i - 6))).some((t) => t.done));
 
   return (
     <>
-      <Toolbar title="Analytics" subtitle={label}>
+      <Toolbar title="Analytics" subtitle={label} wide>
         <SegmentedControl
           label="Period"
           value={period}
@@ -123,23 +133,32 @@ export function AnalyticsView({
         />
       </Toolbar>
 
-      <div className="mx-auto max-w-[1180px] space-y-3 px-3 pt-1 pb-8 md:space-y-4 md:px-6 md:pb-8">
-        <Kpis sum={sum} prev={prev} period={period} />
+      <div className="mx-auto max-w-[1240px] space-y-3 px-3 pb-10 md:space-y-4 md:px-8">
+        <Kpis
+          sum={sum}
+          prev={prev}
+          period={period}
+          current={current}
+          spark={spark}
+          streak={current ? currentStreak(todayKey, byDate) : longest}
+          longest={longest}
+          recent={recent}
+        />
 
         <Card
           title={period === "year" ? "Completed per month" : "Completed per day"}
           aside={
-            <span className="flex items-center gap-4 text-[12px] text-label-2">
+            <span className="flex items-center gap-4 text-[12px] text-ink-2">
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-[3px] bg-ink" />
+                <span className="size-2.5 rounded-[3px] bg-accent" />
                 Done
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-[3px] bg-fill" />
-                Open
+                <span className="size-2.5 rounded-[3px] bg-accent-track" />
+                Not done
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-3 border-t border-dashed border-label-2" />
+                <span className="w-3.5 border-t border-dashed border-ink-3" />
                 Average
               </span>
             </span>
@@ -152,14 +171,14 @@ export function AnalyticsView({
             onPick={(bar) => (period === "year" ? history.find((h) => h.key === bar.key)?.onPick() : onOpenDay(bar.key))}
           />
           {sum.upcoming > 0 && (
-            <p className="mt-3 text-[12px] text-label-2">
+            <p className="mt-3 text-[12px] text-ink-3">
               {sum.upcoming === 1 ? "1 more task is" : `${sum.upcoming} more tasks are`} planned for the rest of this {period}.
             </p>
           )}
         </Card>
 
         {period === "year" && (
-          <Card title="Activity" aside={<span className="text-[12px] text-label-2">Completed tasks per day</span>}>
+          <Card title="Activity" aside={<span className="text-[12px] text-ink-3">Completed tasks per day</span>}>
             <Heatmap days={days} onPick={onOpenDay} />
           </Card>
         )}
