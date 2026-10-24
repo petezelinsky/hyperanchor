@@ -177,8 +177,8 @@ export function ProgressVisual() {
         </div>
       </div>
       <div className="flex flex-col items-start gap-2">
-        <span key={`c${round}`} className="inline-flex animate-rise items-center gap-1 rounded-full bg-green-soft px-2 py-0.5 text-[12px] font-semibold text-green-ink">
-          ▲ 18% <span className="font-normal opacity-80">vs last week</span>
+        <span key={`c${round}`} className="inline-flex animate-rise items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-[12px] font-semibold shadow-lift">
+          ▲ 18% <span className="font-normal text-ink-3">vs last week</span>
         </span>
         <div key={`b${round}`} className="flex h-[92px] items-end gap-1.5">
           {BARS.map((v, i) => (

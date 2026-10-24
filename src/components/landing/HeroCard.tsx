@@ -1,13 +1,14 @@
 "use client";
 
+import { PlusIcon } from "../icons";
 import { Burst, Checkbox, ProgressRing } from "../ui";
 import { useLoop } from "./useInView";
 
 const TASKS = [
-  { title: "Morning run", note: "5 km, easy pace" },
-  { title: "Reply to Anna about the offsite", note: "" },
-  { title: "Review the new designs", note: "Loading and empty states" },
-  { title: "Call mom", note: "" },
+  { title: "Plan the week", note: "Three things that matter most" },
+  { title: "Send the proposal to Dana", note: "" },
+  { title: "Gym, 45 minutes", note: "" },
+  { title: "Pick up flowers for Sam", note: "Peonies, if they have them" },
 ];
 // Wait, then tick the four tasks one by one, celebrate, start over.
 const DELAYS = [1600, 950, 950, 950, 2600, 900];
@@ -23,7 +24,7 @@ export function HeroCard() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="font-display text-[20px] leading-7 font-bold tracking-[-0.02em]">Today</div>
-          <div className={`tabular mt-0.5 text-[13px] transition-colors duration-300 ${all ? "font-medium text-green-ink" : "text-ink-3"}`}>
+          <div className={`tabular mt-0.5 text-[13px] transition-colors duration-300 ${all ? "font-medium text-ink" : "text-ink-3"}`}>
             {all ? "All done. Nice work!" : `${done} of ${TASKS.length} done`}
           </div>
         </div>
@@ -46,8 +47,10 @@ export function HeroCard() {
         })}
       </ul>
       <div className="flex items-center gap-3 border-t border-line pt-2.5 text-[14px] text-ink-3">
-        <span className="flex size-5 items-center justify-center text-[18px] leading-none">+</span>
-        New task
+        <span className="flex size-5 items-center justify-center">
+          <PlusIcon size={15} />
+        </span>
+        Add a task
       </div>
     </div>
   );

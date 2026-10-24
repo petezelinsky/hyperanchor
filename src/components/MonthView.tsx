@@ -109,12 +109,13 @@ export function MonthView({
                 aria-label={`${formatLong(d)}${tasks.length ? `, ${plural(tasks.length, "task")}` : ""}`}
                 className={`flex min-w-0 flex-col gap-1 border-line p-1.5 text-left transition-[background-color,box-shadow] duration-150 md:p-2 ${i % 7 < 6 ? "border-r" : ""} ${
                   i < cells.length - 7 ? "border-b" : ""
-                } ${isSel ? "bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--accent)]" : weekend ? "bg-surface-2 hover:bg-surface-3" : "hover:bg-surface-2"}`}
+                } ${isSel ? "bg-surface-3" : weekend ? "bg-surface-2 hover:bg-surface-3" : "hover:bg-surface-2"}`}
               >
                 <span className="flex justify-end">
+                  {/* Today is the accent; another selected day is black (as in Calendar). */}
                   <span
-                    className={`tabular flex size-[26px] items-center justify-center rounded-full text-[13px] ${
-                      isToday ? "bg-accent font-semibold text-on-accent" : isSel ? "font-semibold text-accent-ink" : out ? "text-ink-4" : "text-ink"
+                    className={`tabular flex size-[26px] items-center justify-center rounded-full text-[13px] transition-colors duration-150 ${
+                      isToday ? "bg-accent font-semibold text-on-accent" : isSel ? "bg-primary font-semibold text-on-primary" : out ? "text-ink-4" : "text-ink"
                     }`}
                   >
                     {d.getDate()}
@@ -123,7 +124,7 @@ export function MonthView({
                 <span className="flex min-w-0 flex-col gap-[3px] max-md:hidden">
                   {tasks.slice(0, 3).map((t) => (
                     <span key={t.id} className={`flex min-w-0 items-center gap-1.5 text-[12px] leading-4 ${t.done ? "text-ink-3" : out ? "text-ink-3" : "text-ink"}`}>
-                      <span className={`size-[7px] flex-none rounded-full ${t.done ? "bg-green" : "shadow-[inset_0_0_0_1.5px_var(--accent)]"}`} />
+                      <span className={`size-[7px] flex-none rounded-full ${t.done ? "bg-accent" : "shadow-[inset_0_0_0_1.5px_var(--check-ring)]"}`} />
                       <span className="truncate">{t.title}</span>
                     </span>
                   ))}
@@ -132,7 +133,7 @@ export function MonthView({
                 {tasks.length > 0 && (
                   <span className="flex flex-wrap justify-end gap-[3px] md:hidden">
                     {tasks.slice(0, 4).map((t) => (
-                      <span key={t.id} className={`size-[5px] rounded-full ${t.done ? "bg-green" : "bg-accent"}`} />
+                      <span key={t.id} className={`size-[5px] rounded-full ${t.done ? "bg-accent" : "bg-ink-4"}`} />
                     ))}
                   </span>
                 )}
@@ -223,7 +224,7 @@ function DayPopover({
           placeholder="New Task"
           aria-label="New task title"
           maxLength={500}
-          autoFocus={tasks.length === 0}
+          data-autofocus={tasks.length === 0 ? "" : undefined}
           className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none"
         />
       </form>

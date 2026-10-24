@@ -9,7 +9,7 @@ type Variant = "primary" | "secondary" | "plain";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-on-accent shadow-accent hover:bg-accent-hover active:scale-[0.98]",
+  primary: "bg-primary text-on-primary shadow-[0_1px_2px_rgba(0,0,0,0.14)] hover:bg-primary-hover active:scale-[0.98]",
   secondary: "bg-surface text-ink shadow-lift hover:bg-surface-2 active:scale-[0.98]",
   plain: "text-ink-2 hover:bg-surface-3 hover:text-ink active:bg-line",
 };
@@ -165,27 +165,26 @@ export function Checkbox({
 
 // ── Progress ring ────────────────────────────────────────────────────────────
 
-/** A small ring that fills with the accent (0…1); turns green when complete. */
+/** A small ring that fills with the accent (0…1). */
 export function ProgressRing({ value, size = 16, stroke = 2.5, className = "" }: { value: number | null; size?: number; stroke?: number; className?: string }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const v = Math.max(0, Math.min(1, value ?? 0));
-  const full = v >= 1;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className={`flex-none -rotate-90 ${className}`}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={full ? "var(--green-soft)" : "var(--accent-track)"} strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--accent-track)" strokeWidth={stroke} />
       <circle
         cx={size / 2}
         cy={size / 2}
         r={r}
         fill="none"
-        stroke={full ? "var(--green)" : "var(--accent)"}
+        stroke="var(--accent)"
         strokeWidth={stroke}
         strokeLinecap="round"
         strokeDasharray={c}
         strokeDashoffset={c * (1 - v)}
         style={{ opacity: v > 0 ? 1 : 0 }}
-        className="transition-[stroke-dashoffset,stroke] duration-700 ease-out"
+        className="transition-[stroke-dashoffset] duration-700 ease-out"
       />
     </svg>
   );
@@ -193,7 +192,7 @@ export function ProgressRing({ value, size = 16, stroke = 2.5, className = "" }:
 
 // ── Celebration ──────────────────────────────────────────────────────────────
 
-const BURST = ["var(--accent)", "var(--orange)", "var(--green)", "var(--pink)", "var(--sky)", "var(--amber)", "var(--accent)", "var(--green)"];
+const BURST = ["var(--accent)", "var(--ink-3)", "var(--accent-track)", "var(--accent)", "var(--ink-4)", "var(--accent)", "var(--accent-track)", "var(--ink-3)"];
 
 /** Wraps a small mark; when `active` turns on (not on first render), a ring of confetti bursts from it. */
 export function Burst({ active, children }: { active: boolean; children: React.ReactNode }) {
@@ -265,6 +264,8 @@ function useFloating(anchor: Anchor, align: "start" | "end") {
 
   return {
     ref,
+    /** Positioned and visible: only now can it take focus. */
+    ready: !!pos,
     style: { left: pos?.left ?? 0, top: pos?.top ?? 0, transformOrigin: pos?.origin, visibility: pos ? "visible" : "hidden" } as const,
   };
 }
@@ -322,8 +323,12 @@ export function Popover({
   trigger?: HTMLElement | null;
   children: React.ReactNode;
 }) {
-  const { ref, style } = useFloating(anchor, align);
+  const { ref, style, ready } = useFloating(anchor, align);
   useDismiss(ref, onClose, true, trigger);
+  // Focus the field marked data-autofocus once the panel is visible (focus() does nothing while it's hidden).
+  useEffect(() => {
+    if (ready) ref.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+  }, [ready, ref]);
   return createPortal(
     <div
       ref={ref}
@@ -340,7 +345,8 @@ export function Popover({
 }
 
 export type MenuEntry =
-  | { label: string; onSelect: () => void; destructive?: boolean; disabled?: boolean; shortcut?: string; icon?: React.ReactNode }
+  /** `checked` makes the item one of a set of choices (a tick marks the current one). */
+  | { label: string; onSelect: () => void; destructive?: boolean; disabled?: boolean; shortcut?: string; icon?: React.ReactNode; checked?: boolean }
   | { separator: true }
   | { heading: string };
 
@@ -359,12 +365,20 @@ export function Menu({
   label?: string;
   trigger?: HTMLElement | null;
 }) {
-  const { ref, style } = useFloating(anchor, align);
+  const { ref, style, ready } = useFloating(anchor, align);
   const [active, setActive] = useState(-1);
   useDismiss(ref, onClose, true, trigger);
   const items = entries.map((e, i) => ({ e, i })).filter(({ e }) => "onSelect" in e && !e.disabled);
 
-  useEffect(() => ref.current?.focus(), [ref]);
+  // Take focus once visible, so the arrow keys and Enter work right away; on close, hand it back to the
+  // button that opened the menu unless something else (an editor, a dialog) has taken it.
+  useEffect(() => {
+    if (!ready) return;
+    ref.current?.focus();
+    return () => {
+      if (trigger?.isConnected && document.activeElement === document.body) trigger.focus({ preventScroll: true });
+    };
+  }, [ready, ref, trigger]);
 
   const run = (e: MenuEntry) => {
     if (!("onSelect" in e) || e.disabled) return;
@@ -410,7 +424,8 @@ export function Menu({
           <button
             key={i}
             type="button"
-            role="menuitem"
+            role={e.checked === undefined ? "menuitem" : "menuitemradio"}
+            aria-checked={e.checked}
             disabled={e.disabled}
             onMouseEnter={() => setActive(i)}
             onMouseLeave={() => setActive(-1)}
@@ -421,10 +436,39 @@ export function Menu({
           >
             {e.icon && <span className={e.destructive ? "text-red-ink" : "text-ink-3"}>{e.icon}</span>}
             <span className="flex-1">{e.label}</span>
-            {e.shortcut && <span className="pl-6 text-[12px] text-ink-3">{e.shortcut}</span>}
+            {e.checked ? (
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="ml-6 text-ink-2">
+                <path d="M2.5 6.2 4.9 8.6 9.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              e.shortcut && <span className="pl-6 text-[12px] text-ink-3">{e.shortcut}</span>
+            )}
           </button>
         );
       })}
+    </div>,
+    document.body,
+  );
+}
+
+/** A centered sheet over a dimmed page; closes on Escape or a click outside. */
+export function Modal({ label, onClose, className = "", children }: { label: string; onClose: () => void; className?: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDismiss(ref, onClose);
+  useEffect(() => ref.current?.focus(), []);
+  return createPortal(
+    <div className="fixed inset-0 z-[110] flex animate-[fade_0.2s_ease-out_both] items-center justify-center bg-black/30 p-4 backdrop-blur-[2px] dark:bg-black/50">
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+        data-floating=""
+        className={`w-full animate-pop-in rounded-[18px] bg-elevated shadow-float outline-none ${className}`}
+      >
+        {children}
+      </div>
     </div>,
     document.body,
   );

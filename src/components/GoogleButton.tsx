@@ -3,13 +3,13 @@
 import { useFormStatus } from "react-dom";
 import { GoogleG } from "./icons";
 
-/** "Continue with Google": the accent button (or white, on dark panels); Google's mark keeps its colors on a white tile. */
-export function GoogleButton({ variant = "accent" }: { variant?: "accent" | "light" }) {
+/** "Continue with Google": the primary button (or white, on dark panels); Google's mark keeps its colors on a white tile. */
+export function GoogleButton({ variant = "primary" }: { variant?: "primary" | "light" }) {
   const { pending } = useFormStatus();
   const look =
-    variant === "accent"
-      ? "bg-accent text-on-accent shadow-accent hover:bg-accent-hover"
-      : "bg-white text-[#17171c] shadow-[0_10px_30px_-10px_rgba(255,255,255,0.45)] hover:bg-white/90";
+    variant === "primary"
+      ? "bg-primary text-on-primary shadow-[0_1px_2px_rgba(0,0,0,0.16),0_10px_28px_-12px_rgba(0,0,0,0.45)] hover:bg-primary-hover"
+      : "bg-white text-[#171717] hover:bg-white/90";
   return (
     <button
       type="submit"

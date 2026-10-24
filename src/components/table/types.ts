@@ -1,4 +1,4 @@
-import type { Sort, SortKey } from "@/lib/tasks";
+import type { Sort } from "@/lib/tasks";
 import type { Task } from "@/lib/types";
 
 export type Field = "title" | "description";
@@ -7,7 +7,8 @@ export type Editing = { id: string; field: Field; snapshot: Pick<Task, "title" |
 
 export type Composer = { date: string; title: string; description: string; nonce: number };
 
-export type Section = { date: string; tasks: Task[] };
+/** A day's tasks; in the Day view `tasks` holds what's left and `completed` what's done. */
+export type Section = { date: string; tasks: Task[]; completed?: Task[] };
 
 /** Everything a table can ask the app to do. Implemented once in TaskApp. */
 export type TableActions = {
@@ -23,7 +24,7 @@ export type TableActions = {
   composerChange: (patch: Partial<Composer>) => void;
   composerSubmit: (keepOpen: boolean) => void;
   composerCancel: () => void;
-  sort: (key: SortKey) => void;
+  sort: (sort: Sort) => void;
 };
 
 export type TableState = {

@@ -1,121 +1,144 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — clean and bright, light and dark (follows the system setting).
- * One accent (iris) carries action and selection; a few semantic colors carry meaning
- * (green = done/up, amber = needs attention, red = destructive/down, orange = today/streak).
- * Solid surfaces everywhere; translucent glass only for floating chrome (menus, the phone tab bar,
- * a sticky header while content scrolls beneath it).
- * Components use these through the Tailwind theme below (bg-surface, text-ink-2, shadow-lift, …).
+ * Design tokens — minimal: neutral grays, black for primary actions, and one accent color used
+ * sparingly (today, completion, progress, data). The accent is orange by default; people can switch
+ * it to blue or green (html[data-accent]). Red is reserved for destructive actions and drops,
+ * green for rises. Translucent glass only on floating chrome. Light and dark follow the system.
+ * Components use these through the Tailwind theme below (bg-surface, text-ink-2, bg-accent, …).
  */
 :root {
   color-scheme: light dark;
 
-  --canvas: #f3f3f6; /* app background around the content sheet */
+  --canvas: #f5f5f5; /* app background around the content sheet */
   --surface: #ffffff; /* sheet, cards */
-  --surface-2: #f7f7f9; /* recessed: tracks, inputs, table headers */
-  --surface-3: #f0f0f4; /* hover */
+  --surface-2: #fafafa; /* recessed: inputs, tracks, headers */
+  --surface-3: #f2f2f2; /* hover */
   --elevated: #ffffff; /* menus, popovers */
-  --glass: rgba(255, 255, 255, 0.78);
+  --glass: rgba(255, 255, 255, 0.8);
 
-  --ink: #17171c;
-  --ink-2: #5b5b68;
-  --ink-3: #8a8a99;
-  --ink-4: #c9c9d3;
-  --line: #ececf1;
-  --line-2: #e0e0e7;
-  --check-ring: #b4b4c0; /* an open checkbox */
+  --ink: #171717;
+  --ink-2: #525252;
+  --ink-3: #8a8a8a;
+  --ink-4: #d4d4d4;
+  --line: #ededed;
+  --line-2: #e2e2e2;
+  --check-ring: #b8b8b8; /* an open checkbox */
 
-  --accent: #5b5bd6;
-  --accent-hover: #5050cc;
-  --accent-ink: #5753c6; /* accent as text */
-  --accent-soft: #f0f0fe; /* selection tint */
-  --accent-track: #d6d8fc; /* the unfilled part of an accent meter or bar */
+  --primary: #171717; /* primary buttons */
+  --primary-hover: #2e2e2e;
+  --on-primary: #ffffff;
+
+  --accent: #f4511e;
+  --accent-hover: #e0461a;
+  --accent-ink: #c84a16; /* accent as text */
+  --accent-soft: #fff2ec;
+  --accent-track: #fcdccd; /* the unfilled part of an accent meter or bar */
   --on-accent: #ffffff;
+  --heat-0: #efefef; /* activity heatmap: one hue, more is darker */
+  --heat-1: #fde3d6;
+  --heat-2: #f9b291;
+  --heat-3: #f57f50;
+  --heat-4: #e4471a;
 
-  --green: #30a46c;
-  --green-ink: #218358;
-  --green-soft: #e9f6ef;
-  --amber: #f5a524;
-  --amber-ink: #925000;
-  --amber-soft: #fff6e5;
-  --orange: #f76b15;
-  --red: #e5484d;
-  --red-ink: #ce2c31;
-  --red-soft: #fdecec;
-  --sky: #0ea5e9;
-  --pink: #e93d82;
+  --green-ink: #15803d;
+  --green-soft: #ecf8f0;
+  --red-ink: #c62828;
+  --red-soft: #fdeded;
 
-  --shine-1: #7c3aed;
-  --shine-2: #5b5bd6;
-  --shine-3: #db2777;
-  --shine-4: #ea580c;
+  --shadow-lift: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.03);
+  --shadow-sheet: 0 0 0 1px rgba(0, 0, 0, 0.045), 0 1px 3px rgba(0, 0, 0, 0.04), 0 10px 30px -12px rgba(0, 0, 0, 0.07);
+  --shadow-float: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.07), 0 18px 40px -12px rgba(0, 0, 0, 0.16);
+}
 
-  /* Sequential ramp for the activity heatmap: one hue, more is darker (lighter in dark mode). */
-  --heat-0: #ededf2;
-  --heat-1: #d6d8fc;
-  --heat-2: #a9acf2;
-  --heat-3: #7c7fe4;
-  --heat-4: #5b5bd6;
+:root[data-accent="blue"] {
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-ink: #1d4ed8;
+  --accent-soft: #eff4ff;
+  --accent-track: #d5e2fd;
+  --heat-1: #dce7fd;
+  --heat-2: #a6c0fa;
+  --heat-3: #6995f2;
+  --heat-4: #2257d6;
+}
 
-  --shadow-lift: 0 0 0 1px rgba(20, 20, 30, 0.05), 0 1px 2px rgba(20, 20, 30, 0.06), 0 2px 6px rgba(20, 20, 30, 0.04);
-  --shadow-sheet: 0 0 0 1px rgba(20, 20, 30, 0.045), 0 1px 3px rgba(20, 20, 30, 0.04), 0 10px 30px -10px rgba(20, 20, 30, 0.08);
-  --shadow-float: 0 0 0 1px rgba(20, 20, 30, 0.06), 0 4px 12px -2px rgba(20, 20, 30, 0.08), 0 18px 40px -12px rgba(20, 20, 30, 0.18);
-  --shadow-accent: 0 1px 2px rgba(60, 60, 180, 0.25), 0 6px 16px -6px rgba(91, 91, 214, 0.55);
+:root[data-accent="green"] {
+  --accent: #16a34a;
+  --accent-hover: #15803d;
+  --accent-ink: #15803d;
+  --accent-soft: #edfaf2;
+  --accent-track: #c8eed6;
+  --heat-1: #d9f4e3;
+  --heat-2: #9fdeb6;
+  --heat-3: #58bf80;
+  --heat-4: #138a40;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --canvas: #0a0a0d;
-    --surface: #131317;
-    --surface-2: #18181d;
-    --surface-3: #202027;
-    --elevated: #1b1b21;
-    --glass: rgba(27, 27, 33, 0.74);
+    --canvas: #0a0a0a;
+    --surface: #141414;
+    --surface-2: #191919;
+    --surface-3: #212121;
+    --elevated: #1c1c1c;
+    --glass: rgba(28, 28, 28, 0.76);
 
-    --ink: #ededf2;
-    --ink-2: #a3a3b2;
-    --ink-3: #6f6f80;
-    --ink-4: #3b3b47;
-    --line: #222229;
-    --line-2: #2d2d36;
-    --check-ring: #4d4d5b;
+    --ink: #ededed;
+    --ink-2: #a3a3a3;
+    --ink-3: #737373;
+    --ink-4: #3d3d3d;
+    --line: #242424;
+    --line-2: #2e2e2e;
+    --check-ring: #555555;
 
-    --accent: #5b5bd6;
-    --accent-hover: #6a69e0;
-    --accent-ink: #b1a9ff;
-    --accent-soft: #1d1e3a;
-    --accent-track: #2b2e63;
-    --on-accent: #ffffff;
+    --primary: #ededed;
+    --primary-hover: #ffffff;
+    --on-primary: #141414;
 
-    --green: #33b074;
-    --green-ink: #3dd68c;
-    --green-soft: #132a1f;
-    --amber: #ffc53d;
-    --amber-ink: #ffca16;
-    --amber-soft: #2a2008;
-    --orange: #ff801f;
-    --red: #e5484d;
-    --red-ink: #ff9592;
-    --red-soft: #351318;
-    --sky: #38bdf8;
-    --pink: #f0569a;
+    --accent: #ff6a2b;
+    --accent-hover: #ff7a3d;
+    --accent-ink: #ff8a52;
+    --accent-soft: #2a1610;
+    --accent-track: #4a2416;
+    --heat-0: #1f1f1f;
+    --heat-1: #3a1b10;
+    --heat-2: #6a2b16;
+    --heat-3: #b2441f;
+    --heat-4: #ff7a3d;
 
-    --shine-1: #a78bfa;
-    --shine-2: #8b8bff;
-    --shine-3: #f472b6;
-    --shine-4: #fb923c;
-
-    --heat-0: #202027;
-    --heat-1: #2b2e63;
-    --heat-2: #3d3e82;
-    --heat-3: #5958b1;
-    --heat-4: #8580ea;
+    --green-ink: #4ade80;
+    --green-soft: #10261a;
+    --red-ink: #f87171;
+    --red-soft: #351515;
 
     --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
     --shadow-sheet: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 10px 30px -10px rgba(0, 0, 0, 0.6);
     --shadow-float: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 40px -12px rgba(0, 0, 0, 0.7);
-    --shadow-accent: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px -6px rgba(91, 91, 214, 0.6);
+  }
+
+  :root[data-accent="blue"] {
+    --accent: #3b82f6;
+    --accent-hover: #5591f7;
+    --accent-ink: #82aefc;
+    --accent-soft: #0f1d38;
+    --accent-track: #1a3263;
+    --heat-1: #13254a;
+    --heat-2: #1e4080;
+    --heat-3: #2f62c6;
+    --heat-4: #5b98f8;
+  }
+
+  :root[data-accent="green"] {
+    --accent: #22c55e;
+    --accent-hover: #3ad270;
+    --accent-ink: #4ade80;
+    --accent-soft: #0d2316;
+    --accent-track: #164029;
+    --heat-1: #0f2b1b;
+    --heat-2: #1a4f31;
+    --heat-3: #25854b;
+    --heat-4: #36c46c;
   }
 }
 
@@ -131,27 +154,23 @@
   --color-ink-4: var(--ink-4);
   --color-line: var(--line);
   --color-line-2: var(--line-2);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
   --color-accent-track: var(--accent-track);
   --color-on-accent: var(--on-accent);
-  --color-green: var(--green);
   --color-green-ink: var(--green-ink);
   --color-green-soft: var(--green-soft);
-  --color-amber: var(--amber);
-  --color-amber-ink: var(--amber-ink);
-  --color-amber-soft: var(--amber-soft);
-  --color-orange: var(--orange);
-  --color-red: var(--red);
   --color-red-ink: var(--red-ink);
   --color-red-soft: var(--red-soft);
 
   --shadow-lift: var(--shadow-lift);
   --shadow-sheet: var(--shadow-sheet);
   --shadow-float: var(--shadow-float);
-  --shadow-accent: var(--shadow-accent);
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-inter), "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-inter), "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -207,7 +226,7 @@
     text-decoration-color: currentColor;
   }
   ::selection {
-    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
   }
   ::placeholder {
     color: var(--ink-3);
@@ -237,7 +256,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Translucent chrome that floats over content: menus, the phone tab bar, a scrolled header. */
+/* Translucent chrome that floats over content: the phone tab bar, a scrolled header. */
 @utility glass {
   background-color: var(--glass);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -268,12 +287,18 @@
 }
 @keyframes ripple {
   from {
-    opacity: 0.45;
+    opacity: 0.4;
     transform: scale(1);
   }
   to {
     opacity: 0;
     transform: scale(2.1);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
   }
 }
 
@@ -291,24 +316,15 @@
 
 /* ── Landing ────────────────────────────────────────────────────────────────── */
 
-@keyframes aurora-a {
-  50% {
-    transform: translate3d(6%, 4%, 0) scale(1.08);
-  }
+/* A faint dot grid behind hero art; set --dot to recolor it, mask it to fade the edges. */
+@utility dot-grid {
+  background-image: radial-gradient(circle, var(--dot, var(--ink-4)) 1px, transparent 1.25px);
+  background-size: 24px 24px;
 }
-@keyframes aurora-b {
-  50% {
-    transform: translate3d(-7%, 5%, 0) scale(1.12);
-  }
-}
-@keyframes aurora-c {
-  50% {
-    transform: translate3d(4%, -6%, 0) scale(0.94);
-  }
-}
+
 @keyframes float-y {
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-8px);
   }
 }
 @keyframes word-cycle {
@@ -333,15 +349,10 @@
     opacity: 0;
   }
 }
-@keyframes shimmer {
-  to {
-    background-position: 200% center;
-  }
-}
 @keyframes pulse-dot {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 45%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
   }
   60% {
     box-shadow: 0 0 0 6px transparent;
@@ -359,8 +370,8 @@
   6% {
     transform: translateY(2px);
     box-shadow:
-      0 0 0 1px var(--accent),
-      0 1px 0 var(--accent);
+      0 0 0 1px var(--ink),
+      0 1px 0 var(--ink);
   }
 }
 @keyframes grow-y {
@@ -374,20 +385,10 @@
   }
 }
 
-/* Headline accent: a slow-moving gradient through the brand colors. */
-@utility text-shine {
-  background: linear-gradient(90deg, var(--shine-1), var(--shine-2), var(--shine-3), var(--shine-4), var(--shine-1));
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: shimmer 8s linear infinite;
-}
-
 /* Reveal on scroll (see Reveal.tsx): hidden until the element enters the viewport. */
 [data-reveal] {
   opacity: 0;
-  transform: translateY(18px);
+  transform: translateY(16px);
   transition:
     opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
     transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);

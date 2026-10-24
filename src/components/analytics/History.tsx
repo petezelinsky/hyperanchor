@@ -82,7 +82,7 @@ export function HistoryCard({ rows, unit }: { rows: HistoryRow[]; unit: "days" |
                     <td className="py-2.5 pl-5">
                       <span className="flex items-center gap-2">
                         <Meter value={r.rate} className="w-14" />
-                        <span className={`tabular w-9 text-[12.5px] ${r.rate === 1 ? "font-medium text-green-ink" : "text-ink-2"}`}>{r.rate == null ? "—" : pct(r.rate)}</span>
+                        <span className={`tabular w-9 text-[12.5px] ${r.rate === 1 ? "font-medium text-ink" : "text-ink-2"}`}>{r.rate == null ? "—" : pct(r.rate)}</span>
                       </span>
                     </td>
                     <td className="w-[44%] max-w-0 py-2.5 pl-2">

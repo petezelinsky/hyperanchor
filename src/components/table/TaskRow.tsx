@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { formatStamp } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { AutoTextarea } from "../AutoTextarea";
 import { EllipsisIcon } from "../icons";
 import { Checkbox, IconButton } from "../ui";
 import type { Field, TableActions } from "./types";
 
-// Responsive columns (container queries): check | task | notes | added | menu.
-export const COLS =
-  "grid grid-cols-[40px_minmax(0,1fr)_36px] @2xl:grid-cols-[40px_minmax(180px,2fr)_minmax(0,3fr)_36px] @4xl:grid-cols-[40px_minmax(200px,2fr)_minmax(0,3fr)_88px_36px]";
+// Responsive columns (container queries): check | task | notes | menu. Notes sit under the title in narrow lists.
+export const COLS = "grid grid-cols-[40px_minmax(0,1fr)_36px] @2xl:grid-cols-[40px_minmax(200px,2fr)_minmax(0,3fr)_36px]";
 
 /** Moves the caret to the end once the field mounts. */
 function useFocusEnd(active: boolean) {
@@ -26,16 +24,17 @@ function useFocusEnd(active: boolean) {
 
 export function TaskRow({
   task,
-  todayKey,
   selected,
   editingField,
+  fresh = false,
   actions,
   onMenu,
 }: {
   task: Task;
-  todayKey: string;
   selected: boolean;
   editingField: Field | null;
+  /** Just arrived in this list (added, completed or reopened): eases in. */
+  fresh?: boolean;
   actions: TableActions;
   onMenu: (task: Task, anchor: DOMRect | { x: number; y: number }, trigger?: HTMLElement) => void;
 }) {
@@ -117,8 +116,8 @@ export function TaskRow({
         onMenu(task, { x: e.clientX, y: e.clientY });
       }}
       className={`group/row relative ${COLS} min-h-11 items-start rounded-[10px] px-1 transition-colors duration-150 after:pointer-events-none after:absolute after:right-3 after:bottom-0 after:left-12 after:h-px after:bg-line ${
-        selected || editing ? "bg-accent-soft after:opacity-0" : "hover:bg-surface-2"
-      }`}
+        selected || editing ? "bg-surface-3 after:opacity-0" : "hover:bg-surface-2"
+      } ${fresh ? "animate-rise" : ""}`}
     >
       <div role="gridcell" className="col-start-1 row-start-1 flex h-11 items-center justify-center">
         <Checkbox
@@ -139,10 +138,7 @@ export function TaskRow({
       >
         {notes}
       </div>
-      <div role="gridcell" className="tabular hidden py-[13px] pr-2 text-right text-[12.5px] leading-[18px] text-ink-3 @4xl:col-start-4 @4xl:row-start-1 @4xl:block">
-        {formatStamp(task.createdAt, todayKey)}
-      </div>
-      <div role="gridcell" className="col-start-3 row-start-1 flex h-11 items-center justify-end pr-0.5 @2xl:col-start-4 @4xl:col-start-5">
+      <div role="gridcell" className="col-start-3 row-start-1 flex h-11 items-center justify-end pr-0.5 @2xl:col-start-4">
         <IconButton
           label="More actions"
           size="sm"

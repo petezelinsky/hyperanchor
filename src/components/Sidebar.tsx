@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
 import { addDays, formatLong, monthGrid, MONTHS, ymd } from "@/lib/dates";
 import type { AppUser, Task } from "@/lib/types";
+import { ACCENTS, applyAccent, readAccent } from "./accent";
 import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
 import { CalendarIcon, ChartIcon, ChevronLeft, ChevronRight, SunIcon, WeekIcon } from "./icons";
@@ -11,12 +12,11 @@ import { IconButton, Menu, type Anchor } from "./ui";
 
 export type View = "day" | "week" | "month" | "analytics";
 
-/** Each view has its own color — only on its icon, for wayfinding. */
-export const VIEWS: { value: View; label: string; key: string; icon: React.ReactNode; color: string }[] = [
-  { value: "day", label: "Day", key: "D", icon: <SunIcon />, color: "text-orange" },
-  { value: "week", label: "Week", key: "W", icon: <WeekIcon />, color: "text-accent-ink" },
-  { value: "month", label: "Month", key: "M", icon: <CalendarIcon />, color: "text-red" },
-  { value: "analytics", label: "Analytics", key: "A", icon: <ChartIcon />, color: "text-green" },
+export const VIEWS: { value: View; label: string; key: string; icon: React.ReactNode }[] = [
+  { value: "day", label: "Day", key: "D", icon: <SunIcon /> },
+  { value: "week", label: "Week", key: "W", icon: <WeekIcon /> },
+  { value: "month", label: "Month", key: "M", icon: <CalendarIcon /> },
+  { value: "analytics", label: "Analytics", key: "A", icon: <ChartIcon /> },
 ];
 
 const NAV_ROW = 38; // item height (36) + gap (2): how far the selection travels per item
@@ -25,12 +25,14 @@ export function Sidebar({
   user,
   view,
   onView,
+  onShortcuts,
   badges,
   mini,
 }: {
   user: AppUser;
   view: View;
   onView: (v: View) => void;
+  onShortcuts: () => void;
   badges: Partial<Record<View, number>>;
   mini: React.ReactNode;
 }) {
@@ -61,7 +63,7 @@ export function Sidebar({
                   on ? "font-medium text-ink" : "text-ink-2 hover:bg-line hover:text-ink"
                 }`}
               >
-                <span className={v.color}>{v.icon}</span>
+                <span className={`transition-colors duration-150 ${on ? "text-accent" : "text-ink-3"}`}>{v.icon}</span>
                 <span className="flex-1 text-left">{v.label}</span>
                 {!!badge && <span className="tabular text-[12px] font-normal text-ink-3">{badge}</span>}
               </button>
@@ -70,7 +72,7 @@ export function Sidebar({
         </nav>
         <div className="mt-7 px-1">{mini}</div>
         <div className="mt-auto pt-4">
-          <AccountButton user={user} />
+          <AccountButton user={user} onShortcuts={onShortcuts} />
         </div>
       </div>
     </aside>
@@ -122,6 +124,7 @@ export function MiniMonth({
           const d = addDays(start, i);
           const key = ymd(d);
           const sel = key === selected;
+          const today = key === todayKey;
           const tasks = byDate(key);
           const allDone = tasks.length > 0 && tasks.every((t) => t.done);
           return (
@@ -133,22 +136,23 @@ export function MiniMonth({
               aria-pressed={sel}
               className="group relative flex h-[30px] items-center justify-center"
             >
+              {/* Today is the accent; another selected day is black (as in Calendar). */}
               <span
                 className={`tabular flex size-[26px] items-center justify-center rounded-full text-[12px] transition-colors duration-150 ${
-                  sel
+                  sel && today
                     ? "bg-accent font-semibold text-on-accent"
-                    : key === todayKey
-                      ? "font-bold text-accent-ink group-hover:bg-line-2"
-                      : d.getMonth() !== month
-                        ? "text-ink-4 group-hover:bg-line-2"
-                        : "text-ink group-hover:bg-line-2"
+                    : sel
+                      ? "bg-primary font-semibold text-on-primary"
+                      : today
+                        ? "font-bold text-accent-ink group-hover:bg-line-2"
+                        : d.getMonth() !== month
+                          ? "text-ink-4 group-hover:bg-line-2"
+                          : "text-ink group-hover:bg-line-2"
                 }`}
               >
                 {d.getDate()}
               </span>
-              {tasks.length > 0 && (
-                <span className={`absolute bottom-0 size-[3px] rounded-full ${sel ? "bg-accent" : allDone ? "bg-green" : "bg-ink-4"}`} />
-              )}
+              {tasks.length > 0 && !sel && <span className={`absolute bottom-0 size-[3px] rounded-full ${allDone ? "bg-accent" : "bg-ink-4"}`} />}
             </button>
           );
         })}
@@ -157,9 +161,10 @@ export function MiniMonth({
   );
 }
 
-function useAccountMenu() {
+function useAccountMenu(onShortcuts: () => void, heading?: string) {
   const [anchor, setAnchor] = useState<{ rect: Anchor; el: HTMLElement } | null>(null);
   const [, startTransition] = useTransition();
+  const accent = anchor ? readAccent() : "orange";
   const menu = anchor && (
     <Menu
       anchor={anchor.rect}
@@ -167,7 +172,17 @@ function useAccountMenu() {
       label="Account"
       onClose={() => setAnchor(null)}
       entries={[
-        { heading: "Signed in with Google" },
+        ...(heading ? [{ heading }, { separator: true as const }] : []),
+        // The accent applies at once and is remembered on this device.
+        { heading: "Accent" },
+        ...ACCENTS.map((a) => ({
+          label: a.label,
+          icon: <span className="block size-3 rounded-full" style={{ background: a.swatch }} />,
+          checked: accent === a.value,
+          onSelect: () => applyAccent(a.value),
+        })),
+        { separator: true },
+        { label: "Keyboard Shortcuts", shortcut: "?", onSelect: onShortcuts },
         { label: "Privacy Policy", onSelect: () => window.location.assign("/privacy") },
         { label: "Terms of Service", onSelect: () => window.location.assign("/terms") },
         { separator: true },
@@ -179,8 +194,8 @@ function useAccountMenu() {
   return { menu, toggle, open: !!anchor };
 }
 
-function AccountButton({ user }: { user: AppUser }) {
-  const { menu, toggle, open } = useAccountMenu();
+function AccountButton({ user, onShortcuts }: { user: AppUser; onShortcuts: () => void }) {
+  const { menu, toggle, open } = useAccountMenu(onShortcuts);
   const ref = useRef<HTMLButtonElement>(null);
   return (
     <>
@@ -204,8 +219,9 @@ function AccountButton({ user }: { user: AppUser }) {
 }
 
 /** Phone layout, top: the wordmark and the account. */
-export function MobileHeader({ user }: { user: AppUser }) {
-  const { menu, toggle, open } = useAccountMenu();
+export function MobileHeader({ user, onShortcuts }: { user: AppUser; onShortcuts: () => void }) {
+  // The phone header shows only the avatar, so the menu names the account.
+  const { menu, toggle, open } = useAccountMenu(onShortcuts, user.email);
   return (
     <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between pr-4 pl-5 shadow-[0_1px_0_var(--line)] md:hidden">
       <Wordmark />
@@ -240,7 +256,7 @@ export function TabBar({ view, onView }: { view: View; onView: (v: View) => void
                 on ? "text-ink" : "text-ink-3"
               }`}
             >
-              <span className={on ? v.color : ""}>{v.icon}</span>
+              <span className={on ? "text-accent" : ""}>{v.icon}</span>
               {v.label}
             </button>
           );
