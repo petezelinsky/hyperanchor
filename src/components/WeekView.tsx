@@ -28,7 +28,7 @@ export function WeekView({
   const start = startOfWeek(parseYmd(selected));
   const weeks = Math.round(dayDiff(start, startOfWeek(parseYmd(todayKey))) / 7);
   const title = weeks === 0 ? "This Week" : weeks === -1 ? "Last Week" : weeks === 1 ? "Next Week" : `Week of ${formatShort(start)}`;
-  const tasks = sections.flatMap((s) => s.tasks);
+  const tasks = sections.flatMap((s) => [...s.tasks, ...(s.completed ?? [])]);
   const done = tasks.filter((t) => t.done).length;
 
   return (

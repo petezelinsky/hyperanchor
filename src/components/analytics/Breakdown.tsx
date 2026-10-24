@@ -74,7 +74,7 @@ export function OpenCard({
     >
       {open.length === 0 ? (
         <p className="flex items-center justify-center gap-2 py-6 text-center text-[13px] text-ink-2">
-          <span className="size-1.5 rounded-full bg-green" />
+          <span className="size-1.5 rounded-full bg-accent" />
           Nothing left open — everything planned was completed.
         </p>
       ) : (
@@ -86,7 +86,7 @@ export function OpenCard({
                 <button type="button" onClick={() => onOpenDay(day.key)} className="min-w-0 flex-1 truncate text-left text-[13.5px] underline-offset-2 hover:underline">
                   {task.title}
                 </button>
-                <span className={`tabular flex-none text-[12px] ${day.isToday ? "text-ink-3" : "font-medium text-amber-ink"}`}>
+                <span className={`tabular flex-none text-[12px] ${day.isToday ? "text-ink-3" : "font-medium text-ink-2"}`}>
                   {day.isToday ? "Today" : formatShort(day.date)}
                 </span>
                 {!day.isToday && (

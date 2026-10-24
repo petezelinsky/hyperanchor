@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, formatMedium, monthGrid, parseYmd, relativeDay, startOfWeek, ymd } from "@/lib/dates";
 import { statsRange, type Period } from "@/lib/stats";
-import { DEFAULT_SORT, matchesQuery, nextSort, sortTasks, type Sort } from "@/lib/tasks";
+import { DEFAULT_SORT, matchesQuery, sortTasks, type Sort } from "@/lib/tasks";
 import type { AppUser, Task } from "@/lib/types";
 import { AnalyticsView } from "./analytics/AnalyticsView";
 import { DayView } from "./DayView";
 import { MonthView } from "./MonthView";
+import { ShortcutsSheet } from "./ShortcutsSheet";
 import { MiniMonth, MobileHeader, Sidebar, TabBar, type View } from "./Sidebar";
 import type { Composer, Editing, Section, TableActions } from "./table/types";
 import { useTasks } from "./useTasks";
@@ -50,6 +51,16 @@ export function TaskApp({ user }: { user: AppUser }) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [composer, setComposer] = useState<Composer | null>(null);
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
+  // Just-completed tasks stay where they are for a moment (the tick plays) before moving to Completed.
+  const [settling, setSettling] = useState<string[]>([]);
+  const [completedOpen, setCompletedOpen] = useState(() => {
+    try {
+      return localStorage.getItem("completed") !== "hidden";
+    } catch {
+      return true;
+    }
+  });
+  const [help, setHelp] = useState(false);
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -101,13 +112,32 @@ export function TaskApp({ user }: { user: AppUser }) {
 
   const sections = useMemo((): Section[] => {
     const make = (date: string) => ({ date, tasks: sortTasks(byDate(date).filter((t) => matchesQuery(t, query)), sort) });
-    if (view === "day") return [make(selected)];
+    if (view === "day") {
+      // What's left first; finished tasks gather in a Completed group below.
+      const { date, tasks } = make(selected);
+      const completed = tasks.filter((t) => t.done && !settling.includes(t.id));
+      return [{ date, tasks: tasks.filter((t) => !completed.includes(t)), completed }];
+    }
     if (view !== "week") return [];
+    // Each day lists what's left first; finished tasks sink below it (after the tick plays).
     const ws = startOfWeek(parseYmd(selected));
-    const all = Array.from({ length: 7 }, (_, i) => make(ymd(addDays(ws, i))));
-    return query ? all.filter((s) => s.tasks.length) : all;
-  }, [view, selected, byDate, query, sort]);
-  const visibleIds = useMemo(() => sections.flatMap((s) => s.tasks.map((t) => t.id)), [sections]);
+    const all = Array.from({ length: 7 }, (_, i) => {
+      const { date, tasks } = make(ymd(addDays(ws, i)));
+      const completed = tasks.filter((t) => t.done && !settling.includes(t.id));
+      return { date, tasks: tasks.filter((t) => !completed.includes(t)), completed };
+    });
+    return query ? all.filter((s) => s.tasks.length || s.completed.length) : all;
+  }, [view, selected, byDate, query, sort, settling]);
+  // In screen order. Week view always shows finished tasks; Day view folds them into a collapsible group.
+  const visibleIds = useMemo(
+    () => sections.flatMap((s) => [...s.tasks, ...(view === "week" || completedOpen ? (s.completed ?? []) : [])].map((t) => t.id)),
+    [sections, completedOpen, view],
+  );
+
+  // A selection that scrolled out of the list (filtered, collapsed into Completed, …) is dropped, so keys never act unseen.
+  useEffect(() => {
+    if (selectedId && !visibleIds.includes(selectedId)) setSelectedId(null);
+  }, [selectedId, visibleIds]);
 
   // Latest state for stable callbacks and global listeners.
   const latest = useRef({ tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey });
@@ -183,7 +213,12 @@ export function TaskApp({ user }: { user: AppUser }) {
         setEditing(null);
       },
       change: (id, patch) => edit(id, patch, SAVE_DELAY),
-      toggle: (task) => edit(task.id, { done: !task.done }),
+      toggle: (task) => {
+        edit(task.id, { done: !task.done });
+        if (task.done) return;
+        setSettling((s) => [...s, task.id]);
+        setTimeout(() => setSettling((s) => s.filter((id) => id !== task.id)), 900);
+      },
       move: (task, date) => {
         const from = task.date;
         edit(task.id, { date });
@@ -210,7 +245,7 @@ export function TaskApp({ user }: { user: AppUser }) {
         latest.current.composer = null;
         setComposer(null);
       },
-      sort: (key) => setSort((s) => nextSort(s, key)),
+      sort: setSort,
     };
   }, [create, edit, remove, restore, notify]);
 
@@ -264,6 +299,7 @@ export function TaskApp({ user }: { user: AppUser }) {
       } else if (table && sel && k === "Enter") actions.startEdit(sel.id, "title");
       else if (table && sel && k === " ") actions.toggle(sel);
       else if (table && sel && (k === "Backspace" || k === "Delete")) actions.remove(sel);
+      else if (k === "?") setHelp(true);
       else if (k === "Escape") setSelectedId(null);
       else return;
       e.preventDefault();
@@ -303,6 +339,7 @@ export function TaskApp({ user }: { user: AppUser }) {
         user={user}
         view={view}
         onView={showView}
+        onShortcuts={() => setHelp(true)}
         badges={{ day: byDate(selected).filter((t) => !t.done).length, week: weekOpen }}
         mini={
           <MiniMonth
@@ -321,7 +358,7 @@ export function TaskApp({ user }: { user: AppUser }) {
         }
       />
       <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
-        <MobileHeader user={user} />
+        <MobileHeader user={user} onShortcuts={() => setHelp(true)} />
         {/* The content sheet. Desktop: an inset white sheet that scrolls inside (the toolbar sticks). Phone: the page scrolls. */}
         <div className="min-h-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+92px)] md:pb-0">
           <main ref={scroller} className="group/sheet md:h-full md:scroll-pt-32 md:overflow-y-auto md:rounded-[14px] md:bg-surface md:shadow-sheet">
@@ -331,6 +368,13 @@ export function TaskApp({ user }: { user: AppUser }) {
                 section={sections[0] ?? { date: selected, tasks: [] }}
                 state={tableState}
                 actions={actions}
+                completedOpen={completedOpen}
+                onCompletedOpen={(open) => {
+                  setCompletedOpen(open);
+                  try {
+                    localStorage.setItem("completed", open ? "shown" : "hidden");
+                  } catch {}
+                }}
                 byDate={byDate}
                 query={query}
                 onQuery={setQuery}
@@ -374,6 +418,7 @@ export function TaskApp({ user }: { user: AppUser }) {
         </div>
       </div>
       <TabBar view={view} onView={showView} />
+      {help && <ShortcutsSheet onClose={() => setHelp(false)} />}
 
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+90px)] z-[120] flex justify-center px-4 md:bottom-6">

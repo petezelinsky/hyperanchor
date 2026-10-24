@@ -153,3 +153,9 @@ export function FlameIcon({ size = 16, className }: IconProps) {
     </svg>
   );
 }
+
+export const SortIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 2.5v11M2.5 11 5 13.5 7.5 11M11 13.5v-11M8.5 5 11 2.5 13.5 5" />
+  </Svg>
+);

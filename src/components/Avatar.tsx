@@ -27,7 +27,7 @@ export function Avatar({ name, image, size }: { name: string; image: string | nu
   return (
     <span
       style={style}
-      className="flex flex-none items-center justify-center rounded-full bg-gradient-to-br from-[#8b7cf6] to-[#5b5bd6] font-semibold text-white"
+      className="flex flex-none items-center justify-center rounded-full bg-gradient-to-b from-[#a3a3a3] to-[#737373] font-semibold text-white dark:from-[#5c5c5c] dark:to-[#3d3d3d]"
     >
       {initials(name)}
     </span>

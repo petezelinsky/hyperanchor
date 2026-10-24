@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ChevronLeft } from "./icons";
-import { Aurora } from "./landing/Aurora";
 import { SiteFooter, SiteHeader } from "./Site";
 
 export function LegalPage({ title, effective, children }: { title: string; effective: string; children: React.ReactNode }) {
@@ -13,10 +12,7 @@ export function LegalPage({ title, effective, children }: { title: string; effec
         </Link>
       </SiteHeader>
 
-      <main className="relative isolate">
-        <div className="absolute inset-x-0 top-0 -z-10 h-[360px]">
-          <Aurora className="opacity-60 [mask-image:linear-gradient(to_bottom,#000,transparent)]" />
-        </div>
+      <main>
         <div className="mx-auto max-w-[720px] animate-rise px-5 pt-14 pb-20 md:pt-20">
           <p className="text-[13px] font-semibold text-accent-ink">Legal</p>
           <h1 className="mt-3 font-display text-[40px] leading-[1.06] font-bold tracking-[-0.035em] md:text-[52px]">{title}</h1>

@@ -40,13 +40,13 @@ function useCountUp(value: number, duration = 450) {
   return shown;
 }
 
-/** Signed change vs the previous period, colored by direction (up is good for every measure here). */
+/** Signed change vs the previous period: arrow + number, tinted by direction (up is good for every measure here). */
 function Delta({ value, digits, suffix = "", vs }: { value: number; digits: number; suffix?: string; vs: string }) {
   const r = Number(value.toFixed(digits));
-  const tone = r > 0 ? "bg-green-soft text-green-ink" : r < 0 ? "bg-red-soft text-red-ink" : "bg-surface-3 text-ink-3";
+  const tone = r > 0 ? "text-green-ink" : r < 0 ? "text-red-ink" : "text-ink-2";
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={`tabular inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[11.5px] font-semibold ${tone}`}>
+      <span className={`tabular inline-flex items-center gap-0.5 text-[12px] font-semibold ${tone}`}>
         {r > 0 ? "▲" : r < 0 ? "▼" : "="} {r === 0 ? "0" : Math.abs(r).toFixed(digits).replace(/\.0$/, "")}
         {r !== 0 && suffix}
       </span>
@@ -167,9 +167,9 @@ export function Kpis({
         visual={
           <span aria-hidden="true" className="flex items-center gap-[3px]">
             {recent.map((on, i) => (
-              <span key={i} className={`size-[7px] rounded-full ${on ? "bg-orange" : "bg-line-2"}`} />
+              <span key={i} className={`size-[7px] rounded-full ${on ? "bg-accent" : "bg-line-2"}`} />
             ))}
-            <FlameIcon size={15} className={`ml-1 ${streak > 0 ? "text-orange" : "text-ink-4"}`} />
+            <FlameIcon size={15} className={`ml-1 ${streak > 0 ? "text-accent" : "text-ink-4"}`} />
           </span>
         }
         foot={<span>{current ? `Longest this ${period}: ${longest} ${longest === 1 ? "day" : "days"}` : "Days in a row with something done"}</span>}

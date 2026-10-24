@@ -2,7 +2,7 @@
 
 import { addDays, DOW_FULL, DOW_SHORT, dowIndex, formatLong, parseYmd, relativeDay, startOfWeek, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
-import { CheckIcon, ChevronLeft, ChevronRight, PlusIcon, SunIcon } from "./icons";
+import { ArrowRightIcon, CheckIcon, ChevronLeft, ChevronRight, PlusIcon, SunIcon } from "./icons";
 import { TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
 import { EmptyState, NewTaskButton, SearchField, Toolbar } from "./Toolbar";
@@ -13,6 +13,8 @@ export function DayView({
   section,
   state,
   actions,
+  completedOpen,
+  onCompletedOpen,
   byDate,
   query,
   onQuery,
@@ -23,6 +25,8 @@ export function DayView({
   section: Section;
   state: TableState;
   actions: TableActions;
+  completedOpen: boolean;
+  onCompletedOpen: (open: boolean) => void;
   byDate: (key: string) => Task[];
   query: string;
   onQuery: (q: string) => void;
@@ -55,7 +59,7 @@ export function DayView({
                 <Burst active={allDone}>
                   <ProgressRing value={doneN / all.length} size={14} stroke={2.4} />
                 </Burst>
-                <span className={allDone ? "font-medium text-green-ink" : ""}>{allDone ? "All done" : `${doneN} of ${all.length} done`}</span>
+                <span className={allDone ? "font-medium text-ink" : ""}>{allDone ? "All done" : `${doneN} of ${all.length} done`}</span>
               </>
             ) : (
               <span>No tasks</span>
@@ -84,22 +88,35 @@ export function DayView({
         </div>
 
         {past && open.length > 0 && !query && (
-          <div className="mt-1 mb-3 flex animate-rise flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-amber-soft py-2 pr-2 pl-3.5 text-[13px] text-amber-ink">
-            <span className="size-1.5 flex-none rounded-full bg-amber" />
+          <div className="mt-1 mb-4 flex animate-rise flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-surface-2 py-2 pr-2 pl-3.5 text-[13px] text-ink-2 shadow-[inset_0_0_0_1px_var(--line)]">
             <span className="flex-1">
-              {open.length === 1 ? "1 task wasn’t completed on this day." : `${open.length} tasks weren’t completed on this day.`}
+              {open.length === 1 ? "1 task was left open on this day." : `${open.length} tasks were left open on this day.`}
             </span>
-            <Button size="sm" onClick={() => onMoveToToday(open)}>
+            <Button size="sm" onClick={() => onMoveToToday(open)} className="gap-1">
               Move to Today
+              <ArrowRightIcon size={13} strokeWidth={2} />
             </Button>
           </div>
         )}
 
         <TaskTable
+          key={selected}
           sections={[section]}
           state={state}
           actions={actions}
           placeholderRow
+          completedOpen={completedOpen}
+          onCompletedOpen={onCompletedOpen}
+          cleared={
+            !query && (
+              <p className="flex h-11 animate-rise items-center gap-[11px] pl-[15px] text-[14px] text-ink-2">
+                <span className="flex size-[18px] items-center justify-center rounded-full bg-accent text-on-accent">
+                  <CheckIcon size={10} strokeWidth={2.6} />
+                </span>
+                {selected === todayKey ? "All done for today. Nice work!" : "Everything on this day is done."}
+              </p>
+            )
+          }
           empty={
             query ? (
               <EmptyState icon={<SunIcon size={22} />} title="No matching tasks">
@@ -121,15 +138,6 @@ export function DayView({
             )
           }
         />
-
-        {allDone && !query && (
-          <p className="mt-5 flex animate-rise items-center justify-center gap-2 text-[13px] font-medium text-green-ink">
-            <span className="flex size-[18px] items-center justify-center rounded-full bg-green text-white">
-              <CheckIcon size={10} strokeWidth={2.6} />
-            </span>
-            {selected === todayKey ? "All done for today. Nice work!" : "Everything on this day is done."}
-          </p>
-        )}
       </div>
     </>
   );
@@ -152,8 +160,8 @@ function WeekPills({ selected, todayKey, byDate, onSelect }: { selected: string;
           const isToday = key === todayKey;
           const tasks = byDate(key);
           const done = tasks.filter((t) => t.done).length;
-          // Green: all done. Amber: an earlier day left unfinished. Gray: still to do.
-          const dot = !tasks.length ? "" : done === tasks.length ? "bg-green" : key < todayKey ? "bg-amber" : "bg-ink-4";
+          // Accent: everything done. Gray: something still open.
+          const dot = !tasks.length ? "" : done === tasks.length ? "bg-accent" : "bg-ink-4";
           return (
             <button
               key={key}
@@ -161,15 +169,16 @@ function WeekPills({ selected, todayKey, byDate, onSelect }: { selected: string;
               onClick={() => onSelect(key)}
               aria-pressed={on}
               aria-label={`${formatLong(day)}: ${tasks.length ? `${done} of ${tasks.length} done` : "no tasks"}`}
-              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-[11px] transition-[background-color,color,box-shadow] duration-150 lg:w-10 lg:flex-none ${
-                on ? "bg-accent text-on-accent shadow-accent" : "hover:bg-surface-3"
+              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-[11px] transition-colors duration-150 lg:w-10 lg:flex-none ${
+                on && isToday ? "bg-accent text-on-accent" : on ? "bg-primary text-on-primary" : "hover:bg-surface-3"
               }`}
             >
-              <span className={`text-[10.5px] leading-[13px] font-medium ${on ? "text-on-accent/80" : isToday ? "text-accent-ink" : "text-ink-3"}`}>{DOW_SHORT[i]}</span>
+              {/* Today is the accent; another selected day is black (as in Calendar). */}
+              <span className={`text-[10.5px] leading-[13px] font-medium ${on ? "opacity-75" : isToday ? "text-accent-ink" : "text-ink-3"}`}>{DOW_SHORT[i]}</span>
               <span className={`tabular text-[15px] leading-5 font-semibold ${on ? "" : isToday ? "text-accent-ink" : key < todayKey ? "text-ink-2" : "text-ink"}`}>
                 {day.getDate()}
               </span>
-              <span className={`mt-px size-1 rounded-full ${dot ? (on ? "bg-on-accent/80" : dot) : ""}`} />
+              <span className={`mt-px size-1 rounded-full ${dot ? (on ? "bg-current opacity-60" : dot) : ""}`} />
             </button>
           );
         })}

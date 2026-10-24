@@ -23,10 +23,3 @@ export function matchesQuery(t: Task, query: string) {
   const q = query.trim().toLowerCase();
   return !q || t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q);
 }
-
-/** Next sort when a column header is clicked: asc → desc → back to the default order. */
-export function nextSort(current: Sort, key: SortKey): Sort {
-  if (current.key !== key) return { key, dir: "asc" };
-  if (current.dir === "asc") return { key, dir: "desc" };
-  return DEFAULT_SORT;
-}
