@@ -4,7 +4,6 @@ import { useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
 import { addDays, formatLong, monthGrid, MONTHS, ymd } from "@/lib/dates";
 import type { AppUser, Task } from "@/lib/types";
-import { ACCENTS, applyAccent, readAccent } from "./accent";
 import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
 import { CalendarIcon, ChartIcon, ChevronLeft, ChevronRight, SunIcon, WeekIcon } from "./icons";
@@ -26,6 +25,7 @@ export function Sidebar({
   view,
   onView,
   onShortcuts,
+  onSettings,
   badges,
   mini,
 }: {
@@ -33,6 +33,7 @@ export function Sidebar({
   view: View;
   onView: (v: View) => void;
   onShortcuts: () => void;
+  onSettings: () => void;
   badges: Partial<Record<View, number>>;
   mini: React.ReactNode;
 }) {
@@ -72,7 +73,7 @@ export function Sidebar({
         </nav>
         <div className="mt-7 px-1">{mini}</div>
         <div className="mt-auto pt-4">
-          <AccountButton user={user} onShortcuts={onShortcuts} />
+          <AccountButton user={user} onShortcuts={onShortcuts} onSettings={onSettings} />
         </div>
       </div>
     </aside>
@@ -161,10 +162,10 @@ export function MiniMonth({
   );
 }
 
-function useAccountMenu(onShortcuts: () => void, heading?: string) {
+/** `phone`: names the account (the phone header shows only the avatar) and leaves out keyboard hints. */
+function useAccountMenu(onShortcuts: () => void, onSettings: () => void, phone?: { email: string }) {
   const [anchor, setAnchor] = useState<{ rect: Anchor; el: HTMLElement } | null>(null);
   const [, startTransition] = useTransition();
-  const accent = anchor ? readAccent() : "orange";
   const menu = anchor && (
     <Menu
       anchor={anchor.rect}
@@ -172,17 +173,10 @@ function useAccountMenu(onShortcuts: () => void, heading?: string) {
       label="Account"
       onClose={() => setAnchor(null)}
       entries={[
-        ...(heading ? [{ heading }, { separator: true as const }] : []),
-        // The accent applies at once and is remembered on this device.
-        { heading: "Accent" },
-        ...ACCENTS.map((a) => ({
-          label: a.label,
-          icon: <span className="block size-3 rounded-full" style={{ background: a.swatch }} />,
-          checked: accent === a.value,
-          onSelect: () => applyAccent(a.value),
-        })),
+        ...(phone ? [{ heading: phone.email }, { separator: true as const }] : []),
+        { label: "Settings", shortcut: phone ? undefined : ",", onSelect: onSettings },
+        ...(phone ? [] : [{ label: "Keyboard Shortcuts", shortcut: "?", onSelect: onShortcuts }]),
         { separator: true },
-        { label: "Keyboard Shortcuts", shortcut: "?", onSelect: onShortcuts },
         { label: "Privacy Policy", onSelect: () => window.location.assign("/privacy") },
         { label: "Terms of Service", onSelect: () => window.location.assign("/terms") },
         { separator: true },
@@ -194,8 +188,8 @@ function useAccountMenu(onShortcuts: () => void, heading?: string) {
   return { menu, toggle, open: !!anchor };
 }
 
-function AccountButton({ user, onShortcuts }: { user: AppUser; onShortcuts: () => void }) {
-  const { menu, toggle, open } = useAccountMenu(onShortcuts);
+function AccountButton({ user, onShortcuts, onSettings }: { user: AppUser; onShortcuts: () => void; onSettings: () => void }) {
+  const { menu, toggle, open } = useAccountMenu(onShortcuts, onSettings);
   const ref = useRef<HTMLButtonElement>(null);
   return (
     <>
@@ -219,9 +213,8 @@ function AccountButton({ user, onShortcuts }: { user: AppUser; onShortcuts: () =
 }
 
 /** Phone layout, top: the wordmark and the account. */
-export function MobileHeader({ user, onShortcuts }: { user: AppUser; onShortcuts: () => void }) {
-  // The phone header shows only the avatar, so the menu names the account.
-  const { menu, toggle, open } = useAccountMenu(onShortcuts, user.email);
+export function MobileHeader({ user, onShortcuts, onSettings }: { user: AppUser; onShortcuts: () => void; onSettings: () => void }) {
+  const { menu, toggle, open } = useAccountMenu(onShortcuts, onSettings, { email: user.email });
   return (
     <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between pr-4 pl-5 shadow-[0_1px_0_var(--line)] md:hidden">
       <Wordmark />

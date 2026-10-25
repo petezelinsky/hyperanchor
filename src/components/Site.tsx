@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Wordmark } from "./Brand";
+import { ThemeSwitch } from "./ThemeSwitch";
 
 /** Top bar for public pages (landing, legal): frosted, sticky. */
 export function SiteHeader({ children }: { children?: React.ReactNode }) {
@@ -21,14 +22,17 @@ export function SiteFooter() {
           <Wordmark size={15} />
           <span>© 2026</span>
         </span>
-        <nav className="flex gap-5">
-          <Link href="/privacy" className="no-underline hover:text-ink">
-            Privacy Policy
-          </Link>
-          <Link href="/terms" className="no-underline hover:text-ink">
-            Terms of Service
-          </Link>
-        </nav>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <nav className="flex gap-5">
+            <Link href="/privacy" className="no-underline hover:text-ink">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="no-underline hover:text-ink">
+              Terms of Service
+            </Link>
+          </nav>
+          <ThemeSwitch />
+        </div>
       </div>
     </footer>
   );

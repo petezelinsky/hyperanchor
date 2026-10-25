@@ -90,8 +90,9 @@ export function OpenCard({
                   {day.isToday ? "Today" : formatShort(day.date)}
                 </span>
                 {!day.isToday && (
-                  <Button size="sm" onClick={() => onMove(task, todayKey)} className="flex-none">
-                    Move to Today
+                  <Button size="sm" onClick={() => onMove(task, todayKey)} aria-label="Move to Today" className="flex-none">
+                    <span className="max-sm:hidden">Move to Today</span>
+                    <span className="sm:hidden">Today</span>
                   </Button>
                 )}
               </li>

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { ACCENT_BOOT } from "@/components/accent";
+import { PREFS_BOOT } from "@/components/prefs";
 import "./globals.css";
 
 // SF Pro is used on Apple devices; Inter is the closest match elsewhere.
@@ -20,20 +20,17 @@ export const metadata: Metadata = {
   },
 };
 
+// theme-color follows the chosen theme; PREFS_BOOT sets it.
 export const viewport: Viewport = {
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
-  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // The boot script may set data-accent on <html> before React hydrates.
+    // The boot script sets data-theme / data-accent on <html> before React hydrates.
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: ACCENT_BOOT }} />
+        <script dangerouslySetInnerHTML={{ __html: PREFS_BOOT }} />
       </head>
       <body>{children}</body>
     </html>

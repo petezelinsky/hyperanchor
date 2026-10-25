@@ -1,12 +1,24 @@
 "use client";
 
-import { addDays, DOW_FULL, DOW_SHORT, dowIndex, formatLong, parseYmd, relativeDay, startOfWeek, ymd } from "@/lib/dates";
+import { addDays, DOW_FULL, DOW_SHORT, dowIndex, formatLong, MONTHS, parseYmd, relativeDay, startOfWeek, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
-import { ArrowRightIcon, CheckIcon, ChevronLeft, ChevronRight, PlusIcon, SunIcon } from "./icons";
+import { FocusPanel } from "./FocusPanel";
+import { ArrowRightIcon, CheckIcon, ChevronLeft, ChevronRight, FocusIcon, PlusIcon, SunIcon } from "./icons";
 import { TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
 import { EmptyState, NewTaskButton, SearchField, Toolbar } from "./Toolbar";
 import { Burst, Button, IconButton, Kbd, ProgressRing } from "./ui";
+
+/** Focus mode for the selected day (null when off). */
+export type Focus = {
+  task?: Task;
+  next?: Task;
+  after: number;
+  onDone: (t: Task) => void;
+  onLater: (t: Task) => void;
+  onExit: () => void;
+  onCapture: (title: string) => void;
+} | null;
 
 export function DayView({
   selected,
@@ -20,6 +32,9 @@ export function DayView({
   onQuery,
   onSelectDate,
   onMoveToToday,
+  carried,
+  focus,
+  onFocus,
 }: {
   selected: string;
   section: Section;
@@ -32,6 +47,10 @@ export function DayView({
   onQuery: (q: string) => void;
   onSelectDate: (key: string) => void;
   onMoveToToday: (tasks: Task[]) => void;
+  /** Today only: tasks still open from earlier days. */
+  carried: Task[];
+  focus: Focus;
+  onFocus: () => void;
 }) {
   const { todayKey } = state;
   const d = parseYmd(selected);
@@ -50,7 +69,8 @@ export function DayView({
         subtitle={
           <>
             <span>
-              {formatLong(d)}
+              {/* The title already names the weekday unless it says Today / Tomorrow / Yesterday. */}
+              {relativeDay(selected, todayKey) ? formatLong(d) : `${MONTHS[d.getMonth()]} ${d.getDate()}`}
               {year}
             </span>
             <span className="text-ink-4">·</span>
@@ -67,18 +87,43 @@ export function DayView({
           </>
         }
       >
-        <SearchField value={query} onChange={onQuery} />
-        {selected !== todayKey && (
-          <Button onClick={() => onSelectDate(todayKey)} className="max-lg:hidden">
+        {!focus && <SearchField value={query} onChange={onQuery} />}
+        {selected !== todayKey && !focus && (
+          <Button onClick={() => onSelectDate(todayKey)} className="max-xl:hidden">
             Today
           </Button>
         )}
-        <div className="max-lg:hidden">{pills}</div>
-        <NewTaskButton onClick={() => actions.openComposer(selected)} />
+        {!focus && <div className="max-xl:hidden">{pills}</div>}
+        <Button
+          onClick={onFocus}
+          aria-pressed={!!focus}
+          disabled={!focus && !open.length}
+          title={focus ? "Exit focus (Esc)" : "Focus on one task at a time (F)"}
+          className={`max-sm:w-8 max-sm:px-0 sm:pl-2.5 ${focus ? "bg-surface-3 shadow-[inset_0_0_0_1px_var(--line-2)]" : ""}`}
+        >
+          <FocusIcon size={14} strokeWidth={1.8} />
+          <span className="max-sm:sr-only">{focus ? "Exit Focus" : "Focus"}</span>
+        </Button>
+        <NewTaskButton onClick={() => (focus ? document.getElementById("focus-capture")?.focus() : actions.openComposer(selected))} />
       </Toolbar>
 
       <div className="mx-auto max-w-[1184px] px-3 pb-16 md:px-8">
-        <div className="mb-2 flex items-center gap-2 lg:hidden">
+        {focus ? (
+          <FocusPanel
+            task={focus.task}
+            next={focus.next}
+            after={focus.after}
+            done={doneN}
+            total={all.length}
+            isToday={selected === todayKey}
+            onDone={focus.onDone}
+            onLater={focus.onLater}
+            onExit={focus.onExit}
+            onCapture={focus.onCapture}
+          />
+        ) : (
+          <>
+        <div className="mb-2 flex items-center gap-2 xl:hidden">
           <div className="min-w-0 flex-1">{pills}</div>
           {selected !== todayKey && (
             <Button size="sm" onClick={() => onSelectDate(todayKey)}>
@@ -88,15 +133,15 @@ export function DayView({
         </div>
 
         {past && open.length > 0 && !query && (
-          <div className="mt-1 mb-4 flex animate-rise flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-surface-2 py-2 pr-2 pl-3.5 text-[13px] text-ink-2 shadow-[inset_0_0_0_1px_var(--line)]">
-            <span className="flex-1">
-              {open.length === 1 ? "1 task was left open on this day." : `${open.length} tasks were left open on this day.`}
-            </span>
-            <Button size="sm" onClick={() => onMoveToToday(open)} className="gap-1">
-              Move to Today
-              <ArrowRightIcon size={13} strokeWidth={2} />
-            </Button>
-          </div>
+          <Notice action={<MoveButton onClick={() => onMoveToToday(open)} />}>
+            {open.length === 1 ? "1 task was left open on this day." : `${open.length} tasks were left open on this day.`}
+          </Notice>
+        )}
+        {selected === todayKey && carried.length > 0 && !query && (
+          <Notice action={<MoveButton onClick={() => onMoveToToday(carried)} />}>
+            <span className="block text-ink">{carried.length === 1 ? "1 task is still open from earlier days" : `${carried.length} tasks are still open from earlier days`}</span>
+            <span className="block truncate text-[12px] text-ink-3">{carried.map((t) => t.title).join(", ")}</span>
+          </Notice>
         )}
 
         <TaskTable
@@ -133,13 +178,37 @@ export function DayView({
                   </Button>
                 }
               >
-                Press <Kbd>N</Kbd> anywhere to add one in a second.
+                <span className="pointer-coarse:hidden">
+                  Press <Kbd>N</Kbd> anywhere to add one in a second.
+                </span>
+                <span className="hidden pointer-coarse:inline">Tap + to add one.</span>
               </EmptyState>
             )
           }
         />
+          </>
+        )}
       </div>
     </>
+  );
+}
+
+/** A quiet one-line notice above the list, with one action. */
+function Notice({ children, action }: { children: React.ReactNode; action: React.ReactNode }) {
+  return (
+    <div className="mt-1 mb-4 flex animate-rise flex-col gap-x-3 gap-y-2 rounded-[12px] bg-surface-2 py-2.5 pr-2 pl-3.5 text-[13px] text-ink-2 shadow-[inset_0_0_0_1px_var(--line)] sm:flex-row sm:items-center sm:py-2">
+      <span className="min-w-0 flex-1">{children}</span>
+      <span className="flex-none self-start sm:self-auto">{action}</span>
+    </div>
+  );
+}
+
+function MoveButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button size="sm" onClick={onClick} className="gap-1">
+      Move to Today
+      <ArrowRightIcon size={13} strokeWidth={2} />
+    </Button>
   );
 }
 
@@ -169,7 +238,7 @@ function WeekPills({ selected, todayKey, byDate, onSelect }: { selected: string;
               onClick={() => onSelect(key)}
               aria-pressed={on}
               aria-label={`${formatLong(day)}: ${tasks.length ? `${done} of ${tasks.length} done` : "no tasks"}`}
-              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-[11px] transition-colors duration-150 lg:w-10 lg:flex-none ${
+              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-[11px] transition-colors duration-150 xl:w-10 xl:flex-none ${
                 on && isToday ? "bg-accent text-on-accent" : on ? "bg-primary text-on-primary" : "hover:bg-surface-3"
               }`}
             >
