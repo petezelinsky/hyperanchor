@@ -2,13 +2,14 @@
 
 /*
  * Design tokens — minimal: neutral grays, black for primary actions, and one accent color used
- * sparingly (today, completion, progress, data). The accent is orange by default; people can switch
- * it to blue or green (html[data-accent]). Red is reserved for destructive actions and drops,
- * green for rises. Translucent glass only on floating chrome. Light and dark follow the system.
- * Components use these through the Tailwind theme below (bg-surface, text-ink-2, bg-accent, …).
+ * sparingly (today, completion, progress, data). The accent is blue by default; people can switch
+ * it to orange or green (html[data-accent]). Red is reserved for destructive actions and drops,
+ * green for rises. Translucent glass only on floating chrome.
+ * Theme: html[data-theme] is "light" or "dark" — set before first paint from the saved choice or the
+ * system setting (see theme.ts). Components use the tokens through the Tailwind theme below.
  */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   --canvas: #f5f5f5; /* app background around the content sheet */
   --surface: #ffffff; /* sheet, cards */
@@ -16,6 +17,7 @@
   --surface-3: #f2f2f2; /* hover */
   --elevated: #ffffff; /* menus, popovers */
   --glass: rgba(255, 255, 255, 0.8);
+  --scrim: rgba(0, 0, 0, 0.3); /* behind dialogs */
 
   --ink: #171717;
   --ink-2: #525252;
@@ -29,17 +31,17 @@
   --primary-hover: #2e2e2e;
   --on-primary: #ffffff;
 
-  --accent: #f4511e;
-  --accent-hover: #e0461a;
-  --accent-ink: #c84a16; /* accent as text */
-  --accent-soft: #fff2ec;
-  --accent-track: #fcdccd; /* the unfilled part of an accent meter or bar */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-ink: #1d4ed8; /* accent as text */
+  --accent-soft: #eff4ff;
+  --accent-track: #d5e2fd; /* the unfilled part of an accent meter or bar */
   --on-accent: #ffffff;
   --heat-0: #efefef; /* activity heatmap: one hue, more is darker */
-  --heat-1: #fde3d6;
-  --heat-2: #f9b291;
-  --heat-3: #f57f50;
-  --heat-4: #e4471a;
+  --heat-1: #dce7fd;
+  --heat-2: #a6c0fa;
+  --heat-3: #6995f2;
+  --heat-4: #2257d6;
 
   --green-ink: #15803d;
   --green-soft: #ecf8f0;
@@ -51,16 +53,16 @@
   --shadow-float: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.07), 0 18px 40px -12px rgba(0, 0, 0, 0.16);
 }
 
-:root[data-accent="blue"] {
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-ink: #1d4ed8;
-  --accent-soft: #eff4ff;
-  --accent-track: #d5e2fd;
-  --heat-1: #dce7fd;
-  --heat-2: #a6c0fa;
-  --heat-3: #6995f2;
-  --heat-4: #2257d6;
+:root[data-accent="orange"] {
+  --accent: #f4511e;
+  --accent-hover: #e0461a;
+  --accent-ink: #c84a16;
+  --accent-soft: #fff2ec;
+  --accent-track: #fcdccd;
+  --heat-1: #fde3d6;
+  --heat-2: #f9b291;
+  --heat-3: #f57f50;
+  --heat-4: #e4471a;
 }
 
 :root[data-accent="green"] {
@@ -75,72 +77,76 @@
   --heat-4: #138a40;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --canvas: #0a0a0a;
-    --surface: #141414;
-    --surface-2: #191919;
-    --surface-3: #212121;
-    --elevated: #1c1c1c;
-    --glass: rgba(28, 28, 28, 0.76);
+:root[data-theme="dark"] {
+  color-scheme: dark;
 
-    --ink: #ededed;
-    --ink-2: #a3a3a3;
-    --ink-3: #737373;
-    --ink-4: #3d3d3d;
-    --line: #242424;
-    --line-2: #2e2e2e;
-    --check-ring: #555555;
+  --canvas: #0a0a0a;
+  --surface: #141414;
+  --surface-2: #191919;
+  --surface-3: #212121;
+  --elevated: #1c1c1c;
+  --glass: rgba(28, 28, 28, 0.76);
+  --scrim: rgba(0, 0, 0, 0.55);
 
-    --primary: #ededed;
-    --primary-hover: #ffffff;
-    --on-primary: #141414;
+  --ink: #ededed;
+  --ink-2: #a3a3a3;
+  --ink-3: #737373;
+  --ink-4: #3d3d3d;
+  --line: #242424;
+  --line-2: #2e2e2e;
+  --check-ring: #555555;
 
-    --accent: #ff6a2b;
-    --accent-hover: #ff7a3d;
-    --accent-ink: #ff8a52;
-    --accent-soft: #2a1610;
-    --accent-track: #4a2416;
-    --heat-0: #1f1f1f;
-    --heat-1: #3a1b10;
-    --heat-2: #6a2b16;
-    --heat-3: #b2441f;
-    --heat-4: #ff7a3d;
+  --primary: #ededed;
+  --primary-hover: #ffffff;
+  --on-primary: #141414;
 
-    --green-ink: #4ade80;
-    --green-soft: #10261a;
-    --red-ink: #f87171;
-    --red-soft: #351515;
+  --accent: #3b82f6;
+  --accent-hover: #5591f7;
+  --accent-ink: #82aefc;
+  --accent-soft: #0f1d38;
+  --accent-track: #1a3263;
+  --heat-0: #1f1f1f;
+  --heat-1: #13254a;
+  --heat-2: #1e4080;
+  --heat-3: #2f62c6;
+  --heat-4: #5b98f8;
 
-    --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
-    --shadow-sheet: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 10px 30px -10px rgba(0, 0, 0, 0.6);
-    --shadow-float: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 40px -12px rgba(0, 0, 0, 0.7);
-  }
+  --green-ink: #4ade80;
+  --green-soft: #10261a;
+  --red-ink: #f87171;
+  --red-soft: #351515;
 
-  :root[data-accent="blue"] {
-    --accent: #3b82f6;
-    --accent-hover: #5591f7;
-    --accent-ink: #82aefc;
-    --accent-soft: #0f1d38;
-    --accent-track: #1a3263;
-    --heat-1: #13254a;
-    --heat-2: #1e4080;
-    --heat-3: #2f62c6;
-    --heat-4: #5b98f8;
-  }
-
-  :root[data-accent="green"] {
-    --accent: #22c55e;
-    --accent-hover: #3ad270;
-    --accent-ink: #4ade80;
-    --accent-soft: #0d2316;
-    --accent-track: #164029;
-    --heat-1: #0f2b1b;
-    --heat-2: #1a4f31;
-    --heat-3: #25854b;
-    --heat-4: #36c46c;
-  }
+  --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-sheet: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+  --shadow-float: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 40px -12px rgba(0, 0, 0, 0.7);
 }
+
+:root[data-theme="dark"][data-accent="orange"] {
+  --accent: #ff6a2b;
+  --accent-hover: #ff7a3d;
+  --accent-ink: #ff8a52;
+  --accent-soft: #2a1610;
+  --accent-track: #4a2416;
+  --heat-1: #3a1b10;
+  --heat-2: #6a2b16;
+  --heat-3: #b2441f;
+  --heat-4: #ff7a3d;
+}
+
+:root[data-theme="dark"][data-accent="green"] {
+  --accent: #22c55e;
+  --accent-hover: #3ad270;
+  --accent-ink: #4ade80;
+  --accent-soft: #0d2316;
+  --accent-track: #164029;
+  --heat-1: #0f2b1b;
+  --heat-2: #1a4f31;
+  --heat-3: #25854b;
+  --heat-4: #36c46c;
+}
+
+/* `dark:` utilities follow the chosen theme, not only the system setting. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
   --color-canvas: var(--canvas);
@@ -204,6 +210,8 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
+    /* Safety net: nothing may make a phone page scroll sideways (tests still measure real overflow). */
+    overflow-x: clip;
     background: var(--surface);
     color: var(--ink);
     font-family: var(--font-sans);

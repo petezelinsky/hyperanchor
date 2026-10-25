@@ -183,7 +183,7 @@ export function AnalyticsView({
           </Card>
         )}
 
-        <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-2">
           {period !== "week" && <WeekdayCard days={days} />}
           <OpenCard
             open={sum.open}

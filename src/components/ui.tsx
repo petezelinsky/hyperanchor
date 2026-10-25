@@ -55,17 +55,30 @@ export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { label: s
 
 // ── Segmented control: a raised thumb slides over a recessed track ──────────
 
+/** Arrow keys move through a radio group and select (WAI-ARIA radio pattern); only the checked radio is tabbable. */
+export function radioKeys<T>(e: React.KeyboardEvent<HTMLElement>, values: T[], value: T, onChange: (v: T) => void) {
+  const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+  if (!step) return;
+  e.preventDefault();
+  const i = (Math.max(0, values.indexOf(value)) + step + values.length) % values.length;
+  onChange(values[i]);
+  e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')[i]?.focus();
+}
+
 export function SegmentedControl<T extends string>({
   value,
   options,
   onChange,
   label,
+  size = "md",
   className = "",
 }: {
   value: T;
-  options: { value: T; label: string }[];
+  /** With `iconOnly`, the label becomes the radio's accessible name and tooltip. */
+  options: { value: T; label: string; icon?: React.ReactNode; iconOnly?: boolean }[];
   onChange: (v: T) => void;
   label: string;
+  size?: "md" | "lg";
   className?: string;
 }) {
   const index = Math.max(0, options.findIndex((o) => o.value === value));
@@ -73,6 +86,14 @@ export function SegmentedControl<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
+      onKeyDown={(e) =>
+        radioKeys(
+          e,
+          options.map((o) => o.value),
+          value,
+          onChange,
+        )
+      }
       className={`relative grid rounded-[10px] bg-surface-3 p-[3px] ${className}`}
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
     >
@@ -89,12 +110,16 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={on}
+            aria-label={o.iconOnly ? o.label : undefined}
+            title={o.iconOnly ? o.label : undefined}
+            tabIndex={on ? 0 : -1}
             onClick={() => onChange(o.value)}
-            className={`relative h-[26px] rounded-[7px] px-3 text-[12.5px] font-medium whitespace-nowrap transition-colors duration-150 ${
-              on ? "text-ink" : "text-ink-2 hover:text-ink"
-            }`}
+            className={`relative flex items-center justify-center gap-1.5 rounded-[7px] font-medium whitespace-nowrap transition-colors duration-150 ${
+              size === "lg" ? "h-8 px-3 text-[13px]" : "h-[26px] px-3 text-[12.5px]"
+            } ${on ? "text-ink" : "text-ink-2 hover:text-ink"}`}
           >
-            {o.label}
+            {o.icon}
+            {!o.iconOnly && o.label}
           </button>
         );
       })}
@@ -457,7 +482,7 @@ export function Modal({ label, onClose, className = "", children }: { label: str
   useDismiss(ref, onClose);
   useEffect(() => ref.current?.focus(), []);
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex animate-[fade_0.2s_ease-out_both] items-center justify-center bg-black/30 p-4 backdrop-blur-[2px] dark:bg-black/50">
+    <div className="fixed inset-0 z-[110] flex animate-[fade_0.2s_ease-out_both] items-center justify-center bg-[var(--scrim)] p-4 backdrop-blur-[2px]">
       <div
         ref={ref}
         role="dialog"

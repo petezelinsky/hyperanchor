@@ -14,7 +14,7 @@ export function LegalPage({ title, effective, children }: { title: string; effec
 
       <main>
         <div className="mx-auto max-w-[720px] animate-rise px-5 pt-14 pb-20 md:pt-20">
-          <p className="text-[13px] font-semibold text-accent-ink">Legal</p>
+          <p className="text-[13px] font-medium text-ink-3">Legal</p>
           <h1 className="mt-3 font-display text-[40px] leading-[1.06] font-bold tracking-[-0.035em] md:text-[52px]">{title}</h1>
           <p className="mt-3 text-[15px] text-ink-2">Effective {effective}</p>
           <article className="mt-10 border-t border-line text-[16px] leading-[1.7] text-ink">{children}</article>
@@ -30,7 +30,7 @@ export function LegalSection({ n, title, children }: { n: number; title: string;
   return (
     <section className="flex flex-col gap-3 border-b border-line py-8 text-pretty last:border-0">
       <h2 className="flex items-baseline gap-3 text-[20px] leading-7 font-semibold tracking-[-0.015em]">
-        <span className="tabular text-[15px] font-medium text-accent-ink">{String(n).padStart(2, "0")}</span>
+        <span className="tabular text-[15px] font-medium text-ink-3">{String(n).padStart(2, "0")}</span>
         {title}
       </h2>
       {children}

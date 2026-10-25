@@ -8,10 +8,12 @@ const GROUPS: { title: string; items: [string, string][] }[] = [
     title: "Anywhere",
     items: [
       ["N", "New task"],
+      ["F", "Focus: one task at a time"],
       ["T", "Go to today"],
       ["← →", "Previous / next"],
       ["D W M A", "Switch view"],
       ["?", "Show shortcuts"],
+      [",", "Settings"],
     ],
   },
   {
@@ -39,7 +41,7 @@ export function ShortcutsSheet({ onClose }: { onClose: () => void }) {
           <XIcon size={14} />
         </IconButton>
       </div>
-      <div className="mt-5 grid gap-x-8 gap-y-5 sm:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
         {GROUPS.map((g) => (
           <div key={g.title}>
             <div className="mb-1 text-[12px] font-medium text-ink-3">{g.title}</div>

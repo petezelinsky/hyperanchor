@@ -201,29 +201,33 @@ export function ProgressVisual() {
   );
 }
 
-const KEYS = [
-  { k: "N", label: "New task" },
-  { k: "Space", label: "Done" },
-  { k: "↵", label: "Edit" },
-  { k: "⌫", label: "Delete" },
-  { k: "← →", label: "Move" },
-];
+const QUEUE = ["Send the proposal to Dana", "Gym, 45 minutes", "Pick up flowers for Sam"];
 
-/** "Fast by design": the shortcuts press themselves in turn. */
-export function KeysVisual() {
+/** "One thing at a time": focus mode shows a single task; it's ticked off and the next one slides in. */
+export function FocusVisual() {
+  const [ref, inView] = useInView<HTMLDivElement>();
+  const [i, setI] = useState(0);
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (!inView || reduceMotion()) return;
+    const t = done ? setTimeout(() => (setDone(false), setI((n) => (n + 1) % QUEUE.length)), 900) : setTimeout(() => setDone(true), 1900);
+    return () => clearTimeout(t);
+  }, [inView, done]);
+  const next = QUEUE[(i + 1) % QUEUE.length];
+
   return (
-    <div className="flex h-full flex-wrap content-center items-start justify-center gap-x-3 gap-y-4 px-5">
-      {KEYS.map((key, i) => (
-        <div key={key.k} className="flex flex-col items-center gap-2">
-          <kbd
-            className="flex h-11 min-w-11 items-center justify-center rounded-[10px] bg-surface px-3 font-sans text-[14px] font-semibold text-ink"
-            style={{ animation: `key-press 4.5s ${i * 0.7}s ease-in-out infinite`, boxShadow: "0 0 0 1px var(--line-2), 0 3px 0 var(--line-2)" }}
-          >
-            {key.k}
-          </kbd>
-          <span className="text-[11.5px] text-ink-2">{key.label}</span>
-        </div>
-      ))}
+    <div ref={ref} className="flex h-full flex-col items-center justify-center gap-3 px-6">
+      <span className="text-[11px] font-medium tracking-[0.04em] text-ink-3 uppercase">Now</span>
+      <div key={i} className="flex w-full max-w-[300px] animate-rise items-center gap-3 rounded-[14px] bg-surface px-4 py-3.5 shadow-lift">
+        <Tick done={done} />
+        <span className={`truncate text-[15px] font-medium transition-colors duration-300 ${done ? "text-ink-3" : ""}`}>{QUEUE[i]}</span>
+      </div>
+      <span className="text-[12px] text-ink-3">
+        Up next: <span className="text-ink-2">{next}</span>
+      </span>
+      <span className="mt-1 block h-1 w-[120px] overflow-hidden rounded-full bg-accent-track">
+        <span className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-out" style={{ width: `${((i + (done ? 1 : 0)) / QUEUE.length) * 100}%` }} />
+      </span>
     </div>
   );
 }

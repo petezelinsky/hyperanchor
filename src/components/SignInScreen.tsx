@@ -5,13 +5,13 @@ import { FlameIcon } from "./icons";
 import { HeroCard } from "./landing/HeroCard";
 import { Reveal } from "./landing/Reveal";
 import { RotatingWord } from "./landing/RotatingWord";
-import { KeysVisual, ProgressVisual, TypingVisual, WeekVisual } from "./landing/visuals";
+import { FocusVisual, ProgressVisual, TypingVisual, WeekVisual } from "./landing/visuals";
 import { SiteFooter, SiteHeader } from "./Site";
 
 const FEATURES = [
   {
     title: "Capture in a blink",
-    text: "Press N anywhere, type, hit Enter. Tasks land right where you are — no forms, no fuss.",
+    text: "Press N anywhere, type, hit Enter. Every action has a shortcut, and every change can be undone.",
     visual: <TypingVisual />,
   },
   {
@@ -20,14 +20,14 @@ const FEATURES = [
     visual: <WeekVisual />,
   },
   {
+    title: "One thing at a time",
+    text: "Focus mode shows just the next task, big and clear. Finish it or set it aside — the rest waits quietly.",
+    visual: <FocusVisual />,
+  },
+  {
     title: "Progress you can feel",
     text: "Completion rate, streaks and your strongest days — clear numbers that keep you going, and stay private.",
     visual: <ProgressVisual />,
-  },
-  {
-    title: "Fast by design",
-    text: "Keyboard shortcuts for everything and undo for every action. It stays out of your way.",
-    visual: <KeysVisual />,
   },
 ];
 
@@ -55,13 +55,13 @@ export function SignInScreen({ error }: { error?: boolean }) {
             </span>
             <h1 className="mx-auto mt-6 font-display text-[54px] leading-[1.02] font-bold tracking-[-0.045em] md:text-[100px]">
               <span className="sr-only">Own your day, week and month.</span>
-              <span aria-hidden="true" className="block animate-rise">
+              <span aria-hidden="true" className="block animate-rise text-ink-3">
                 Own your
               </span>
               <RotatingWord words={["day.", "week.", "month."]} />
             </h1>
             <p className="mx-auto mt-6 max-w-[580px] animate-rise text-[17px] leading-relaxed text-pretty text-ink-2 [animation-delay:80ms] md:text-[19px]">
-              Hyperanchor is a calm, fast planner. Capture tasks in a blink, see your week at a glance, and watch your progress grow.
+              Hyperanchor is a calm, fast planner. Capture tasks in a blink, focus on one thing at a time, and see your week at a glance.
             </p>
             <form action={signInWithGoogle} className="mt-9 flex animate-rise justify-center [animation-delay:140ms]">
               <GoogleButton />
@@ -93,13 +93,13 @@ export function SignInScreen({ error }: { error?: boolean }) {
 
         <section className="mx-auto max-w-[1120px] px-4 py-16 md:py-24">
           <Reveal className="mx-auto max-w-[640px] text-center">
-            <p className="text-[13px] font-semibold text-accent-ink">Why Hyperanchor</p>
+            <p className="text-[13px] font-medium text-ink-3">Why Hyperanchor</p>
             <h2 className="mt-3 font-display text-[34px] leading-[1.1] font-bold tracking-[-0.035em] text-balance md:text-[52px]">Planning that feels light.</h2>
             <p className="mt-4 text-[16px] leading-relaxed text-pretty text-ink-2 md:text-[18px]">
               Day, week and month views in one calm flow — plus the small details that make it a joy to come back to.
             </p>
           </Reveal>
-          <div className="mt-12 grid gap-4 md:grid-cols-2">
+          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2">
             {FEATURES.map((f, i) => (
               <Reveal key={f.title} delay={(i % 2) * 90} className="rounded-[24px] p-2 pb-6 shadow-[inset_0_0_0_1px_var(--line)] md:p-2.5 md:pb-8">
                 <div inert className="h-[220px] overflow-hidden rounded-[18px] bg-canvas">

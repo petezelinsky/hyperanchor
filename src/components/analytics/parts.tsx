@@ -6,7 +6,7 @@ import { FlameIcon } from "../icons";
 
 export function Card({ title, aside, className = "", children }: { title: string; aside?: React.ReactNode; className?: string; children: React.ReactNode }) {
   return (
-    <section className={`animate-rise rounded-[16px] bg-surface p-4 shadow-lift md:p-5 ${className}`}>
+    <section className={`min-w-0 animate-rise rounded-[16px] bg-surface p-4 shadow-lift md:p-5 ${className}`}>
       <header className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
         {aside}

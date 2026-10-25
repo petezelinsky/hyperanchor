@@ -159,3 +159,26 @@ export const SortIcon = (p: IconProps) => (
     <path d="M5 2.5v11M2.5 11 5 13.5 7.5 11M11 13.5v-11M8.5 5 11 2.5 13.5 5" />
   </Svg>
 );
+
+export const MoonIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8Z" />
+  </Svg>
+);
+
+/** Auto theme: a circle, half filled. */
+export const AutoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="8" cy="8" r="5.8" />
+    <path d="M8 2.2v11.6A5.8 5.8 0 0 0 8 2.2Z" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+/** Focus mode: a target. */
+export const FocusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="8" cy="8" r="5.8" />
+    <circle cx="8" cy="8" r="2.4" />
+  </Svg>
+);
+
