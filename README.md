@@ -89,6 +89,8 @@ npm run dev                  # http://localhost:3000
 ## Структура
 
 ```
+design/tokens.json       дизайн-токены (цвета светлой/тёмной темы, три акцента, радиусы, тени) — общие для веба и iOS;
+                         `npm run tokens` пишет из них блок переменных в src/app/globals.css и ios/…/Design/Tokens.swift
 db/schema.sql            схема Postgres
 scripts/migrate.mjs      применяет схему
 src/auth.ts              Auth.js (Google, Apple)
