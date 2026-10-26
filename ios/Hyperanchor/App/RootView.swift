@@ -27,6 +27,10 @@ struct RootView: View {
         .onChange(of: model.prefs.appearance, initial: true) { _, appearance in
             WindowAppearance.apply(appearance)
         }
+        .onOpenURL { url in
+            // hyperanchor://today (the widget)
+            if url.host() == "today", model.store != nil { model.router.open(model.clock.today) }
+        }
         .onChange(of: phase) { _, phase in
             switch phase {
             case .active: model.becameActive()

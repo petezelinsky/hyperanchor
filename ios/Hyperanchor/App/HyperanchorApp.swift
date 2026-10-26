@@ -9,5 +9,6 @@ struct HyperanchorApp: App {
             RootView()
                 .environment(model)
         }
+        .commands { AppCommands(model: model) }
     }
 }

@@ -2,6 +2,7 @@ import Foundation
 import Network
 import Observation
 import UIKit
+import UserNotifications
 
 /// Today's date, kept current: on returning to the app, at midnight and when the clock or time zone changes.
 @MainActor
@@ -126,6 +127,11 @@ final class Preferences {
         didSet { defaults.set(completedExpanded, forKey: "completedExpanded") }
     }
 
+    /// Today's open tasks as a badge on the app icon (like the web's tab title).
+    var showBadge: Bool {
+        didSet { defaults.set(showBadge, forKey: "showBadge") }
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -133,5 +139,19 @@ final class Preferences {
         appearance = Appearance(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .system
         accent = AccentChoice(rawValue: defaults.string(forKey: "accent") ?? "") ?? .default
         completedExpanded = defaults.object(forKey: "completedExpanded") as? Bool ?? true
+        showBadge = defaults.bool(forKey: "showBadge")
+    }
+}
+
+/// The app icon's badge: how many tasks are still open today.
+@MainActor
+enum AppBadge {
+    /// Asks for permission to badge the icon; false if the person declined.
+    static func requestPermission() async -> Bool {
+        (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.badge])) ?? false
+    }
+
+    static func set(_ count: Int) {
+        UNUserNotificationCenter.current().setBadgeCount(count)
     }
 }

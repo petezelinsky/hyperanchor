@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(Preferences.self) private var prefs
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.palette) private var palette
     @State private var confirmDelete = false
     @State private var deleting = false
     @State private var deleteError: String?
@@ -46,6 +47,23 @@ struct SettingsView: View {
                     Text("Accent color")
                 } footer: {
                     Text("Used for today, progress and finished tasks. Appearance is saved on this device.")
+                }
+
+                Section {
+                    Toggle("Today’s count on the app icon", isOn: Binding(get: { prefs.showBadge }, set: { on in
+                        if on {
+                            Task {
+                                prefs.showBadge = await AppBadge.requestPermission()
+                            }
+                        } else {
+                            prefs.showBadge = false
+                            AppBadge.set(0)
+                        }
+                    }))
+                    .tint(palette.accent)
+                    .accessibilityIdentifier("settings.badge")
+                } footer: {
+                    Text("Shows how many tasks are still open today.")
                 }
 
                 Section("Account") {

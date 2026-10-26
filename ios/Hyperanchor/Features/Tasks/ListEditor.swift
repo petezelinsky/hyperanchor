@@ -103,3 +103,65 @@ final class ListEditor {
         settling = []
     }
 }
+
+/// Hardware keyboard for a task list: publishes the ids on screen for ↑ ↓, keeps the selection
+/// visible, and carries out Space (complete) and Return (edit) on the selected task.
+struct ListKeyboard: ViewModifier {
+    let tab: Router.Tab
+    let ids: [String]
+    let editor: ListEditor
+    var focus: FocusState<TaskField?>.Binding
+    let actions: TaskActions
+    let proxy: ScrollViewProxy
+
+    @Environment(Router.self) private var router
+    @Environment(AppModel.self) private var model
+    /// The list itself takes keyboard focus whenever no text field has it, so arrows reach us before the
+    /// system's focus navigation.
+    @FocusState private var listFocused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .focusable()
+            .focusEffectDisabled()
+            .focused($listFocused)
+            .onKeyPress(keys: [.upArrow, .downArrow, .space, .return, .delete, .escape]) { press in
+                guard focus.wrappedValue == nil, router.tab == tab else { return .ignored }
+                let keys = model.keyboard
+                switch press.key {
+                case .upArrow: keys.select(-1)
+                case .downArrow: keys.select(1)
+                case .space: keys.complete()
+                case .return: keys.edit()
+                case .delete: keys.delete()
+                case .escape: keys.escape()
+                default: return .ignored
+                }
+                return .handled
+            }
+            .onAppear { listFocused = true }
+            .onChange(of: focus.wrappedValue) { _, field in if field == nil { listFocused = true } }
+            .onChange(of: router.tab) { _, t in if t == tab { listFocused = true } }
+            .onChange(of: ids, initial: true) { _, ids in publish(ids) }
+            .onChange(of: router.tab) { _, _ in publish(ids) }
+            .onChange(of: router.toggleRequest) { _, request in
+                guard router.tab == tab, let request, let task = actions.store.task(request.id) else { return }
+                editor.toggle(task, actions: actions, focus: focus)
+            }
+            .onChange(of: router.editRequest) { _, request in
+                guard router.tab == tab, let request, let task = actions.store.task(request.id) else { return }
+                editor.startEditing(task, field: .title(task.id), store: actions.store, focus: focus)
+            }
+            .onChange(of: router.selectedTask) { _, id in
+                guard router.tab == tab, let id else { return }
+                withAnimation(.snappy) { proxy.scrollTo(id) }
+            }
+    }
+
+    private func publish(_ ids: [String]) {
+        guard router.tab == tab else { return }
+        router.visibleTaskIDs = ids
+        // A selection that left the list (filtered, collapsed, another day) is dropped, so keys never act unseen.
+        if let selected = router.selectedTask, !ids.contains(selected) { router.selectedTask = nil }
+    }
+}

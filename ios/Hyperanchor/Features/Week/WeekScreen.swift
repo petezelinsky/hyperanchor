@@ -32,6 +32,7 @@ struct WeekScreen: View {
         let visible = searching ? sections.filter { !$0.open.isEmpty || !$0.completed.isEmpty } : sections
 
         NavigationStack {
+            ScrollViewReader { proxy in
             List {
                 HStack(spacing: 6) {
                     Text(Dates.range(start, start.adding(days: 6)))
@@ -85,6 +86,7 @@ struct WeekScreen: View {
             .scrollContentBackground(.hidden)
             .background(.surface)
             .scrollDismissesKeyboard(.interactively)
+            .readableContent()
             .animation(.snappy(duration: 0.35), value: sections.flatMap { $0.open.map(\.id) + ["|"] + $0.completed.map(\.id) })
             .navigationTitle(title)
             .searchable(text: $router.query, placement: .navigationBarDrawer, prompt: "Filter")
@@ -102,6 +104,8 @@ struct WeekScreen: View {
             .keyboardDoneButton(focus: $focus)
             .onChange(of: router.composeRequest) { _, _ in
                 if router.tab == .week { editor.openComposer(on: router.selected, store: store, focus: $focus) }
+            }
+            .modifier(ListKeyboard(tab: .week, ids: visible.flatMap { ($0.open + $0.completed).map(\.id) }, editor: editor, focus: $focus, actions: actions, proxy: proxy))
             }
             .toastHost()
         }

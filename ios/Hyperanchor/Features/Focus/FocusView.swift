@@ -111,6 +111,10 @@ struct FocusView: View {
         .onChange(of: task == nil && !all.isEmpty) { was, now in
             if now, !was { confetti += 1 }
         }
+        .onChange(of: router.focusCompleteRequest) { _, _ in
+            if let task { complete(task) }
+        }
+        .onChange(of: router.focusCaptureRequest) { _, _ in capturing = true }
     }
 
     /// Open tasks in list order, "Not now" ones last; a task just ticked off stays first while its check plays.

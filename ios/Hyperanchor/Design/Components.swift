@@ -143,3 +143,21 @@ struct ToastOverlay: View {
         .animation(.spring(duration: 0.35, bounce: 0.2), value: toaster.current)
     }
 }
+
+/// Keeps a scrolling list to a comfortable reading width on wide screens (iPad), centered.
+private struct ReadableContent: ViewModifier {
+    let maxWidth: CGFloat
+    @State private var width: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .contentMargins(.horizontal, max(0, (width - maxWidth) / 2), for: .scrollContent)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+}
+
+extension View {
+    func readableContent(maxWidth: CGFloat = 820) -> some View {
+        modifier(ReadableContent(maxWidth: maxWidth))
+    }
+}

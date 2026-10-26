@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import UIKit
+import WidgetKit
 
 /// Build settings from Info.plist (see Config/App.xcconfig).
 enum AppConfig {
@@ -94,6 +95,7 @@ final class AppModel {
     func accountChanged() {
         guard session.accountID != account else { return }
         account = session.accountID
+        if session.accountID == nil { clearWidget() }
         store = session.accountID.map { id in
             let cache = launch.demo ? nil : TaskCache(directory: TaskCache.defaultDirectory, account: id)
             let store = TaskStore(backend: session.backend, cache: cache)
@@ -112,6 +114,14 @@ final class AppModel {
         store?.reset()
         session.signOut()
         accountChanged()
+    }
+
+    /// Signed out (or the session ended): the widget stops showing tasks.
+    private func clearWidget() {
+        guard !launch.demo else { return }
+        WidgetSnapshot(day: "", tasks: [], signedIn: false, accent: [], track: []).save()
+        WidgetCenter.shared.reloadAllTimelines()
+        AppBadge.set(0)
     }
 
     /// Back in the foreground: a new day may have started, and the server may have news.

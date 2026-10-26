@@ -82,6 +82,7 @@ struct DayScreen: View {
                 .scrollContentBackground(.hidden)
                 .background(.surface)
                 .scrollDismissesKeyboard(.interactively)
+                .readableContent()
                 .animation(.snappy(duration: 0.35), value: open.map(\.id))
                 .animation(.snappy(duration: 0.35), value: completed.map(\.id))
                 .navigationTitle(Dates.relative(day, today: today) ?? Dates.dowFull[day.weekday])
@@ -92,6 +93,7 @@ struct DayScreen: View {
                 .onChange(of: router.composeRequest) { _, _ in
                     if router.tab == .day { openComposer(proxy) }
                 }
+                .modifier(ListKeyboard(tab: .day, ids: (open + (prefs.completedExpanded ? completed : [])).map(\.id), editor: editor, focus: $focus, actions: actions, proxy: proxy))
             }
             .toastHost()
         }
@@ -209,9 +211,11 @@ struct EditableTaskRow: View {
     var focus: FocusState<TaskField?>.Binding
     let actions: TaskActions
     @Environment(\.palette) private var palette
+    @Environment(Router.self) private var router
 
     var body: some View {
         let isEditing = editor.editing == task.id
+        let isSelected = router.selectedTask == task.id
         TaskRow(
             task: task,
             isEditing: isEditing,
@@ -221,7 +225,7 @@ struct EditableTaskRow: View {
             change: { actions.store.edit(task.id, $0, debounce: true) },
             commit: { focus.wrappedValue = nil }
         )
-        .listRowBackground(isEditing ? Color.surface3 : Color.surface)
+        .listRowBackground(isEditing || isSelected ? Color.surface3 : Color.surface)
         .taskSwipeActions(task, actions: actions, accent: palette.accent, toggle: toggle)
         .contextMenu {
             TaskMenuItems(task: task, actions: actions, toggle: toggle) {

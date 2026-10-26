@@ -38,6 +38,15 @@ final class Router {
     /// Set to open the quick-add row on the Day view (the value changes each time).
     var composeRequest: UUID?
 
+    // Keyboard: the selected row and requests the visible list carries out.
+    var selectedTask: String?
+    /// The open list's task ids, in screen order (for ↑ ↓).
+    var visibleTaskIDs: [String] = []
+    var toggleRequest: TaskRequest?
+    var editRequest: TaskRequest?
+    var focusCompleteRequest: UUID?
+    var focusCaptureRequest: UUID?
+
     init(today: DayKey, tab: Tab = .day) {
         self.tab = tab
         selected = today
@@ -45,6 +54,7 @@ final class Router {
     }
 
     func reset(today: DayKey) {
+        selectedTask = nil
         selected = today
         month = today.startOfMonth
         period = .week
@@ -80,4 +90,10 @@ final class Router {
         if tab != .day && tab != .week { tab = .day }
         composeRequest = UUID()
     }
+}
+
+/// "Do this to that task" — each request is new, even for the same task.
+struct TaskRequest: Equatable {
+    let id: String
+    let nonce = UUID()
 }
