@@ -57,7 +57,7 @@ npm run dev                  # http://localhost:3000
      Authorized JavaScript origin `https://hyperanchor.app`,
      Authorized redirect URI `https://hyperanchor.app/api/auth/callback/google`.
    - Для iOS-приложения — ещё один OAuth client ID типа **iOS** с Bundle ID `app.hyperanchor`: его ID — в `GOOGLE_IOS_CLIENT_ID`
-     на сервере и в `ios/Config/Secrets.xcconfig` в приложении.
+     на сервере и в `ios/Config/Local.xcconfig` в приложении (см. `ios/Config/App.xcconfig`).
 3. **Apple Developer** → Certificates, Identifiers & Profiles:
    - App ID `app.hyperanchor` с возможностью *Sign in with Apple* (основной, Primary App ID).
    - Для сайта: Services ID (например, `app.hyperanchor.web`) с *Sign in with Apple*, сгруппированный с этим App ID;

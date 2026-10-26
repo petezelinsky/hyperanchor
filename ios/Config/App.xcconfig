@@ -1,0 +1,20 @@
+// Build settings shared by every target. Machine- or account-specific values go in Local.xcconfig
+// (not committed), for example:
+//
+//   HA_DEVELOPMENT_TEAM = ABCDE12345
+//   GOOGLE_IOS_CLIENT_ID = 1234567890-abc123.apps.googleusercontent.com
+//   API_BASE_URL = http:/$()/localhost:3000
+
+HA_BUNDLE_ID = app.hyperanchor
+
+// Apple Developer Team ID; needed to run on a device and for Sign in with Apple. Simulator builds work without it.
+HA_DEVELOPMENT_TEAM =
+
+// The server the app talks to (the web app's API).
+API_BASE_URL = https:/$()/hyperanchor.app
+
+// Google Cloud Console → Credentials → OAuth client ID of type iOS, bundle ID app.hyperanchor.
+// The server must list the same ID in GOOGLE_IOS_CLIENT_ID.
+GOOGLE_IOS_CLIENT_ID =
+
+#include? "Local.xcconfig"
