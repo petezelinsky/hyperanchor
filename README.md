@@ -106,4 +106,7 @@ src/components/table     список задач: To do / Completed, строк�
 src/components/analytics аналитика: KPI, графики, тепловая карта, история
 src/lib/stats.ts         расчёты аналитики
 src/app/privacy, terms   юридические страницы
+scripts/tokens.mjs       генератор токенов (CSS + Swift)
+scripts/ios-fixtures.mjs эталоны для iOS-тестов: прогоняет src/lib/*.ts на тестовых данных
+ios/                     приложение для iPhone и iPad (SwiftUI) — см. ios/README.md
 ```
