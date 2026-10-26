@@ -52,14 +52,16 @@ struct Avatar: View {
 /// Black (white in dark mode) — the primary action, as on the web.
 struct PrimaryButtonStyle: ButtonStyle {
     var height: CGFloat = 50
+    /// Full width (otherwise as wide as its label).
+    var fill = true
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.semibold))
             .foregroundStyle(.onPrimary)
-            .frame(maxWidth: .infinity, minHeight: height)
-            .padding(.horizontal, 16)
+            .frame(maxWidth: fill ? .infinity : nil, minHeight: height)
+            .padding(.horizontal, fill ? 16 : 20)
             .background(.primaryFill, in: RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
             .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.4)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
@@ -70,6 +72,7 @@ struct PrimaryButtonStyle: ButtonStyle {
 /// White surface with a hairline ring — the secondary action.
 struct SecondaryButtonStyle: ButtonStyle {
     var compact = false
+    var height: CGFloat = 44
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
@@ -77,7 +80,7 @@ struct SecondaryButtonStyle: ButtonStyle {
             .font(compact ? .footnote.weight(.semibold) : .body.weight(.medium))
             .foregroundStyle(.ink)
             .padding(.horizontal, compact ? 11 : 16)
-            .frame(minHeight: compact ? 30 : 44)
+            .frame(minHeight: compact ? 30 : height)
             .background(configuration.isPressed ? .surface3 : .surface, in: RoundedRectangle(cornerRadius: compact ? Tokens.Radius.sm : Tokens.Radius.lg, style: .continuous))
             .elevation(Tokens.Shadow.lift, cornerRadius: compact ? Tokens.Radius.sm : Tokens.Radius.lg)
             .opacity(isEnabled ? 1 : 0.4)

@@ -11,14 +11,7 @@ struct DayScreen: View {
     @Environment(Toaster.self) private var toaster
     @Environment(\.palette) private var palette
 
-    /// Just completed: stays in To do while the tick plays, then moves to Completed.
-    @State private var settling: Set<String> = []
-    @State private var editing: String?
-    @State private var snapshot = (title: "", notes: "")
-    @State private var composing = false
-    @State private var newTitle = ""
-    @State private var newNotes = ""
-    @State private var lastToggle = Date.distantPast
+    @State private var editor = ListEditor()
     @State private var confetti = 0
     @FocusState private var focus: TaskField?
 
@@ -28,13 +21,15 @@ struct DayScreen: View {
 
     var body: some View {
         @Bindable var router = router
+        @Bindable var editor = editor
         let all = store.tasks(on: day)
         let filtered = TaskSorting.sorted(all.filter { TaskSorting.matches($0, query: router.query) }, by: router.sort)
-        let open = filtered.filter { !$0.done || settling.contains($0.id) }
-        let completed = filtered.filter { $0.done && !settling.contains($0.id) }
+        let open = filtered.filter { !$0.done || editor.isSettling($0.id) }
+        let completed = filtered.filter { $0.done && !editor.isSettling($0.id) }
         let doneCount = all.count(where: \.done)
         let allDone = !all.isEmpty && doneCount == all.count
         let searching = !router.query.trimmingCharacters(in: .whitespaces).isEmpty
+        let composing = editor.composerDay == day
 
         NavigationStack {
             ScrollViewReader { proxy in
@@ -56,9 +51,11 @@ struct DayScreen: View {
                             }
                             if !searching {
                                 if composing {
-                                    ComposerRow(title: $newTitle, notes: $newNotes, focus: $focus) { submitComposer(keepOpen: true) }
-                                        .id("composer")
-                                        .listRowBackground(Color.surface3)
+                                    ComposerRow(title: $editor.newTitle, notes: $editor.newNotes, focus: $focus) {
+                                        editor.submitComposer(store: store, keepOpen: true, focus: $focus)
+                                    }
+                                    .id("composer")
+                                    .listRowBackground(Color.surface3)
                                 } else {
                                     AddTaskRow { openComposer(proxy) }
                                         .listRowBackground(Color.surface)
@@ -74,23 +71,9 @@ struct DayScreen: View {
                                     ForEach(completed) { row($0) }
                                 }
                             } header: {
-                                Button {
+                                CompletedHeader(count: completed.count, expanded: prefs.completedExpanded) {
                                     withAnimation(.snappy) { prefs.completedExpanded.toggle() }
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        SectionHeader(title: "Completed", count: completed.count)
-                                        Image(systemName: "chevron.down")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(.ink3)
-                                            .rotationEffect(.degrees(prefs.completedExpanded ? 0 : -90))
-                                        Spacer()
-                                    }
-                                    .contentShape(Rectangle())
                                 }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("Completed, \(completed.count)")
-                                .accessibilityValue(prefs.completedExpanded ? "Expanded" : "Collapsed")
-                                .accessibilityIdentifier("completed.toggle")
                             }
                         }
                     }
@@ -104,12 +87,7 @@ struct DayScreen: View {
                 .navigationTitle(Dates.relative(day, today: today) ?? Dates.dowFull[day.weekday])
                 .searchable(text: $router.query, placement: .navigationBarDrawer, prompt: "Filter")
                 .toolbar { toolbar(hasOpen: all.contains { !$0.done }, proxy: proxy) }
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button("Done") { focus = nil }.fontWeight(.semibold)
-                    }
-                }
+                .keyboardDoneButton(focus: $focus)
                 .overlay { ConfettiView(trigger: confetti) }
                 .onChange(of: router.composeRequest) { _, _ in
                     if router.tab == .day { openComposer(proxy) }
@@ -117,15 +95,11 @@ struct DayScreen: View {
             }
             .toastHost()
         }
-        .onChange(of: focus) { old, new in focusChanged(from: old, to: new) }
+        .onChange(of: focus) { old, new in editor.focusChanged(from: old, to: new, store: store) }
         .onChange(of: allDone) { was, now in
-            if now, !was, Date.now.timeIntervalSince(lastToggle) < 2 { confetti += 1 }
+            if now, !was, editor.justToggled { confetti += 1 }
         }
-        .onChange(of: day) { _, _ in
-            finishEditing()
-            closeComposer()
-            settling = []
-        }
+        .onChange(of: day) { _, _ in editor.reset(store: store) }
         .task(id: day.startOfWeek) {
             await store.load(day.startOfWeek...day.startOfWeek.adding(days: 6))
         }
@@ -148,7 +122,7 @@ struct DayScreen: View {
                 if all.isEmpty {
                     Text("No tasks")
                 } else {
-                    Burst(active: allDone && Date.now.timeIntervalSince(lastToggle) < 2) {
+                    Burst(active: allDone && editor.justToggled) {
                         ProgressRing(value: Double(done) / Double(all.count), size: 14, lineWidth: 2.4)
                     }
                     Text(allDone ? "All done" : "\(done) of \(all.count) done")
@@ -166,7 +140,6 @@ struct DayScreen: View {
             .foregroundStyle(.ink2)
             .monospacedDigit()
             .lineLimit(1)
-            .accessibilityElement(children: .combine)
 
             WeekStrip(selected: day, today: today) { router.selected = $0 }
         }
@@ -194,21 +167,7 @@ struct DayScreen: View {
     }
 
     private func row(_ task: TaskItem) -> some View {
-        TaskRow(
-            task: task,
-            isEditing: editing == task.id,
-            focus: $focus,
-            toggle: { toggle(task) },
-            startEditing: { startEditing(task, field: $0) },
-            change: { store.edit(task.id, $0, debounce: true) },
-            commit: { focus = nil }
-        )
-        .listRowBackground(editing == task.id ? Color.surface3 : Color.surface)
-        .taskSwipeActions(task, actions: actions, accent: palette.accent) { toggle(task) }
-        .contextMenu {
-            TaskMenuItems(task: task, actions: actions, toggle: { toggle(task) }, edit: { startEditing(task, field: .title(task.id)) })
-        }
-        .accessibilityIdentifier("task.\(task.title)")
+        EditableTaskRow(task: task, editor: editor, focus: $focus, actions: actions)
     }
 
     @ToolbarContentBuilder
@@ -233,82 +192,81 @@ struct DayScreen: View {
         }
     }
 
-    // MARK: Behavior
-
-    private func toggle(_ task: TaskItem) {
-        if editing == task.id { focus = nil }
-        lastToggle = .now
-        if !task.done {
-            settling.insert(task.id)
-            Task {
-                try? await Task.sleep(for: .milliseconds(900))
-                withAnimation(.snappy(duration: 0.4)) { _ = settling.remove(task.id) }
-            }
-        }
-        actions.toggle(task)
-    }
-
-    private func startEditing(_ task: TaskItem, field: TaskField) {
-        if let editing, editing != task.id { finishEditing() }
-        closeComposer()
-        if editing != task.id { snapshot = (task.title, task.notes) }
-        editing = task.id
-        Task { focus = field }
-    }
-
-    /// Saves the edit: an emptied title falls back to what it was.
-    private func finishEditing() {
-        guard let id = editing, let t = store.task(id) else { editing = nil; return }
-        let title = t.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        var patch = TaskPatch()
-        let fixedTitle = title.isEmpty ? (snapshot.title.isEmpty ? "Untitled" : snapshot.title) : title
-        if fixedTitle != t.title { patch.title = fixedTitle }
-        let notes = t.notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        if notes != t.notes { patch.notes = notes }
-        if patch.isEmpty { store.flush(id) } else { store.edit(id, patch) }
-        editing = nil
-    }
-
     private func openComposer(_ proxy: ScrollViewProxy) {
-        finishEditing()
         router.query = ""
-        composing = true
+        editor.openComposer(on: day, store: store, focus: $focus)
         Task {
-            focus = .newTitle
             try? await Task.sleep(for: .milliseconds(100))
             withAnimation { proxy.scrollTo("composer", anchor: .center) }
         }
     }
+}
 
-    private func submitComposer(keepOpen: Bool) {
-        let title = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !title.isEmpty {
-            store.create(title: title, notes: newNotes.trimmingCharacters(in: .whitespacesAndNewlines), date: day)
+/// A task row wired to a list's editor: tap to edit in place, swipe and long-press actions.
+struct EditableTaskRow: View {
+    let task: TaskItem
+    let editor: ListEditor
+    var focus: FocusState<TaskField?>.Binding
+    let actions: TaskActions
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        let isEditing = editor.editing == task.id
+        TaskRow(
+            task: task,
+            isEditing: isEditing,
+            focus: focus,
+            toggle: toggle,
+            startEditing: { editor.startEditing(task, field: $0, store: actions.store, focus: focus) },
+            change: { actions.store.edit(task.id, $0, debounce: true) },
+            commit: { focus.wrappedValue = nil }
+        )
+        .listRowBackground(isEditing ? Color.surface3 : Color.surface)
+        .taskSwipeActions(task, actions: actions, accent: palette.accent, toggle: toggle)
+        .contextMenu {
+            TaskMenuItems(task: task, actions: actions, toggle: toggle) {
+                editor.startEditing(task, field: .title(task.id), store: actions.store, focus: focus)
+            }
         }
-        newTitle = ""
-        newNotes = ""
-        if keepOpen, !title.isEmpty {
-            Task { focus = .newTitle }
-        } else {
-            composing = false
-        }
+        .accessibilityIdentifier("task.\(task.title)")
     }
 
-    private func closeComposer() {
-        if composing { submitComposer(keepOpen: false) }
-    }
+    private func toggle() { editor.toggle(task, actions: actions, focus: focus) }
+}
 
-    private func focusChanged(from old: TaskField?, to new: TaskField?) {
-        switch old {
-        case .title(let id), .notes(let id):
-            if case .title(let n) = new, n == id { return }
-            if case .notes(let n) = new, n == id { return }
-            if editing == id { finishEditing() }
-        case .newTitle, .newNotes:
-            if new == .newTitle || new == .newNotes { return }
-            closeComposer()
-        case nil:
-            break
+/// "Completed 3 ⌄" — collapses the group; remembered.
+struct CompletedHeader: View {
+    let count: Int
+    let expanded: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: 6) {
+                SectionHeader(title: "Completed", count: count)
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.ink3)
+                    .rotationEffect(.degrees(expanded ? 0 : -90))
+                Spacer()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Completed, \(count)")
+        .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+        .accessibilityIdentifier("completed.toggle")
+    }
+}
+
+extension View {
+    /// A "Done" button above the keyboard.
+    func keyboardDoneButton(focus: FocusState<TaskField?>.Binding) -> some View {
+        toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { focus.wrappedValue = nil }.fontWeight(.semibold)
+            }
         }
     }
 }
