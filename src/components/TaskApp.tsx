@@ -498,7 +498,7 @@ export function TaskApp({ user }: { user: AppUser }) {
       </div>
       <TabBar view={view} onView={showView} />
       {help && <ShortcutsSheet onClose={() => setHelp(false)} />}
-      {settings && <SettingsSheet onClose={() => setSettings(false)} />}
+      {settings && <SettingsSheet user={user} onClose={() => setSettings(false)} />}
 
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+90px)] z-[120] flex justify-center px-4 md:bottom-6">

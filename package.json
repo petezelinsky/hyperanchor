@@ -13,6 +13,7 @@
     "node": ">=20.9"
   },
   "dependencies": {
+    "jose": "^6.2.13",
     "next": "^16.4.3",
     "next-auth": "5.0.0-beta.32",
     "postgres": "^3.4.9",

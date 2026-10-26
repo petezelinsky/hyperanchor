@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { signInWithGoogle } from "@/app/actions";
-import { GoogleButton } from "./GoogleButton";
+import { signInWithApple, signInWithGoogle } from "@/app/actions";
+import { appleWebEnabled } from "@/auth";
 import { FlameIcon } from "./icons";
 import { HeroCard } from "./landing/HeroCard";
 import { Reveal } from "./landing/Reveal";
 import { RotatingWord } from "./landing/RotatingWord";
+import { SignInButton } from "./SignInButton";
 import { FocusVisual, ProgressVisual, TypingVisual, WeekVisual } from "./landing/visuals";
 import { SiteFooter, SiteHeader } from "./Site";
 
@@ -63,9 +64,9 @@ export function SignInScreen({ error }: { error?: boolean }) {
             <p className="mx-auto mt-6 max-w-[580px] animate-rise text-[17px] leading-relaxed text-pretty text-ink-2 [animation-delay:80ms] md:text-[19px]">
               Hyperanchor is a calm, fast planner. Capture tasks in a blink, focus on one thing at a time, and see your week at a glance.
             </p>
-            <form action={signInWithGoogle} className="mt-9 flex animate-rise justify-center [animation-delay:140ms]">
-              <GoogleButton />
-            </form>
+            <div className="mt-9 flex animate-rise [animation-delay:140ms]">
+              <SignInButtons />
+            </div>
             {error && (
               <p role="alert" className="mx-auto mt-4 w-fit rounded-[10px] bg-red-soft px-3 py-1.5 text-[13px] font-medium text-red-ink">
                 Sign-in didn’t work. Please try again.
@@ -124,14 +125,30 @@ export function SignInScreen({ error }: { error?: boolean }) {
               your best one.
             </h2>
             <p className="mt-4 text-[16px] text-white/70 md:text-[18px]">Free, and it takes ten seconds to start.</p>
-            <form action={signInWithGoogle} className="mt-9 flex justify-center">
-              <GoogleButton variant="light" />
-            </form>
+            <div className="mt-9 flex">
+              <SignInButtons variant="light" />
+            </div>
           </Reveal>
         </section>
       </main>
 
       <SiteFooter />
+    </div>
+  );
+}
+
+/** Google, and Sign in with Apple once it's configured: stacked on phones, side by side on wider screens. */
+function SignInButtons({ variant }: { variant?: "primary" | "light" }) {
+  return (
+    <div className="flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
+      {appleWebEnabled() && (
+        <form action={signInWithApple}>
+          <SignInButton provider="apple" variant={variant} />
+        </form>
+      )}
+      <form action={signInWithGoogle}>
+        <SignInButton provider="google" variant={variant} />
+      </form>
     </div>
   );
 }
