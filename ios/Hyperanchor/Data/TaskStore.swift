@@ -26,10 +26,9 @@ struct PendingOperation: Codable, Sendable, Identifiable {
 final class TaskStore {
     static let saveDelay: Duration = .milliseconds(600)
 
-    /// Every task the app knows about, by id.
-    private(set) var tasks: [String: TaskItem] = [:] {
-        didSet { index = Self.makeIndex(tasks) }
-    }
+    /// Every task the app knows about, by id. Change it only through `put`, `drop` and `replaceAll`,
+    /// which keep `index` in step.
+    private(set) var tasks: [String: TaskItem] = [:]
 
     /// Tasks per day, in the order they were added.
     private(set) var index: [DayKey: [TaskItem]] = [:]
@@ -90,6 +89,38 @@ final class TaskStore {
         return index
     }
 
+    /// Adds or updates one task; only its day(s) in the index change.
+    private func put(_ task: TaskItem) {
+        let old = tasks[task.id]
+        tasks[task.id] = task
+        if let old, old.date == task.date, old.createdAt == task.createdAt,
+           let i = index[task.date]?.firstIndex(where: { $0.id == task.id }) {
+            index[task.date]![i] = task
+            return
+        }
+        if let old { removeFromIndex(old) }
+        var list = index[task.date] ?? []
+        let at = list.firstIndex { TaskSorting.addedBefore(task, $0) } ?? list.count
+        list.insert(task, at: at)
+        index[task.date] = list
+    }
+
+    private func drop(_ id: String) -> TaskItem? {
+        guard let old = tasks.removeValue(forKey: id) else { return nil }
+        removeFromIndex(old)
+        return old
+    }
+
+    private func removeFromIndex(_ task: TaskItem) {
+        index[task.date]?.removeAll { $0.id == task.id }
+        if index[task.date]?.isEmpty == true { index[task.date] = nil }
+    }
+
+    private func replaceAll(_ next: [String: TaskItem]) {
+        tasks = next
+        index = Self.makeIndex(next)
+    }
+
     // MARK: Loading
 
     /// Fetches `range` from the server and merges it in: tasks with unsaved changes keep their local state.
@@ -105,7 +136,7 @@ final class TaskStore {
             var next: [String: TaskItem] = [:]
             for t in tasks.values where !range.contains(t.date) || isBusy(t.id) { next[t.id] = t }
             for t in fetched where !isBusy(t.id) { next[t.id] = t }
-            if next != tasks { tasks = next }
+            if next != tasks { replaceAll(next) }
             setOnline(true)
             saveSoon()
         } catch APIError.offline {
@@ -137,7 +168,7 @@ final class TaskStore {
         lastCreated = instant
         let now = TaskItem.timestamp(instant)
         let task = TaskItem(id: TaskItem.newID(), date: date, title: title, notes: notes, done: done, createdAt: now, updatedAt: now)
-        tasks[task.id] = task
+        put(task)
         enqueue(task.id, .create(task))
         return task
     }
@@ -146,7 +177,7 @@ final class TaskStore {
     func edit(_ id: String, _ patch: TaskPatch, debounce: Bool = false) {
         guard let task = tasks[id], !patch.isEmpty else { return }
         let updated = patch.applied(to: task)
-        if updated != task { tasks[id] = updated }
+        if updated != task { put(updated) }
         drafts[id] = (drafts[id] ?? TaskPatch()).merged(with: patch)
         if debounce {
             draftTimers[id]?.cancel()
@@ -182,14 +213,14 @@ final class TaskStore {
     func remove(_ id: String) -> TaskItem? {
         draftTimers.removeValue(forKey: id)?.cancel()
         drafts[id] = nil
-        guard let task = tasks.removeValue(forKey: id) else { return nil }
+        guard let task = drop(id) else { return nil }
         enqueue(id, .delete)
         return task
     }
 
     /// Puts a deleted task back (undo), keeping its id.
     func restore(_ task: TaskItem) {
-        tasks[task.id] = task
+        put(task)
         enqueue(task.id, .create(task))
     }
 
@@ -206,7 +237,7 @@ final class TaskStore {
         outbox = []
         ranges = []
         inFlight = nil
-        tasks = [:]
+        replaceAll([:])
         cache?.clear()
     }
 
