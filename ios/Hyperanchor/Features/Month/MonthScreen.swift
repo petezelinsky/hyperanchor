@@ -60,6 +60,7 @@ struct MonthScreen: View {
                             .overlay(alignment: .bottom) { if r < grid.rows - 1 { Rectangle().fill(.line).frame(height: 1) } }
                         }
                     }
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .id(month)
                     .transition(.asymmetric(
                         insertion: .move(edge: direction >= 0 ? .trailing : .leading).combined(with: .opacity),
@@ -106,6 +107,7 @@ struct MonthScreen: View {
             }
         }
         .padding(.vertical, 8)
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .background(.surface2)
         .overlay(alignment: .top) { Rectangle().fill(.line).frame(height: 1) }
         .overlay(alignment: .bottom) { Rectangle().fill(.line).frame(height: 1) }

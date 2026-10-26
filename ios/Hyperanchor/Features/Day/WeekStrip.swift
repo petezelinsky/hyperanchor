@@ -8,6 +8,11 @@ struct WeekStrip: View {
     let select: (DayKey) -> Void
 
     @State private var position: Int?
+    @ScaledMetric(relativeTo: .subheadline) private var scaledHeight: CGFloat = 54
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Grows with the text, up to the cap the strip uses.
+    private var height: CGFloat { typeSize > .xxLarge ? 70 : scaledHeight }
 
     private var week: Int { selected.startOfWeek.ordinal }
 
@@ -26,7 +31,8 @@ struct WeekStrip: View {
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $position)
         .scrollIndicators(.hidden)
-        .frame(height: 54)
+        .frame(height: height)
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .onAppear { position = week }
         .onChange(of: week) { _, w in
             if position != w { withAnimation(.snappy) { position = w } }
@@ -81,7 +87,7 @@ private struct WeekPage: View {
                     .padding(.top, 1)
             }
             .foregroundStyle(on ? (isToday ? Color.onAccent : Color.onPrimary) : Color.ink)
-            .frame(maxWidth: .infinity, minHeight: 50)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 if on {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)

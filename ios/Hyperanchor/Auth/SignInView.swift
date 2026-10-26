@@ -73,6 +73,7 @@ struct SignInView: View {
         .frame(maxWidth: 480)
         .frame(maxWidth: .infinity)
         .background(.bar)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .disabled(working != nil)
     }
 

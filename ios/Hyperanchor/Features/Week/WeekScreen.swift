@@ -34,14 +34,16 @@ struct WeekScreen: View {
         NavigationStack {
             ScrollViewReader { proxy in
             List {
-                HStack(spacing: 6) {
+                AdaptiveStack(spacing: 6) {
                     Text(Dates.range(start, start.adding(days: 6)))
-                    Text("·").foregroundStyle(.ink4)
-                    if !all.isEmpty {
-                        ProgressRing(value: Double(done) / Double(all.count), size: 14, lineWidth: 2.4)
+                    Text("·").foregroundStyle(.ink4).accessibilityHidden(true).hiddenWhenStacked()
+                    HStack(spacing: 6) {
+                        if !all.isEmpty {
+                            ProgressRing(value: Double(done) / Double(all.count), size: 14, lineWidth: 2.4)
+                        }
+                        Text(all.isEmpty ? "No tasks" : "\(done) of \(all.count) done")
                     }
-                    Text(all.isEmpty ? "No tasks" : "\(done) of \(all.count) done")
-                    Spacer(minLength: 8)
+                    Spacer(minLength: 8).hiddenWhenStacked()
                     if weeks != 0 {
                         Button("This Week") { router.selected = today }
                             .buttonStyle(SecondaryButtonStyle(compact: true))
@@ -50,7 +52,6 @@ struct WeekScreen: View {
                 .font(.subheadline)
                 .foregroundStyle(.ink2)
                 .monospacedDigit()
-                .lineLimit(1)
                 .plainRow(insets: EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
 
                 if searching, visible.isEmpty {
@@ -109,7 +110,7 @@ struct WeekScreen: View {
             }
             .toastHost()
         }
-        .onChange(of: focus) { old, new in editor.focusChanged(from: old, to: new, store: store) }
+        .onChange(of: focus) { old, new in editor.focusChanged(from: old, to: new, store: store, focus: $focus) }
         .onChange(of: start) { _, _ in editor.reset(store: store) }
         .task(id: start) {
             await store.load(start...start.adding(days: 6))
@@ -125,7 +126,45 @@ private struct DayHeader: View {
     let add: () -> Void
     @Environment(\.palette) private var palette
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
+        if typeSize.isAccessibilitySize {
+            // Huge text: the weekday gets a line of its own.
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(Dates.dowFull[day.weekday])
+                        .font(.headline)
+                        .foregroundStyle(.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    Spacer()
+                    addButton
+                }
+                Text(Dates.short(day) + (tasks.isEmpty ? "" : " · \(tasks.count(where: \.done)) of \(tasks.count)") + (day == today ? " · Today" : ""))
+                    .font(.subheadline)
+                    .foregroundStyle(.ink3)
+            }
+            .textCase(nil)
+            .padding(.top, 8)
+        } else {
+            row
+        }
+    }
+
+    private var addButton: some View {
+        Button(action: add) {
+            Image(systemName: "plus")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.ink2)
+                .frame(minWidth: 32, minHeight: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add task to \(Dates.dowFull[day.weekday])")
+    }
+
+    private var row: some View {
         HStack(spacing: 8) {
             Text(Dates.dowFull[day.weekday])
                 .font(.headline)
@@ -148,15 +187,7 @@ private struct DayHeader: View {
                     .foregroundStyle(.ink3)
                     .monospacedDigit()
             }
-            Button(action: add) {
-                Image(systemName: "plus")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.ink2)
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Add task to \(Dates.dowFull[day.weekday])")
+            addButton
         }
         .textCase(nil)
         .padding(.top, 8)

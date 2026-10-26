@@ -47,7 +47,7 @@ struct Kpis: View {
     }
 
     /// Phones leave out the small visuals (as the web does), so labels never truncate.
-    private var wide: Bool { columns > 2 }
+    private var wide: Bool { columns > 2 || columns == 1 }
 
     private var streakDots: some View {
         HStack(spacing: 3) {
@@ -69,15 +69,25 @@ private struct Tile<Foot: View>: View {
     var visual: AnyView?
     @ViewBuilder let foot: Foot
 
+    private var labelText: some View {
+        Text(label)
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(.ink2)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(label)
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(.ink2)
-                    .lineLimit(1)
-                Spacer(minLength: 4)
-                visual
+            // The small visual gives way when the label needs the room.
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    labelText.fixedSize()
+                    Spacer(minLength: 6)
+                    visual
+                }
+                HStack {
+                    labelText.lineLimit(1)
+                    Spacer(minLength: 0)
+                }
             }
             .frame(minHeight: 26)
             HStack(alignment: .firstTextBaseline, spacing: 4) {

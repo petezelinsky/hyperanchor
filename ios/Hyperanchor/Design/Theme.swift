@@ -17,6 +17,13 @@ extension ThemeColor {
     }
 
     var color: Color { Color(uiColor: uiColor) }
+
+    /// With Increase Contrast on, `stronger` instead (the quiet grays become readable at 4.5:1).
+    func increasingContrast(to stronger: ThemeColor) -> Color {
+        let normal = uiColor
+        let high = stronger.uiColor
+        return Color(uiColor: UIColor { $0.accessibilityContrast == .high ? high.resolvedColor(with: $0) : normal.resolvedColor(with: $0) })
+    }
 }
 
 extension ShapeStyle where Self == Color {
@@ -29,11 +36,11 @@ extension ShapeStyle where Self == Color {
     static var scrim: Color { Tokens.scrim.color }
     static var ink: Color { Tokens.ink.color }
     static var ink2: Color { Tokens.ink2.color }
-    static var ink3: Color { Tokens.ink3.color }
-    static var ink4: Color { Tokens.ink4.color }
-    static var line: Color { Tokens.line.color }
+    static var ink3: Color { Tokens.ink3.increasingContrast(to: Tokens.ink2) }
+    static var ink4: Color { Tokens.ink4.increasingContrast(to: Tokens.ink3) }
+    static var line: Color { Tokens.line.increasingContrast(to: Tokens.line2) }
     static var line2: Color { Tokens.line2.color }
-    static var checkRing: Color { Tokens.checkRing.color }
+    static var checkRing: Color { Tokens.checkRing.increasingContrast(to: Tokens.ink3) }
     /// Primary buttons: black in light, near-white in dark.
     static var primaryFill: Color { Tokens.primary.color }
     static var onPrimary: Color { Tokens.onPrimary.color }

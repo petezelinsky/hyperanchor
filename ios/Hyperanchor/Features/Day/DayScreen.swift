@@ -97,7 +97,7 @@ struct DayScreen: View {
             }
             .toastHost()
         }
-        .onChange(of: focus) { old, new in editor.focusChanged(from: old, to: new, store: store) }
+        .onChange(of: focus) { old, new in editor.focusChanged(from: old, to: new, store: store, focus: $focus) }
         .onChange(of: allDone) { was, now in
             if now, !was, editor.justToggled { confetti += 1 }
         }
@@ -116,22 +116,24 @@ struct DayScreen: View {
     @ViewBuilder
     private func header(all: [TaskItem], done: Int, allDone: Bool) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
+            AdaptiveStack(spacing: 6) {
                 let relative = Dates.relative(day, today: today) != nil
                 let year = day.year != today.year ? ", \(day.year)" : ""
                 Text((relative ? Dates.long(day) : "\(Dates.months[day.month - 1]) \(day.day)") + year)
-                Text("·").foregroundStyle(.ink4)
+                Text("·").foregroundStyle(.ink4).accessibilityHidden(true).hiddenWhenStacked()
                 if all.isEmpty {
                     Text("No tasks")
                 } else {
-                    Burst(active: allDone && editor.justToggled) {
-                        ProgressRing(value: Double(done) / Double(all.count), size: 14, lineWidth: 2.4)
+                    HStack(spacing: 6) {
+                        Burst(active: allDone && editor.justToggled) {
+                            ProgressRing(value: Double(done) / Double(all.count), size: 14, lineWidth: 2.4)
+                        }
+                        Text(allDone ? "All done" : "\(done) of \(all.count) done")
+                            .fontWeight(allDone ? .medium : .regular)
+                            .foregroundStyle(allDone ? .ink : .ink2)
                     }
-                    Text(allDone ? "All done" : "\(done) of \(all.count) done")
-                        .fontWeight(allDone ? .medium : .regular)
-                        .foregroundStyle(allDone ? .ink : .ink2)
                 }
-                Spacer(minLength: 8)
+                Spacer(minLength: 8).hiddenWhenStacked()
                 if day != today {
                     Button("Today") { router.selected = today }
                         .buttonStyle(SecondaryButtonStyle(compact: true))
@@ -141,7 +143,6 @@ struct DayScreen: View {
             .font(.subheadline)
             .foregroundStyle(.ink2)
             .monospacedDigit()
-            .lineLimit(1)
 
             WeekStrip(selected: day, today: today) { router.selected = $0 }
         }
@@ -399,4 +400,37 @@ struct EmptyDay: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 48)
     }
+}
+
+/// A row that becomes a column at accessibility text sizes, so nothing truncates.
+struct AdaptiveStack<Content: View>: View {
+    var spacing: CGFloat = 8
+    @ViewBuilder let content: Content
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: spacing) { content }
+                .environment(\.stacked, true)
+        } else {
+            HStack(spacing: spacing) { content }
+                .lineLimit(1)
+        }
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var stacked = false
+}
+
+private struct HiddenWhenStacked: ViewModifier {
+    @Environment(\.stacked) private var stacked
+    func body(content: Content) -> some View {
+        if !stacked { content }
+    }
+}
+
+extension View {
+    /// Separators and spacers that only make sense in a row.
+    func hiddenWhenStacked() -> some View { modifier(HiddenWhenStacked()) }
 }

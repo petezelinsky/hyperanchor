@@ -10,6 +10,7 @@ struct AnalyticsScreen: View {
     @Environment(TodayClock.self) private var clock
     @Environment(Toaster.self) private var toaster
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var today: DayKey { clock.today }
 
@@ -37,7 +38,7 @@ struct AnalyticsScreen: View {
                     Kpis(
                         sum: sum, prev: prev, period: period, current: current, spark: model.spark,
                         streak: current ? Stats.currentStreak(today: today, byDate: byDate) : longest,
-                        longest: longest, recent: recent, columns: sizeClass == .regular ? 4 : 2
+                        longest: longest, recent: recent, columns: typeSize.isAccessibilitySize ? 1 : sizeClass == .regular ? 4 : 2
                     )
 
                     Card(title: period == .year ? "Completed per month" : "Completed per day") {

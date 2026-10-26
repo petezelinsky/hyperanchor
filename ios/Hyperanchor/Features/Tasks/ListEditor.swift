@@ -16,6 +16,9 @@ final class ListEditor {
     private(set) var lastToggle = Date.distantPast
 
     @ObservationIgnored private var snapshot = (title: "", notes: "")
+    /// Return in the quick-add row can take the keyboard away just before the row is submitted (the
+    /// on-screen keyboard does): losing focus closes the row only if it stays lost for a moment.
+    @ObservationIgnored private var pendingClose: Task<Void, Never>?
 
     var justToggled: Bool { Date.now.timeIntervalSince(lastToggle) < 2 }
 
@@ -73,7 +76,10 @@ final class ListEditor {
         newTitle = ""
         newNotes = ""
         if keepOpen, !title.isEmpty, let focus {
-            Task { focus.wrappedValue = .newTitle }
+            Task {
+                try? await Task.sleep(for: .milliseconds(60))
+                focus.wrappedValue = .newTitle
+            }
         } else {
             composerDay = nil
         }
@@ -84,13 +90,22 @@ final class ListEditor {
     }
 
     /// Leaving a field ends its edit (or closes the quick-add row, adding what was typed).
-    func focusChanged(from old: TaskField?, to new: TaskField?, store: TaskStore) {
+    func focusChanged(from old: TaskField?, to new: TaskField?, store: TaskStore, focus: FocusState<TaskField?>.Binding) {
+        pendingClose?.cancel()
         switch old {
         case .title(let id), .notes(let id):
             if new == .title(id) || new == .notes(id) { return }
             if editing == id { finishEditing(store: store) }
         case .newTitle, .newNotes:
             if new == .newTitle || new == .newNotes { return }
+            if new == nil {
+                pendingClose = Task {
+                    try? await Task.sleep(for: .milliseconds(250))
+                    guard !Task.isCancelled, focus.wrappedValue == nil else { return }
+                    closeComposer(store: store)
+                }
+                return
+            }
             closeComposer(store: store)
         case nil:
             break
