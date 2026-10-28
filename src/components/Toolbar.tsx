@@ -56,13 +56,13 @@ export function NavGroup({
   const seg = "flex h-8 items-center justify-center text-ink transition-colors duration-150 hover:bg-surface-2 active:bg-surface-3 disabled:pointer-events-none disabled:text-ink-4";
   return (
     <div className="flex overflow-hidden rounded-[9px] bg-surface shadow-lift">
-      <button type="button" aria-label={prevLabel} title={prevLabel} onClick={onPrev} className={`${seg} w-8`}>
+      <button type="button" aria-label={prevLabel} data-tip={prevLabel} onClick={onPrev} className={`${seg} w-8`}>
         <ChevronLeft size={14} strokeWidth={2} />
       </button>
       <button type="button" onClick={onToday} disabled={todayDisabled} className={`${seg} border-x border-line px-3 text-[13px] font-medium whitespace-nowrap`}>
         {todayLabel}
       </button>
-      <button type="button" aria-label={nextLabel} title={nextLabel} onClick={onNext} disabled={nextDisabled} className={`${seg} w-8`}>
+      <button type="button" aria-label={nextLabel} data-tip={nextLabel} onClick={onNext} disabled={nextDisabled} className={`${seg} w-8`}>
         <ChevronRight size={14} strokeWidth={2} />
       </button>
     </div>
@@ -98,7 +98,7 @@ export function SearchField({ value, onChange }: { value: string; onChange: (v: 
 
 export function NewTaskButton({ onClick }: { onClick: () => void }) {
   return (
-    <Button variant="primary" onClick={onClick} title="New Task (N)" className="pl-2.5">
+    <Button variant="primary" onClick={onClick} data-tip="New Task (N)" className="pl-2.5">
       <PlusIcon size={14} strokeWidth={2.2} />
       <span className="max-sm:hidden">New Task</span>
     </Button>

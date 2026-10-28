@@ -13,13 +13,19 @@ export const THEMES: { value: Theme; label: string; icon: React.ReactNode }[] = 
 
 /** Compact Light / Auto / Dark switch for public pages. */
 export function ThemeSwitch() {
-  // Server-rendered as Auto; the saved choice is read after hydration.
+  // Server-rendered as Auto; the saved choice is read after hydration, and the thumb jumps there rather than sliding.
   const [theme, setTheme] = useState<Theme>("system");
-  useEffect(() => setTheme(readTheme()), []);
+  const [synced, setSynced] = useState(false);
+  useEffect(() => {
+    setTheme(readTheme());
+    const id = requestAnimationFrame(() => setSynced(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   return (
     <SegmentedControl
       label="Appearance"
       value={theme}
+      instant={!synced}
       options={THEMES.map((t) => ({ ...t, iconOnly: true }))}
       onChange={(t) => {
         applyTheme(t);

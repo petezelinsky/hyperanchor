@@ -47,7 +47,7 @@ export function Sidebar({
         <nav aria-label="Views" className="relative mt-3 flex flex-col gap-0.5">
           <span
             aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-9 rounded-[10px] bg-surface shadow-lift transition-transform duration-300 ease-spring"
+            className="absolute inset-x-0 top-0 h-9 rounded-[10px] bg-surface shadow-lift transition-transform duration-300 ease-out"
             style={{ transform: `translateY(${index * NAV_ROW}px)` }}
           />
           {VIEWS.map((v) => {
@@ -59,7 +59,8 @@ export function Sidebar({
                 type="button"
                 onClick={() => onView(v.value)}
                 aria-current={on ? "page" : undefined}
-                title={`${v.label} (${v.key})`}
+                data-tip={`${v.label} (${v.key})`}
+                data-tip-side="right"
                 className={`relative flex h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-[13.5px] transition-colors duration-150 ${
                   on ? "font-medium text-ink" : "text-ink-2 hover:bg-line hover:text-ink"
                 }`}
@@ -234,7 +235,7 @@ export function TabBar({ view, onView }: { view: View; onView: (v: View) => void
       <div className="glass pointer-events-auto relative grid w-full max-w-[380px] grid-cols-4 rounded-[22px] p-1 shadow-float">
         <span
           aria-hidden="true"
-          className="absolute inset-y-1 left-1 rounded-[18px] bg-surface shadow-lift transition-transform duration-300 ease-spring"
+          className="absolute inset-y-1 left-1 rounded-[18px] bg-surface shadow-lift transition-transform duration-300 ease-out"
           style={{ width: "calc((100% - 8px) / 4)", transform: `translateX(${index * 100}%)` }}
         />
         {VIEWS.map((v) => {

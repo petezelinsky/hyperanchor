@@ -338,9 +338,18 @@ export function Showcase() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const io = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting));
+    let visible = true;
+    const sync = () => setOnScreen(visible && !document.hidden);
+    const io = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      sync();
+    });
     io.observe(el);
-    return () => io.disconnect();
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      io.disconnect();
+      document.removeEventListener("visibilitychange", sync);
+    };
   }, []);
 
   // Paused also stops the headline's rotating word and the floating cards (`data-motion`, see globals.css).

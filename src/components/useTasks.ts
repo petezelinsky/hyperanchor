@@ -67,7 +67,8 @@ export function useTasks(onError: (message: string) => void) {
       const run = (chains.current.get(id) ?? Promise.resolve()).then(req).catch((e) => {
         onError(e instanceof Error ? e.message : "Something went wrong");
         busy.current.set(id, 0);
-        for (const [from, to] of ranges.current.values()) load(from, to);
+        // Copy first: load() moves its range to the end of the map, which would keep a live iteration going forever.
+        for (const [from, to] of [...ranges.current.values()]) load(from, to);
       });
       const tail = run.finally(() => {
         busy.current.set(id, Math.max(0, (busy.current.get(id) ?? 1) - 1));

@@ -37,8 +37,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   );
 });
 
-export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { label: string }>(function IconButton(
-  { variant = "plain", size = "md", className = "", label, type = "button", ...props },
+export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { label: string; tip?: string }>(function IconButton(
+  { variant = "plain", size = "md", className = "", label, tip, type = "button", ...props },
   ref,
 ) {
   return (
@@ -46,7 +46,7 @@ export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { label: s
       ref={ref}
       type={type}
       aria-label={label}
-      title={props.title ?? label}
+      data-tip={tip ?? label}
       className={`inline-flex flex-none items-center justify-center disabled:opacity-35 ${base} ${variants[variant]} ${iconSizes[size]} ${className}`}
       {...props}
     />
@@ -71,6 +71,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   label,
   size = "md",
+  instant = false,
   className = "",
 }: {
   value: T;
@@ -79,6 +80,8 @@ export function SegmentedControl<T extends string>({
   onChange: (v: T) => void;
   label: string;
   size?: "md" | "lg";
+  /** Move the thumb without sliding (e.g. when catching up with a saved choice on load). */
+  instant?: boolean;
   className?: string;
 }) {
   const index = Math.max(0, options.findIndex((o) => o.value === value));
@@ -99,7 +102,7 @@ export function SegmentedControl<T extends string>({
     >
       <span
         aria-hidden="true"
-        className="absolute inset-y-[3px] left-[3px] rounded-[7px] bg-surface shadow-lift transition-transform duration-300 ease-spring"
+        className={`absolute inset-y-[3px] left-[3px] rounded-[7px] bg-surface shadow-lift ${instant ? "" : "transition-transform duration-300 ease-out"}`}
         style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${index * 100}%)` }}
       />
       {options.map((o) => {
@@ -111,7 +114,7 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={on}
             aria-label={o.iconOnly ? o.label : undefined}
-            title={o.iconOnly ? o.label : undefined}
+            data-tip={o.iconOnly ? o.label : undefined}
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(o.value)}
             className={`relative flex items-center justify-center gap-1.5 rounded-[7px] font-medium whitespace-nowrap transition-colors duration-150 ${

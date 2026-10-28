@@ -48,7 +48,7 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
                     key={i}
                     type="button"
                     onClick={() => onPick(d.key)}
-                    title={`${formatMedium(d.date)} — ${d.total ? `${d.done} of ${d.total} done` : "no tasks"}`}
+                    data-tip={`${formatMedium(d.date)} — ${d.total ? `${d.done} of ${d.total} done` : "no tasks"}`}
                     aria-label={`${formatMedium(d.date)}: ${d.done} of ${d.total} done`}
                     className={`aspect-square w-full rounded-[3px] transition-transform duration-150 hover:scale-125 ${d.isToday ? "outline-[1.5px] outline-offset-1 outline-ink-2 outline-solid" : ""}`}
                     style={{ background: d.elapsed ? LEVELS[level(d)] : "var(--surface-2)" }}

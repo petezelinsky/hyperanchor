@@ -22,7 +22,8 @@ declare global {
 /**
  * Runs in <head> before the first paint, so a saved theme or accent never flashes the default.
  * Sets html[data-theme] to "light" or "dark" (auto follows the system, live) and html[data-accent],
- * and keeps the browser's theme-color in step.
+ * and keeps the browser's theme-color in step. While a choice changes, html[data-switching] holds color
+ * transitions back for a frame (see globals.css), so the whole page changes at once instead of in a ripple.
  */
 export const PREFS_BOOT = `(function(){
 var d=document.documentElement,t="system";
@@ -35,9 +36,10 @@ var k=t==="dark"||(t==="system"&&m.matches)?"dark":"light";d.dataset.theme=k;
 var c=document.querySelector('meta[name="theme-color"]');
 if(!c){c=document.createElement("meta");c.name="theme-color";document.head.appendChild(c)}
 c.content=k==="dark"?"#141414":"#ffffff"}
+function quiet(){d.dataset.switching="";requestAnimationFrame(function(){requestAnimationFrame(function(){delete d.dataset.switching})})}
 apply();
-window.__hyperanchorTheme={set:function(v){t=v;apply()}};
-function follow(){if(t==="system")apply()}
+window.__hyperanchorTheme={set:function(v){t=v;quiet();apply()}};
+function follow(){if(t==="system"){quiet();apply()}}
 if(m.addEventListener)m.addEventListener("change",follow);else if(m.addListener)m.addListener(follow);
 })()`;
 
@@ -47,8 +49,11 @@ export function readAccent(): Accent {
 }
 
 export function applyAccent(a: Accent) {
-  if (a === "blue") delete document.documentElement.dataset.accent;
-  else document.documentElement.dataset.accent = a;
+  const d = document.documentElement;
+  d.dataset.switching = "";
+  requestAnimationFrame(() => requestAnimationFrame(() => delete d.dataset.switching));
+  if (a === "blue") delete d.dataset.accent;
+  else d.dataset.accent = a;
   try {
     localStorage.setItem(ACCENT_KEY, a);
   } catch {
