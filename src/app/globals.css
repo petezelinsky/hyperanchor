@@ -324,12 +324,25 @@
 
 /* ── Landing ────────────────────────────────────────────────────────────────── */
 
-/* A faint dot grid behind hero art; set --dot to recolor it, mask it to fade the edges. */
+/* A faint dot grid behind showcase art; set --dot to recolor it, mask it to fade the edges. */
 @utility dot-grid {
   background-image: radial-gradient(circle, var(--dot, var(--ink-4)) 1px, transparent 1.25px);
   background-size: 24px 24px;
 }
 
+/* Showcase slides cross-fade: the new one slides in from the right as the old one leaves to the left. */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@keyframes slide-out {
+  to {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
 @keyframes float-y {
   50% {
     transform: translateY(-8px);
@@ -357,15 +370,6 @@
     opacity: 0;
   }
 }
-@keyframes pulse-dot {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
-  }
-  60% {
-    box-shadow: 0 0 0 6px transparent;
-  }
-}
 @keyframes key-press {
   0%,
   14%,
@@ -387,28 +391,8 @@
     transform: scaleY(0);
   }
 }
-@keyframes ring-fill {
-  from {
-    stroke-dashoffset: var(--c);
-  }
-}
 
-/* Reveal on scroll (see Reveal.tsx): hidden until the element enters the viewport. */
-[data-reveal] {
-  opacity: 0;
-  transform: translateY(16px);
-  transition:
-    opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
-  transition-delay: var(--delay, 0ms);
-}
-[data-reveal="in"] {
-  opacity: 1;
-  transform: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-reveal] {
-    opacity: 1;
-    transform: none;
-  }
+/* The showcase's pause button stops every looping animation on the page (marked data-motion), the headline included. */
+:root[data-motion="paused"] [data-motion] {
+  animation-play-state: paused !important;
 }

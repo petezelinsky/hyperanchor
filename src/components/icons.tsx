@@ -146,10 +146,31 @@ export function GoogleG({ size = 18 }: { size?: number }) {
   );
 }
 
+export function PauseIcon({ size = 12, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12" fill="currentColor" aria-hidden="true" className={className}>
+      <rect x="2.5" y="2" width="2.4" height="8" rx="0.8" />
+      <rect x="7.1" y="2" width="2.4" height="8" rx="0.8" />
+    </svg>
+  );
+}
+
+export function PlayIcon({ size = 12, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M3.5 2.4v7.2c0 .5.55.8.97.53l5.5-3.6a.63.63 0 0 0 0-1.06l-5.5-3.6a.63.63 0 0 0-.97.53Z" />
+    </svg>
+  );
+}
+
+/** A flame with a small inner flame cut out, so it doesn't read as a drop at small sizes. */
 export function FlameIcon({ size = 16, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" className={className}>
-      <path d="M8.6 1c.5 2.2-.5 3.4-1.6 4.6C5.9 6.8 4.6 8.1 4.6 10.3c0 2.6 1.7 4.7 4 4.7s4-1.9 4-4.5c0-1.9-.9-3.3-1.9-4.4 0 1.1-.4 2-1.2 2.4.3-2.3.1-5.6-.9-7.5Z" />
+      <path
+        fillRule="evenodd"
+        d="M8.2 1C8.5 3.1 10.1 4.6 11.4 6.1 12.5 7.4 13.2 8.8 13.2 10.4 13.2 13.1 10.9 15 8 15 5.1 15 2.8 13.1 2.8 10.4 2.8 8.6 3.6 7.1 4.7 6 4.8 7.2 5.3 8.1 6.1 8.6 6.1 6 6.7 3.1 8.2 1ZM8.1 9.4C9 10.3 10 11.1 10 12.4 10 13.5 9.1 14.2 8 14.2 6.9 14.2 6 13.5 6 12.4 6 11.4 6.9 10.5 8.1 9.4Z"
+      />
     </svg>
   );
 }
