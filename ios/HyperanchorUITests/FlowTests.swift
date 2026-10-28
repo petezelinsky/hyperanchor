@@ -20,7 +20,9 @@ final class FlowTests: XCTestCase {
     func testSignInWithTheStubAccount() {
         app.launchArguments.append("-signedOut")
         app.launch()
-        waitFor(app.staticTexts["Hyperanchor is a calm, fast planner. Capture tasks in a blink, focus on one thing at a time, and see your week at a glance."])
+        waitFor(app.descendants(matching: .any)["Own your day, week and month."])
+        waitFor(app.staticTexts["Hyperanchor is a calm, fast planner.\nSign in to get started."])
+        waitFor(button("Pause the slideshow"))
         button("signin.google").tap()
         waitFor(app.navigationBars["Today"])
         waitFor(button("Mark “Call Mom” as done"))

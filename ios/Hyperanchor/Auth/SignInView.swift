@@ -1,80 +1,159 @@
 import AuthenticationServices
 import SwiftUI
 
-/// Sign in with Apple (the system button) or Google (a button in the same style), with the landing page's words.
+/// The signed-out home screen, as on the web: sign-in (logo, headline, Apple and Google, legal) and the animated showcase.
+/// iPhone: sign-in fills the first screen with the showcase peeking in below, the footer last.
+/// iPad (regular width and height): side by side, sign-in and the footer on the left, the showcase on the right.
 struct SignInView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.webAuthenticationSession) private var webAuthentication
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.horizontalSizeClass) private var widthClass
+    @Environment(\.verticalSizeClass) private var heightClass
     @State private var working: SignInProvider?
     @State private var error: String?
     @State private var appleNonce = Nonce.make()
     @State private var legal: URL?
+    /// The showcase's pause button stops every looping animation on the screen, the headline's word included.
+    @State private var paused = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                Wordmark(size: 22)
-                    .padding(.top, 12)
-
-                VStack(spacing: 18) {
-                    Headline()
-                    Text("Hyperanchor is a calm, fast planner. Capture tasks in a blink, focus on one thing at a time, and see your week at a glance.")
-                        .font(.body)
-                        .foregroundStyle(.ink2)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.top, sizeClass == .regular ? 72 : 40)
-
-                HeroCard()
-                    .padding(.top, 32)
-                    .padding(.bottom, 24)
-            }
-            .padding(.horizontal, 24)
-            .frame(maxWidth: 480)
-            .frame(maxWidth: .infinity)
+        Group {
+            if widthClass == .regular, heightClass == .regular { split } else { stacked }
         }
-        .scrollBounceBehavior(.basedOnSize)
         .background(.surface)
-        .safeAreaInset(edge: .bottom) { actions }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+        .environment(\.openURL, OpenURLAction { url in
+            legal = url
+            return .handled
+        })
         .sheet(item: $legal) { SafariView(url: $0).ignoresSafeArea() }
     }
 
-    private var actions: some View {
-        VStack(spacing: 12) {
+    private var stacked: some View {
+        GeometryReader { geo in
+            ScrollView {
+                VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        header
+                        main(headline: min(40, max(32, geo.size.width * 0.094)))
+                            .padding(.vertical, 40)
+                            .frame(maxHeight: .infinity)
+                    }
+                    .column(padding: 20)
+                    .padding(.top, 8)
+                    // Sign-in fills the first screen; the showcase peeks in below it.
+                    .frame(minHeight: min(geo.size.height - 180, 640))
+
+                    Showcase(paused: $paused)
+                        .frame(minHeight: 640)
+                        .padding(.horizontal, 12)
+
+                    footer
+                        .column(padding: 20)
+                        .padding(.top, 20)
+                        .padding(.bottom, 12)
+                }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+    }
+
+    private var split: some View {
+        GeometryReader { geo in
+            HStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        header
+                        main(headline: 40)
+                            .padding(.vertical, 56)
+                            .frame(maxHeight: .infinity)
+                        footer
+                    }
+                    .column(padding: 32)
+                    .padding(.top, 32)
+                    .padding(.bottom, 36)
+                    .frame(minHeight: geo.size.height)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(width: geo.size.width / 2.15)
+
+                Showcase(paused: $paused)
+                    .padding(16)
+            }
+        }
+    }
+
+    private var header: some View {
+        Wordmark(size: 20)
+            .frame(height: 32)
+            .rise(0, distance: 0)
+    }
+
+    private func main(headline size: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Headline(size: size, moving: !paused)
+                .rise(0)
+            Text("Hyperanchor is a calm, fast planner.\nSign in to get started.")
+                .font(.callout)
+                .lineSpacing(4)
+                .foregroundStyle(.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 12)
+                .rise(0.07)
+
+            VStack(spacing: 10) {
+                appleButton
+                googleButton
+            }
+            .disabled(working != nil)
+            .padding(.top, 32)
+            .rise(0.14)
+
             if let message = error ?? model.session.notice {
                 Text(message)
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(.redInk)
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.redSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .multilineTextAlignment(.center)
+                    .padding(.top, 16)
                     .accessibilityIdentifier("signin.error")
             }
-            appleButton
-            googleButton
-            Text("Free forever. By continuing, you agree to the [Terms of Service](https://hyperanchor.app/terms) and [Privacy Policy](https://hyperanchor.app/privacy).")
+
+            Text(legalText)
                 .font(.caption)
-                .foregroundStyle(.ink3)
+                .lineSpacing(3)
+                .foregroundStyle(.ink2)
                 .tint(.ink2)
-                .multilineTextAlignment(.center)
-                .environment(\.openURL, OpenURLAction { url in
-                    legal = url
-                    return .handled
-                })
-                .padding(.top, 2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 20)
+                .rise(0.21)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-        .frame(maxWidth: 480)
-        .frame(maxWidth: .infinity)
-        .background(.bar)
-        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-        .disabled(working != nil)
+    }
+
+    /// "Free forever…", with the links underlined in a light gray, as on the web.
+    private var legalText: AttributedString {
+        var text = (try? AttributedString(markdown: "Free forever. By continuing, you agree to the [Terms of Service](https://hyperanchor.app/terms) and [Privacy Policy](https://hyperanchor.app/privacy).")) ?? AttributedString()
+        for run in text.runs where run.link != nil {
+            text[run.range].underlineStyle = Text.LineStyle(pattern: .solid, color: .ink4)
+        }
+        return text
+    }
+
+    private var footer: some View {
+        HStack(spacing: 20) {
+            Text("© 2026 Hyperanchor")
+            Spacer(minLength: 0)
+            Link("Privacy", destination: URL(string: "https://hyperanchor.app/privacy")!)
+                .frame(minHeight: 44)
+            Link("Terms", destination: URL(string: "https://hyperanchor.app/terms")!)
+                .frame(minHeight: 44)
+        }
+        .font(.caption)
+        .foregroundStyle(.ink2)
+        .tint(.ink2)
     }
 
     @ViewBuilder
@@ -82,7 +161,10 @@ struct SignInView: View {
         if model.launch.demo {
             // UI tests and demos can't drive the system sheet: a stand-in that signs in to the demo account.
             Button { Task { await signInStub(.apple) } } label: {
-                Label("Continue with Apple", systemImage: "apple.logo").frame(maxWidth: .infinity)
+                HStack(spacing: 8) {
+                    Image(systemName: "apple.logo")
+                    Text(working == .apple ? "Signing in…" : "Continue with Apple")
+                }
             }
             .buttonStyle(ProviderButtonStyle())
             .accessibilityIdentifier("signin.apple")
@@ -95,8 +177,8 @@ struct SignInView: View {
                 Task { await finishApple(result) }
             }
             .signInWithAppleButtonStyle(scheme == .dark ? .white : .black)
-            .frame(height: 52)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .frame(height: ProviderButtonStyle.height)
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
             .accessibilityIdentifier("signin.apple")
         }
     }
@@ -105,13 +187,12 @@ struct SignInView: View {
         Button { Task { await signInWithGoogle() } } label: {
             HStack(spacing: 8) {
                 if working == .google {
-                    ProgressView().tint(.onPrimary)
+                    ProgressView().tint(scheme == .dark ? .black : .white)
                 } else {
-                    Image("GoogleG").resizable().frame(width: 17, height: 17)
+                    Image("GoogleG").resizable().frame(width: 18, height: 18)
                 }
                 Text(working == .google ? "Signing in…" : "Continue with Google")
             }
-            .frame(maxWidth: .infinity)
         }
         .buttonStyle(ProviderButtonStyle())
         .accessibilityIdentifier("signin.google")
@@ -169,119 +250,93 @@ struct SignInView: View {
     }
 }
 
-/// "Continue with Google", matching Apple's button: black (white in dark mode), 52 points, rounded.
+/// "Continue with Google" (and the demo's Apple stand-in), matching the system Sign in with Apple button next to it:
+/// full width, black (white in dark mode), 48 points, the mark centered next to the label.
 struct ProviderButtonStyle: ButtonStyle {
+    static let height: CGFloat = 48
     @Environment(\.colorScheme) private var scheme
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 19, weight: .medium))
+            .font(.system(size: 18.5, weight: .medium))
             .foregroundStyle(scheme == .dark ? Color.black : Color.white)
-            .frame(height: 52)
+            .frame(height: Self.height)
             .frame(maxWidth: .infinity)
-            .background(scheme == .dark ? Color.white : Color.black, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(scheme == .dark ? Color.white : Color.black, in: RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
             .opacity(configuration.isPressed ? 0.8 : 1)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
-/// "Own your day. / week. / month." — the second line cycles, sliding up.
+/// "Own your day." — the last word cycles day / week / month, each sliding up into place. Stops while the showcase
+/// is paused; with Reduce Motion it stays on "day.".
 private struct Headline: View {
+    let size: CGFloat
+    let moving: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var index = 0
-    private let words = ["day.", "week.", "month."]
+    private static let words = ["day.", "week.", "month."]
 
     var body: some View {
-        VStack(spacing: -4) {
-            Text("Own your").foregroundStyle(.ink3)
-            Text(words[index])
-                .foregroundStyle(.ink)
-                .contentTransition(.numericText())
-                .id(index)
-                .transition(reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .move(edge: .top).combined(with: .opacity)))
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text("Own your ")
+            ZStack(alignment: .leading) {
+                Text(Self.words[index])
+                    .id(index)
+                    .transition(.push(from: .bottom))
+            }
         }
-        .font(.system(size: 52, weight: .bold))
-        .tracking(-2.2)
-        .minimumScaleFactor(0.6)
+        .font(.system(size: size, weight: .semibold))
+        .tracking(-0.032 * size)
+        .foregroundStyle(.ink)
         .lineLimit(1)
+        .minimumScaleFactor(0.7)
         .clipped()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Own your day, week and month.")
         .accessibilityAddTraits(.isHeader)
-        .task {
+        .task(id: moving && !reduceMotion) {
+            guard moving, !reduceMotion else {
+                if reduceMotion { index = 0 }
+                return
+            }
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2.6))
-                withAnimation(.timingCurve(0.7, 0, 0.2, 1, duration: 0.6)) { index = (index + 1) % words.count }
+                guard !Task.isCancelled else { return }
+                withAnimation(.timingCurve(0.7, 0, 0.2, 1, duration: 0.4)) { index = (index + 1) % Self.words.count }
             }
         }
     }
 }
 
-/// The landing illustration: a day's list that checks itself off, then starts over. Not interactive.
-private struct HeroCard: View {
-    private let tasks: [(String, String)] = [
-        ("Plan the week", "Three things that matter most"),
-        ("Send the proposal to Dana", ""),
-        ("Gym, 45 minutes", ""),
-        ("Pick up flowers for Sam", "Peonies, if they have them"),
-    ]
-    @State private var done = 0
+/// The web's `rise` entrance: fades in from 8 points below, after `delay`. Nothing with Reduce Motion.
+private struct Rise: ViewModifier {
+    let delay: Double
+    let distance: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
 
-    var body: some View {
-        let all = done == tasks.count
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Today").font(.title3.bold()).tracking(-0.4)
-                    Text(all ? "All done. Nice work!" : "\(done) of \(tasks.count) done")
-                        .font(.footnote.weight(all ? .medium : .regular))
-                        .foregroundStyle(all ? .ink : .ink3)
-                        .monospacedDigit()
-                }
-                Spacer()
-                Burst(active: all, radius: 26) {
-                    ProgressRing(value: Double(done) / Double(tasks.count), size: 36, lineWidth: 3.5)
-                }
+    func body(content: Content) -> some View {
+        let visible = shown || reduceMotion
+        content
+            .opacity(visible ? 1 : 0)
+            .offset(y: visible ? 0 : distance)
+            .onAppear {
+                withAnimation(.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.6).delay(delay)) { shown = true }
             }
-            .padding(.bottom, 12)
-            ForEach(Array(tasks.enumerated()), id: \.offset) { i, t in
-                HStack(alignment: .top, spacing: 12) {
-                    CheckCircle(checked: i < done)
-                        .padding(.top, 1)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(t.0).font(.subheadline).foregroundStyle(i < done ? .ink3 : .ink)
-                        if !t.1.isEmpty { Text(t.1).font(.footnote).foregroundStyle(.ink3) }
-                    }
-                    .lineLimit(1)
-                    Spacer(minLength: 0)
-                }
-                .padding(.vertical, 10)
-                .overlay(alignment: .top) { Rectangle().fill(.line).frame(height: 1) }
-            }
-            HStack(spacing: 12) {
-                Image(systemName: "plus").frame(width: 20)
-                Text("Add a task")
-            }
-            .font(.subheadline)
-            .foregroundStyle(.ink3)
-            .padding(.top, 10)
-            .overlay(alignment: .top) { Rectangle().fill(.line).frame(height: 1) }
-        }
-        .padding(20)
-        .background(.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .elevation(Tokens.Shadow.float, cornerRadius: 22)
-        .accessibilityHidden(true)
-        .task {
-            guard !reduceMotion else { done = tasks.count; return }
-            // Wait, tick the four tasks one by one, celebrate, start over.
-            let delays = [1.6, 0.95, 0.95, 0.95, 2.6, 0.9]
-            var step = 0
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(delays[step % delays.count]))
-                step += 1
-                let phase = step % delays.count
-                withAnimation(.spring(duration: 0.4)) { done = phase == 0 ? 0 : min(phase, tasks.count) }
-            }
-        }
+    }
+}
+
+private extension View {
+    func rise(_ delay: Double, distance: CGFloat = 8) -> some View {
+        modifier(Rise(delay: delay, distance: distance))
+    }
+
+    /// The sign-in column: at most 380 points wide, centered, with side margins.
+    func column(padding: CGFloat) -> some View {
+        frame(maxWidth: 380, alignment: .leading)
+            .padding(.horizontal, padding)
+            .frame(maxWidth: .infinity)
     }
 }

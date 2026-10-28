@@ -48,7 +48,7 @@ API_BASE_URL = http:/$()/localhost:3000     // по умолчанию https://h
 Config/                  xcconfig, Info.plist, entitlements (приложение и виджет)
 Hyperanchor/
   App/                   точка входа, AppModel, Router (навигация и запросы от клавиатуры), шорткаты
-  Auth/                  экран входа, Sign in with Apple, Google OAuth + PKCE
+  Auth/                  экран входа и витрина из пяти сцен (как на сайте), Sign in with Apple, Google OAuth + PKCE
   Data/                  Backend (HTTP с Bearer-токеном и демо в памяти), TaskStore, кэш на диске, Keychain, сессия
   Design/                Tokens.swift (генерируется), тема, чекбокс, кольцо, конфетти, кнопки, тосты
   Model/                 DayKey, даты, сортировка, аналитика — порт src/lib с проверкой против веба
