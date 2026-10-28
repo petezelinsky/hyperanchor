@@ -29,6 +29,8 @@ struct Heatmap: View {
                                 .frame(height: cell)
                         }
                     }
+                    // Only as wide as the labels, so the grid gets the rest of the card.
+                    .fixedSize(horizontal: true, vertical: false)
                     ScrollViewReader { proxy in
                         ScrollView(.horizontal) {
                             VStack(alignment: .leading, spacing: gap) {
@@ -67,8 +69,10 @@ struct Heatmap: View {
                                     }
                                 }
                             }
-                            .padding(2)
+                            .padding(.vertical, 2)
                         }
+                        // Room for today's ring at either edge, kept when scrolling to it.
+                        .contentMargins(.horizontal, 2, for: .scrollContent)
                         .scrollIndicators(.hidden)
                         .onAppear {
                             // Show the most recent weeks first.
