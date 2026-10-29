@@ -27,6 +27,15 @@ const GROUPS: { title: string; items: [string, string][] }[] = [
       ["Esc", "Cancel or deselect"],
     ],
   },
+  {
+    title: "In focus",
+    items: [
+      ["Space", "Done"],
+      ["→", "Not now"],
+      ["N", "Jot something down"],
+      ["Esc", "Leave focus"],
+    ],
+  },
 ];
 
 export function ShortcutsSheet({ onClose }: { onClose: () => void }) {

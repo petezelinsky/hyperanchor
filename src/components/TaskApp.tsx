@@ -169,8 +169,9 @@ export function TaskApp({ user }: { user: AppUser }) {
 
   // Latest state for stable callbacks and global listeners.
   const focusTask = focusQueue[0];
-  const latest = useRef({ tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, hasOpen });
-  latest.current = { tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, hasOpen };
+  const focusNext = focusQueue[1];
+  const latest = useRef({ tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen });
+  latest.current = { tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen };
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const selectDate = useCallback((key: string) => {
@@ -346,13 +347,17 @@ export function TaskApp({ user }: { user: AppUser }) {
       const sel = l.selectedId ? l.tasks[l.selectedId] : undefined;
 
       if (l.focusOn && l.view === "day") {
-        // Focus mode has no list to move through: Space finishes the task, N jots a thought down, Esc or F leaves.
+        // Focus mode has no list to move through: Space finishes the task, → puts it off, N jots a thought down,
+        // Esc or F leaves. The day stays put while focusing.
         if (k === " ") {
           if (l.focusTask && !l.focusTask.done) actions.toggle(l.focusTask);
+        } else if (k === "ArrowRight") {
+          const t = l.focusTask;
+          if (t && !t.done && l.focusNext) setLater((ids) => [...ids.filter((id) => id !== t.id), t.id]);
         } else if (k === "n") document.getElementById("focus-capture")?.focus();
         else if (k === "Escape" || k === "f") setFocus(false);
-        else if (k === "ArrowUp" || k === "ArrowDown" || k === "Enter" || k === "Backspace" || k === "Delete") return;
-        if (k === " " || k === "n" || k === "Escape" || k === "f") return e.preventDefault();
+        else if (k === "ArrowLeft" || k === "ArrowUp" || k === "ArrowDown" || k === "Enter" || k === "Backspace" || k === "Delete") return;
+        if (k === " " || k === "ArrowRight" || k === "n" || k === "Escape" || k === "f") return e.preventDefault();
       }
       if (views[k]) showView(views[k]);
       else if (k === "f") {

@@ -5,6 +5,7 @@ import { Wordmark } from "./Brand";
 import { RotatingWord } from "./landing/RotatingWord";
 import { Showcase } from "./landing/Showcase";
 import { SignInButton } from "./SignInButton";
+import { ThemeSwitch } from "./ThemeSwitch";
 
 const enter = "animate-[rise_0.6s_var(--ease-out)_both]";
 
@@ -63,17 +64,20 @@ export function SignInScreen({ error }: { error?: boolean }) {
         <Showcase />
       </aside>
 
-      <footer className="flex min-w-0 justify-center px-5 pt-7 pb-9 sm:px-8 lg:col-start-1 lg:row-start-2 lg:pt-0 lg:pb-12">
-        <div className="flex w-full max-w-[380px] flex-wrap items-center justify-between gap-x-5 gap-y-2 text-[12.5px] leading-5 text-ink-2">
+      <footer className="flex min-w-0 justify-center px-5 pt-7 pb-9 sm:px-8 lg:col-start-1 lg:row-start-2 lg:pt-0 lg:pb-11">
+        <div className="flex w-full max-w-[380px] flex-wrap items-center justify-between gap-x-5 gap-y-3 text-[12.5px] leading-5 text-ink-2">
           <span>© 2026 Hyperanchor</span>
-          <nav aria-label="Legal" className="flex gap-5">
-            <Link href="/privacy" className="no-underline hover:underline">
-              Privacy
-            </Link>
-            <Link href="/terms" className="no-underline hover:underline">
-              Terms
-            </Link>
-          </nav>
+          <div className="flex items-center gap-4">
+            <nav aria-label="Legal" className="flex gap-5">
+              <Link href="/privacy" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
+                Privacy
+              </Link>
+              <Link href="/terms" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
+                Terms
+              </Link>
+            </nav>
+            <ThemeSwitch />
+          </div>
         </div>
       </footer>
     </div>
