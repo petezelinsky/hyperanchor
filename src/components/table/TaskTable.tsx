@@ -127,7 +127,7 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
           className={`${input} text-[13px] leading-[19px]`}
         />
       </div>
-      <div className="flex h-11 items-center justify-center text-[13px] text-ink-3" title="Press Return to add">
+      <div className="flex h-11 items-center justify-center text-[13px] text-ink-3" data-tip="Press Return to add">
         ↩
       </div>
     </div>

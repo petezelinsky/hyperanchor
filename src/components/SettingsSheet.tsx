@@ -39,7 +39,6 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
         }}
         className="mt-2"
       />
-      <p className="mt-2 text-[12px] text-ink-3">Auto follows your device’s light or dark setting.</p>
 
       <h3 className="mt-6 text-[13px] font-semibold">Accent color</h3>
       <div

@@ -187,19 +187,12 @@ export const MoonIcon = (p: IconProps) => (
   </Svg>
 );
 
-/** Auto theme: a circle, half filled. */
-export const AutoIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="8" cy="8" r="5.8" />
-    <path d="M8 2.2v11.6A5.8 5.8 0 0 0 8 2.2Z" fill="currentColor" stroke="none" />
-  </Svg>
-);
 
-/** Focus mode: a target. */
-export const FocusIcon = (p: IconProps) => (
+/** Focus mode: a viewfinder framing one point. Give the point its own color with `dotClassName` (e.g. the accent). */
+export const FocusIcon = ({ dotClassName, ...p }: IconProps & { dotClassName?: string }) => (
   <Svg {...p}>
-    <circle cx="8" cy="8" r="5.8" />
-    <circle cx="8" cy="8" r="2.4" />
+    <path d="M2.5 5.6V4.3c0-1 .8-1.8 1.8-1.8h1.3M10.4 2.5h1.3c1 0 1.8.8 1.8 1.8v1.3M13.5 10.4v1.3c0 1-.8 1.8-1.8 1.8h-1.3M5.6 13.5H4.3c-1 0-1.8-.8-1.8-1.8v-1.3" />
+    <circle cx="8" cy="8" r="2.1" fill="currentColor" stroke="none" className={dotClassName} />
   </Svg>
 );
 

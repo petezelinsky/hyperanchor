@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { PREFS_BOOT } from "@/components/prefs";
+import { Tooltips } from "@/components/Tooltips";
 import "./globals.css";
 
 // SF Pro is used on Apple devices; Inter is the closest match elsewhere.
@@ -32,7 +33,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: PREFS_BOOT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Tooltips />
+      </body>
     </html>
   );
 }

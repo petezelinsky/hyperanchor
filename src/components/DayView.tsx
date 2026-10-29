@@ -87,24 +87,36 @@ export function DayView({
           </>
         }
       >
-        {!focus && <SearchField value={query} onChange={onQuery} />}
-        {selected !== todayKey && !focus && (
-          <Button onClick={() => onSelectDate(todayKey)} className="max-xl:hidden">
-            Today
+        {focus ? (
+          // In focus the header keeps one way out; new thoughts go into the capture field below.
+          <Button onClick={onFocus} data-tip="Leave focus (Esc)" className="gap-2">
+            Exit focus
+            <span className="pointer-coarse:hidden">
+              <Kbd>Esc</Kbd>
+            </span>
           </Button>
+        ) : (
+          <>
+            <SearchField value={query} onChange={onQuery} />
+            {selected !== todayKey && (
+              <Button onClick={() => onSelectDate(todayKey)} className="max-xl:hidden">
+                Today
+              </Button>
+            )}
+            <div className="max-xl:hidden">{pills}</div>
+            <Button
+              onClick={onFocus}
+              disabled={!open.length}
+              aria-label="Focus"
+              data-tip="Focus on one task at a time (F)"
+              className="max-sm:w-8 max-sm:px-0 sm:pr-3.5 sm:pl-3"
+            >
+              <FocusIcon size={15} strokeWidth={1.7} dotClassName="text-accent" />
+              <span className="max-sm:hidden">Focus</span>
+            </Button>
+            <NewTaskButton onClick={() => actions.openComposer(selected)} />
+          </>
         )}
-        {!focus && <div className="max-xl:hidden">{pills}</div>}
-        <Button
-          onClick={onFocus}
-          aria-pressed={!!focus}
-          disabled={!focus && !open.length}
-          title={focus ? "Exit focus (Esc)" : "Focus on one task at a time (F)"}
-          className={`max-sm:w-8 max-sm:px-0 sm:pl-2.5 ${focus ? "bg-surface-3 shadow-[inset_0_0_0_1px_var(--line-2)]" : ""}`}
-        >
-          <FocusIcon size={14} strokeWidth={1.8} />
-          <span className="max-sm:sr-only">{focus ? "Exit Focus" : "Focus"}</span>
-        </Button>
-        <NewTaskButton onClick={() => (focus ? document.getElementById("focus-capture")?.focus() : actions.openComposer(selected))} />
       </Toolbar>
 
       <div className="mx-auto max-w-[1184px] px-3 pb-16 md:px-8">

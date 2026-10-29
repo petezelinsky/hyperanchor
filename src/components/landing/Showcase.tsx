@@ -168,32 +168,46 @@ function FocusScene({ t }: { t: number }) {
   const local = t - i * FOCUS_STEP;
   const done = local >= FOCUS_DONE;
   const pressed = local >= FOCUS_DONE - 220 && !done;
+  const finished = i + (done ? 1 : 0);
+  const key = "ml-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[5px] px-1 text-[10.5px] font-medium pointer-coarse:hidden";
   return (
-    <div className="rounded-[22px] bg-surface p-6 shadow-float">
-      <div className="flex items-center justify-between gap-4">
-        <span className="text-[11px] leading-4 font-medium tracking-[0.06em] text-ink-3 uppercase">Now</span>
-        <span className="block h-1 w-24 overflow-hidden rounded-full bg-accent-track">
-          <span className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-out" style={{ width: `${((i + (done ? 1 : 0)) / QUEUE.length) * 100}%` }} />
+    <div className="flex flex-col items-center">
+      <div className="flex items-center gap-3 text-[12px] text-ink-3">
+        <span className="flex gap-1">
+          {QUEUE.map((_, n) => (
+            <span key={n} className={`h-1.5 w-5 rounded-full transition-colors duration-500 ${n < finished ? "bg-accent" : n === finished ? "bg-accent/45" : "bg-accent-track"}`} />
+          ))}
+        </span>
+        <span className="tabular">
+          Task {Math.min(finished + 1, QUEUE.length)} of {QUEUE.length}
         </span>
       </div>
-      <div key={i} className="mt-4 flex animate-rise items-start gap-3.5">
-        <Checkbox checked={done} onToggle={() => {}} label={QUEUE[i]} size={24} className="mt-px" />
-        <div className={`text-[20px] leading-[1.3] font-semibold tracking-[-0.02em] transition-colors duration-300 ${done ? "text-ink-3" : "text-ink"}`}>{QUEUE[i]}</div>
+      {/* The edges below the card are the tasks still waiting, as in the real focus mode. */}
+      <div className="relative mt-4 w-full pb-[18px]">
+        <span className="absolute inset-x-[9%] bottom-0 h-16 rounded-[18px] bg-surface-2 shadow-lift" />
+        <span className="absolute inset-x-[4.5%] bottom-[9px] h-16 rounded-[20px] bg-surface shadow-lift" />
+        <div key={i} className="relative animate-[focus-in_0.45s_var(--ease-out)_both] rounded-[22px] bg-surface p-6 shadow-float">
+          <div className="flex items-start gap-3.5">
+            <Checkbox checked={done} onToggle={() => {}} label={QUEUE[i]} size={24} className="mt-px" />
+            <div className={`text-[20px] leading-[1.3] font-semibold tracking-[-0.02em] transition-colors duration-300 ${done ? "text-ink-3" : "text-ink"}`}>{QUEUE[i]}</div>
+          </div>
+          <div className="mt-5 flex gap-2 pl-[38px]">
+            <span
+              className={`inline-flex h-9 items-center gap-1.5 rounded-[10px] pr-2 pl-3 text-[13.5px] font-medium text-on-primary transition-[transform,background-color] duration-150 pointer-coarse:pr-3.5 ${
+                pressed ? "scale-95 bg-primary-hover" : "bg-primary"
+              }`}
+            >
+              <CheckIcon size={11} strokeWidth={2.2} />
+              Done
+              <span className={`${key} bg-on-primary/15 text-on-primary/75`}>Space</span>
+            </span>
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-surface pr-2 pl-3.5 text-[13.5px] font-medium shadow-lift pointer-coarse:pr-3.5">
+              Not now
+              <span className={`${key} bg-surface-3 text-ink-3`}>→</span>
+            </span>
+          </div>
+        </div>
       </div>
-      <div className="mt-5 flex gap-2 pl-[38px]">
-        <span
-          className={`inline-flex h-9 items-center gap-1.5 rounded-[10px] pr-3.5 pl-3 text-[13.5px] font-medium text-on-primary transition-[transform,background-color] duration-150 ${
-            pressed ? "scale-95 bg-primary-hover" : "bg-primary"
-          }`}
-        >
-          <CheckIcon size={11} strokeWidth={2.2} />
-          Done
-        </span>
-        <span className="inline-flex h-9 items-center rounded-[10px] bg-surface px-3.5 text-[13.5px] font-medium shadow-lift">Not now</span>
-      </div>
-      <p className="mt-5 border-t border-line pt-3.5 text-[13px] text-ink-3">
-        Up next: <span className="text-ink-2">{QUEUE[(i + 1) % QUEUE.length]}</span>
-      </p>
     </div>
   );
 }
@@ -338,9 +352,18 @@ export function Showcase() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const io = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting));
+    let visible = true;
+    const sync = () => setOnScreen(visible && !document.hidden);
+    const io = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      sync();
+    });
     io.observe(el);
-    return () => io.disconnect();
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      io.disconnect();
+      document.removeEventListener("visibilitychange", sync);
+    };
   }, []);
 
   // Paused also stops the headline's rotating word and the floating cards (`data-motion`, see globals.css).
