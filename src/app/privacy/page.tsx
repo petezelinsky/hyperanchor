@@ -7,7 +7,7 @@ const CONTACT_EMAIL = "privacy@hyperanchor.app";
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" effective="October 12, 2026">
+    <LegalPage title="Privacy Policy" effective="October 26, 2026">
       <LegalSection n={1} title="Overview">
         <p>
           Hyperanchor (“we”, “us”) is a task planner. This policy explains what information we collect when you use Hyperanchor, how we use it
@@ -18,15 +18,16 @@ export default function PrivacyPage() {
       <LegalSection n={2} title="Information we collect">
         <LegalList>
           <li>
-            <Strong>Google account details.</Strong> When you sign in with Google, we receive your name, email address, profile picture and Google
-            account ID. We never receive your Google password.
+            <Strong>Account details.</Strong> When you sign in with Google, we receive your name, email address, profile picture and Google
+            account ID. When you sign in with Apple, we receive your Apple account ID, your email address (or a private relay address if you
+            choose to hide it) and, the first time only, your name. We never receive your password.
           </li>
           <li>
             <Strong>Your tasks.</Strong> Task titles, descriptions, dates and completion status that you create in Hyperanchor.
           </li>
           <li>
-            <Strong>Technical data.</Strong> Basic server logs such as IP address, browser type and request times, used to run and secure the
-            service.
+            <Strong>Technical data.</Strong> Basic server logs such as IP address, browser or app version and request times, used to run and
+            secure the service.
           </li>
         </LegalList>
       </LegalSection>
@@ -59,7 +60,8 @@ export default function PrivacyPage() {
       <LegalSection n={6} title="Storage and security">
         <p>
           Your data is stored with our hosting and database providers and is encrypted in transit over HTTPS. We keep it for as long as your
-          account is active. No method of storage is completely secure, but we take reasonable measures to protect your information.
+          account is active. The iPhone app keeps a copy of your tasks on your device so it works offline; it is removed when you sign out. No
+          method of storage is completely secure, but we take reasonable measures to protect your information.
         </p>
       </LegalSection>
 
@@ -69,9 +71,10 @@ export default function PrivacyPage() {
 
       <LegalSection n={8} title="Your choices">
         <p>
-          You can ask us to access, export, correct or delete your data at any time by contacting us. When you delete your account, your tasks
-          and profile data are removed within 30 days. You can also revoke Hyperanchor’s access in your{" "}
-          <a href="https://myaccount.google.com/permissions">Google account settings</a>.
+          You can delete your account at any time in Settings, on the web or in the iPhone app: all of your tasks are deleted right away and,
+          if you use Sign in with Apple, Hyperanchor’s access to your Apple account is revoked. You can also ask us to access, export, correct
+          or delete your data by contacting us, and revoke Hyperanchor’s access in your{" "}
+          <a href="https://myaccount.google.com/permissions">Google account settings</a> or in your Apple account’s Sign in with Apple settings.
         </p>
       </LegalSection>
 

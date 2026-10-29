@@ -1,15 +1,16 @@
 import Link from "next/link";
-import { signInWithGoogle } from "@/app/actions";
+import { signInWithApple, signInWithGoogle } from "@/app/actions";
+import { appleWebEnabled } from "@/auth";
 import { Wordmark } from "./Brand";
-import { GoogleButton } from "./GoogleButton";
 import { RotatingWord } from "./landing/RotatingWord";
 import { Showcase } from "./landing/Showcase";
+import { SignInButton } from "./SignInButton";
 import { ThemeSwitch } from "./ThemeSwitch";
 
 const enter = "animate-[rise_0.6s_var(--ease-out)_both]";
 
 /**
- * The signed-out home page: sign-in on the left (logo, headline, Google button, legal), the animated showcase on the right.
+ * The signed-out home page: sign-in on the left (logo, headline, Google and Apple buttons, legal), the animated showcase on the right.
  * On phones and tablets they stack — sign-in fills the first screen with the showcase peeking below — and the footer goes last.
  */
 export function SignInScreen({ error }: { error?: boolean }) {
@@ -34,9 +35,16 @@ export function SignInScreen({ error }: { error?: boolean }) {
               Sign in to get started.
             </p>
 
-            <form action={signInWithGoogle} className={`mt-8 [animation-delay:140ms] ${enter}`}>
-              <GoogleButton />
-            </form>
+            <div className={`mt-8 flex flex-col gap-2.5 [animation-delay:140ms] ${enter}`}>
+              {appleWebEnabled() && (
+                <form action={signInWithApple}>
+                  <SignInButton provider="apple" />
+                </form>
+              )}
+              <form action={signInWithGoogle}>
+                <SignInButton provider="google" />
+              </form>
+            </div>
             {error && (
               <p role="alert" className="mt-4 rounded-[10px] bg-red-soft px-3 py-2 text-[13px] font-medium text-red-ink">
                 Sign-in didn’t work. Please try again.
