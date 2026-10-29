@@ -169,7 +169,7 @@ function FocusScene({ t }: { t: number }) {
   const done = local >= FOCUS_DONE;
   const pressed = local >= FOCUS_DONE - 220 && !done;
   const finished = i + (done ? 1 : 0);
-  const key = "ml-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[5px] px-1 text-[10.5px] font-medium";
+  const key = "ml-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[5px] px-1 text-[10.5px] font-medium pointer-coarse:hidden";
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-center gap-3 text-[12px] text-ink-3">
@@ -193,7 +193,7 @@ function FocusScene({ t }: { t: number }) {
           </div>
           <div className="mt-5 flex gap-2 pl-[38px]">
             <span
-              className={`inline-flex h-9 items-center gap-1.5 rounded-[10px] pr-2 pl-3 text-[13.5px] font-medium text-on-primary transition-[transform,background-color] duration-150 ${
+              className={`inline-flex h-9 items-center gap-1.5 rounded-[10px] pr-2 pl-3 text-[13.5px] font-medium text-on-primary transition-[transform,background-color] duration-150 pointer-coarse:pr-3.5 ${
                 pressed ? "scale-95 bg-primary-hover" : "bg-primary"
               }`}
             >
@@ -201,7 +201,7 @@ function FocusScene({ t }: { t: number }) {
               Done
               <span className={`${key} bg-on-primary/15 text-on-primary/75`}>Space</span>
             </span>
-            <span className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-surface pr-2 pl-3.5 text-[13.5px] font-medium shadow-lift">
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-surface pr-2 pl-3.5 text-[13.5px] font-medium shadow-lift pointer-coarse:pr-3.5">
               Not now
               <span className={`${key} bg-surface-3 text-ink-3`}>→</span>
             </span>

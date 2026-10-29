@@ -36,7 +36,7 @@ export function FocusPanel({
   /** Adds a task for later without leaving focus. */
   onCapture: (title: string) => void;
 }) {
-  const leaving = useLeaving(task);
+  const leaving = useLeaving(task, !!next);
   const waiting = (next ? 1 : 0) + after;
 
   return (
@@ -48,7 +48,7 @@ export function FocusPanel({
             {waiting > 1 && <span aria-hidden="true" className="absolute inset-x-[9%] -bottom-[18px] h-16 rounded-[20px] bg-surface-2 shadow-lift" />}
             {waiting > 0 && <span aria-hidden="true" className="absolute inset-x-[4.5%] -bottom-[9px] h-16 rounded-[22px] bg-surface shadow-lift" />}
             <Card key={task.id} task={task} hasNext={!!next} onDone={onDone} onLater={onLater} />
-            {leaving && <Card key={`${leaving.id}-leaving`} task={leaving} hasNext={false} leaving />}
+            {leaving && <Card key={`${leaving.task.id}-leaving`} task={leaving.task} hasNext={leaving.hasNext} leaving />}
           </div>
           <p className="mt-10 max-w-full truncate px-4 text-[13px] text-ink-3">
             {next ? (
@@ -86,7 +86,7 @@ export function FocusPanel({
           aria-label="Add a task for later"
           maxLength={500}
           autoComplete="off"
-          className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none"
+          className="h-full min-w-0 flex-1 bg-transparent text-[13.5px] outline-none"
           onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
         />
         <span className="group-focus-within:hidden pointer-coarse:hidden">
@@ -190,20 +190,20 @@ function KeyHint({ children, tone = "light" }: { children: React.ReactNode; tone
   );
 }
 
-/** The task that just left the top of the stack, kept for a moment so it can animate away. */
-function useLeaving(task?: Task) {
-  const [leaving, setLeaving] = useState<Task | null>(null);
-  const shown = useRef(task);
+/** The card that just left the top of the stack, kept for a moment (as it last looked) so it can animate away. */
+function useLeaving(task: Task | undefined, hasNext: boolean) {
+  const [leaving, setLeaving] = useState<{ task: Task; hasNext: boolean } | null>(null);
+  const shown = useRef({ task, hasNext });
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
     const was = shown.current;
-    shown.current = task;
-    if (!was || was.id === task?.id) return;
-    setLeaving(was);
+    shown.current = { task, hasNext };
+    if (!was.task || was.task.id === task?.id) return;
+    setLeaving({ task: was.task, hasNext: was.hasNext });
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setLeaving(null), 450);
-  }, [task]);
+  }, [task, hasNext]);
   return leaving;
 }
 

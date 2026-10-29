@@ -1,7 +1,7 @@
-/** Appearance preferences, remembered on this device: theme (auto / light / dark) and accent color. */
+/** Appearance preferences, remembered on this device: theme (light / dark) and accent color. */
 
 export type Accent = "blue" | "orange" | "green";
-export type Theme = "system" | "light" | "dark";
+export type Theme = "light" | "dark";
 
 export const ACCENTS: { value: Accent; label: string; swatch: string }[] = [
   { value: "blue", label: "Blue", swatch: "#2563eb" },
@@ -14,33 +14,31 @@ const THEME_KEY = "hyperanchor:theme";
 
 declare global {
   interface Window {
-    /** Installed by PREFS_BOOT: re-applies the theme and keeps following the system while on auto. */
+    /** Installed by PREFS_BOOT: switches the theme in place. */
     __hyperanchorTheme?: { set: (t: Theme) => void };
   }
 }
 
 /**
  * Runs in <head> before the first paint, so a saved theme or accent never flashes the default.
- * Sets html[data-theme] to "light" or "dark" (auto follows the system, live) and html[data-accent],
- * and keeps the browser's theme-color in step. While a choice changes, html[data-switching] holds color
- * transitions back for a frame (see globals.css), so the whole page changes at once instead of in a ripple.
+ * Sets html[data-theme] to the saved "light" or "dark" (until someone picks one, the device's setting at load)
+ * and html[data-accent], and keeps the browser's theme-color in step. While a choice changes, html[data-switching]
+ * holds color transitions back for a frame (see globals.css), so the whole page changes at once instead of in a ripple.
  */
 export const PREFS_BOOT = `(function(){
-var d=document.documentElement,t="system";
+var d=document.documentElement;
 function get(k){try{return localStorage.getItem(k)}catch(e){return null}}
 var a=get("${ACCENT_KEY}");if(a==="orange"||a==="green")d.dataset.accent=a;
-var s=get("${THEME_KEY}");if(s==="light"||s==="dark")t=s;
-var m=window.matchMedia("(prefers-color-scheme: dark)");
+var t=get("${THEME_KEY}");
+if(t!=="light"&&t!=="dark")t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";
 function apply(){
-var k=t==="dark"||(t==="system"&&m.matches)?"dark":"light";d.dataset.theme=k;
+d.dataset.theme=t;
 var c=document.querySelector('meta[name="theme-color"]');
 if(!c){c=document.createElement("meta");c.name="theme-color";document.head.appendChild(c)}
-c.content=k==="dark"?"#141414":"#ffffff"}
+c.content=t==="dark"?"#141414":"#ffffff"}
 function quiet(){d.dataset.switching="";requestAnimationFrame(function(){requestAnimationFrame(function(){delete d.dataset.switching})})}
 apply();
 window.__hyperanchorTheme={set:function(v){t=v;quiet();apply()}};
-function follow(){if(t==="system"){quiet();apply()}}
-if(m.addEventListener)m.addEventListener("change",follow);else if(m.addListener)m.addListener(follow);
 })()`;
 
 export function readAccent(): Accent {
@@ -61,19 +59,14 @@ export function applyAccent(a: Accent) {
   }
 }
 
+/** The theme on screen: the saved choice, or the device's setting until there is one. */
 export function readTheme(): Theme {
-  try {
-    const t = localStorage.getItem(THEME_KEY);
-    return t === "light" || t === "dark" ? t : "system";
-  } catch {
-    return "system";
-  }
+  return typeof document !== "undefined" && document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
 
 export function applyTheme(t: Theme) {
   try {
-    if (t === "system") localStorage.removeItem(THEME_KEY);
-    else localStorage.setItem(THEME_KEY, t);
+    localStorage.setItem(THEME_KEY, t);
   } catch {
     // As above: applies for this visit only.
   }

@@ -20,8 +20,8 @@ export function LegalPage({ title, effective, children }: { title: string; effec
           <h2 className="text-[13px] font-semibold">Contents</h2>
           <ol className="mt-3 gap-x-8 text-[14px] sm:columns-2">
             {sections.map((s) => (
-              <li key={s.n} className="mb-1.5 break-inside-avoid">
-                <a href={`#section-${s.n}`} className="text-ink-2 no-underline hover:text-ink hover:underline">
+              <li key={s.n} className="mb-1.5 break-inside-avoid pointer-coarse:mb-0.5">
+                <a href={`#section-${s.n}`} className="text-ink-2 no-underline hover:text-ink hover:underline pointer-coarse:inline-block pointer-coarse:py-1">
                   <span className="tabular">{s.n}.</span> {s.title}
                 </a>
               </li>

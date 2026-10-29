@@ -5,8 +5,8 @@
  * sparingly (today, completion, progress, data). The accent is blue by default; people can switch
  * it to orange or green (html[data-accent]). Red is reserved for destructive actions and drops,
  * green for rises. Translucent glass only on floating chrome.
- * Theme: html[data-theme] is "light" or "dark" — set before first paint from the saved choice or the
- * system setting (see theme.ts). Components use the tokens through the Tailwind theme below.
+ * Theme: html[data-theme] is "light" or "dark" — set before first paint from the saved choice (until there is one,
+ * the device's setting; see prefs.ts). Components use the tokens through the Tailwind theme below.
  */
 :root {
   color-scheme: light;
@@ -261,7 +261,7 @@
 :root[data-switching] *,
 :root[data-switching] *::before,
 :root[data-switching] *::after {
-  transition-property: transform, opacity !important;
+  transition-property: transform, translate, scale, rotate, opacity !important;
 }
 
 /* Numbers that line up in columns (tables, axes, counters) — not for big standalone figures. */

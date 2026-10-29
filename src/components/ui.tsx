@@ -71,7 +71,6 @@ export function SegmentedControl<T extends string>({
   onChange,
   label,
   size = "md",
-  instant = false,
   className = "",
 }: {
   value: T;
@@ -80,8 +79,6 @@ export function SegmentedControl<T extends string>({
   onChange: (v: T) => void;
   label: string;
   size?: "md" | "lg";
-  /** Move the thumb without sliding (e.g. when catching up with a saved choice on load). */
-  instant?: boolean;
   className?: string;
 }) {
   const index = Math.max(0, options.findIndex((o) => o.value === value));
@@ -102,7 +99,7 @@ export function SegmentedControl<T extends string>({
     >
       <span
         aria-hidden="true"
-        className={`absolute inset-y-[3px] left-[3px] rounded-[7px] bg-surface shadow-lift ${instant ? "" : "transition-transform duration-300 ease-out"}`}
+        className="absolute inset-y-[3px] left-[3px] rounded-[7px] bg-surface shadow-lift transition-transform duration-300 ease-out"
         style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${index * 100}%)` }}
       />
       {options.map((o) => {
@@ -165,7 +162,7 @@ export function Checkbox({
         onToggle();
       }}
       style={{ width: size, height: size, animation: celebrate ? "check-pop 0.35s cubic-bezier(0.2,0.8,0.2,1)" : undefined }}
-      className={`relative flex flex-none items-center justify-center rounded-full transition-[background-color,box-shadow] duration-200 ${
+      className={`relative flex flex-none items-center justify-center rounded-full transition-[background-color,box-shadow] duration-200 before:absolute before:-inset-1.5 before:content-[''] pointer-coarse:before:-inset-2 ${
         checked
           ? "bg-accent text-on-accent"
           : "shadow-[inset_0_0_0_1.5px_var(--check-ring)] hover:bg-accent-soft hover:shadow-[inset_0_0_0_1.5px_var(--accent)]"
@@ -469,7 +466,7 @@ export function Menu({
                 <path d="M2.5 6.2 4.9 8.6 9.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             ) : (
-              e.shortcut && <span className="pl-6 text-[12px] text-ink-3">{e.shortcut}</span>
+              e.shortcut && <span className="pl-6 text-[12px] text-ink-3 pointer-coarse:hidden">{e.shortcut}</span>
             )}
           </button>
         );

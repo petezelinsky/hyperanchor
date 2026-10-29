@@ -61,10 +61,10 @@ export function SignInScreen({ error }: { error?: boolean }) {
           <span>© 2026 Hyperanchor</span>
           <div className="flex items-center gap-4">
             <nav aria-label="Legal" className="flex gap-5">
-              <Link href="/privacy" className="no-underline hover:underline">
+              <Link href="/privacy" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
                 Privacy
               </Link>
-              <Link href="/terms" className="no-underline hover:underline">
+              <Link href="/terms" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
                 Terms
               </Link>
             </nav>

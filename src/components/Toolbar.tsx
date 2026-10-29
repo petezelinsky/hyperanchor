@@ -98,7 +98,7 @@ export function SearchField({ value, onChange }: { value: string; onChange: (v: 
 
 export function NewTaskButton({ onClick }: { onClick: () => void }) {
   return (
-    <Button variant="primary" onClick={onClick} data-tip="New Task (N)" className="pl-2.5">
+    <Button variant="primary" onClick={onClick} aria-label="New Task" data-tip="New Task (N)" className="pl-2.5">
       <PlusIcon size={14} strokeWidth={2.2} />
       <span className="max-sm:hidden">New Task</span>
     </Button>
