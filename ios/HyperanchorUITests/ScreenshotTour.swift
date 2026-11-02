@@ -4,6 +4,7 @@ import XCTest
 /// design review and the App Store. Skipped unless asked for:
 ///   TEST_RUNNER_SCREENSHOTS=1 xcodebuild test … -only-testing:HyperanchorUITests/ScreenshotTour -resultBundlePath Tour.xcresult
 ///   xcrun xcresulttool export attachments --path Tour.xcresult --output-path Screenshots
+@MainActor
 final class ScreenshotTour: XCTestCase {
     private var app: XCUIApplication!
     private var appearance = "light"

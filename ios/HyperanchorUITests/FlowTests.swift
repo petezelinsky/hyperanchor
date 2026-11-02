@@ -2,16 +2,26 @@ import XCTest
 
 /// The main flows, against the in-memory demo backend (`-uitest`): sign in, add, complete, move, delete, focus.
 /// "Today" is pinned to Thursday, October 22, 2026, so the sample data is always the same.
+@MainActor
 final class FlowTests: XCTestCase {
-    private var app: XCUIApplication!
+    /// Made on first use, on the main actor (each test gets a fresh one).
+    private lazy var app: XCUIApplication = {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uitest", "-today", "2026-10-22", "-appearance", "light"]
+        return app
+    }()
 
     override func setUp() {
         continueAfterFailure = false
-        app = XCUIApplication()
-        app.launchArguments = ["-uitest", "-today", "2026-10-22", "-appearance", "light"]
     }
 
     private func button(_ label: String) -> XCUIElement { app.buttons[label].firstMatch }
+
+    /// A tab: in the bottom tab bar on iPhone, at the top on iPad (where it isn't a tab bar).
+    private func tab(_ label: String) -> XCUIElement {
+        let bar = app.tabBars.buttons[label]
+        return bar.exists ? bar : button(label)
+    }
 
     private func waitFor(_ element: XCUIElement, _ timeout: TimeInterval = 5, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), "Missing \(element)", file: file, line: line)
@@ -43,6 +53,10 @@ final class FlowTests: XCTestCase {
 
         button("Mark “Buy oat milk” as done").tap()
         waitFor(button("Mark “Buy oat milk” as not done"))
+        // On a small screen the day's header has scrolled away above the open composer.
+        for _ in 0..<3 where !app.staticTexts["3 of 7 done"].exists {
+            app.collectionViews.firstMatch.swipeDown()
+        }
         waitFor(app.staticTexts["3 of 7 done"])
     }
 
@@ -112,16 +126,16 @@ final class FlowTests: XCTestCase {
 
     func testViews() {
         app.launch()
-        app.tabBars.buttons["Week"].tap()
+        tab("Week").tap()
         waitFor(app.navigationBars["This Week"])
         waitFor(app.staticTexts["October 19 – 25, 2026"])
-        app.tabBars.buttons["Month"].tap()
+        tab("Month").tap()
         waitFor(app.navigationBars["October 2026"])
         button("Thursday, October 22, 5 tasks, 2 done").tap()
         waitFor(button("daysheet.open"))
         button("daysheet.open").tap()
         waitFor(app.navigationBars["Today"])
-        app.tabBars.buttons["Analytics"].tap()
+        tab("Analytics").tap()
         waitFor(app.navigationBars["Analytics"])
         app.buttons["Year"].firstMatch.tap()
         waitFor(app.staticTexts["Completed per month"])

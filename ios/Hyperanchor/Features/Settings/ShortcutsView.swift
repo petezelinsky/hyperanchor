@@ -21,6 +21,12 @@ struct ShortcutsView: View {
             ("⌫", "Delete"),
             ("Esc", "Cancel or deselect"),
         ]),
+        ("In focus", [
+            ("Space", "Done"),
+            ("→", "Not now"),
+            ("N", "Jot something down"),
+            ("Esc", "Leave focus"),
+        ]),
     ]
 
     var body: some View {
