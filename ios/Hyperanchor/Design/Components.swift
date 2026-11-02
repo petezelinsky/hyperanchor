@@ -1,17 +1,46 @@
 import SafariServices
 import SwiftUI
 
-/// The logo is the name itself: lowercase, with a period in the accent.
-struct Wordmark: View {
-    var size: CGFloat = 19
-    @Environment(\.palette) private var palette
+/// The logo: "h." — a lowercase h and a period in the brand blue (the blue accent, whatever accent is chosen).
+/// Drawn in a square box, the h 80% of its height and nudged toward its visual center, exactly like the launch
+/// screen's image (a 55-point box) and the app icon. ios/scripts/render-icon.swift has the same geometry.
+struct BrandMark: View {
+    /// The side of the box.
+    var size: CGFloat = 55
 
     var body: some View {
-        (Text("hyperanchor").foregroundStyle(.ink) + Text(".").foregroundStyle(palette.accent))
-            .font(.system(size: size, weight: .semibold))
-            .tracking(-0.045 * size)
-            .accessibilityLabel("Hyperanchor")
+        Canvas { context, box in
+            let a = box.height * 0.8
+            let o = CGPoint(x: box.width / 2 + Self.origin.x * a, y: box.height / 2 + Self.origin.y * a)
+            context.stroke(Self.h(height: a, at: o), with: .color(Self.ink), style: StrokeStyle(lineWidth: Self.stroke * a, lineCap: .butt, lineJoin: .round))
+            let d = Self.dot * a
+            context.fill(Path(ellipseIn: CGRect(x: o.x + (Self.width + Self.gap) * a, y: o.y + (1.012 - Self.dot) * a, width: d, height: d)), with: .color(Self.blue))
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
     }
+
+    // In units of the h's height.
+    private static let stroke: CGFloat = 0.14, width: CGFloat = 0.58, xHeight: CGFloat = 0.635, squareness: CGFloat = 0.68
+    private static let dot: CGFloat = 0.17, gap: CGFloat = 0.075
+    private static let origin = CGPoint(x: -(width + gap + dot) / 2 + 0.035, y: -0.5 - 0.02)
+
+    private static func h(height a: CGFloat, at o: CGPoint) -> Path {
+        let w = stroke * a, rc = (width * a - w) / 2
+        let top = o.y + a - xHeight * a + w / 2
+        let cy = top + rc, x0 = o.x + w / 2, x1 = o.x + width * a - w / 2, cx = o.x + width * a / 2
+        var p = Path()
+        p.move(to: CGPoint(x: x0, y: o.y))
+        p.addLine(to: CGPoint(x: x0, y: o.y + a))
+        p.move(to: CGPoint(x: x0, y: cy))
+        p.addCurve(to: CGPoint(x: cx, y: top), control1: CGPoint(x: x0, y: cy - squareness * rc), control2: CGPoint(x: cx - squareness * rc, y: top))
+        p.addCurve(to: CGPoint(x: x1, y: cy), control1: CGPoint(x: cx + squareness * rc, y: top), control2: CGPoint(x: x1, y: cy - squareness * rc))
+        p.addLine(to: CGPoint(x: x1, y: o.y + a))
+        return p
+    }
+
+    private static let ink = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? .white : UIColor(white: 10 / 255, alpha: 1) })
+    private static let blue = AccentChoice.blue.palette.accent.color
 }
 
 /// The account photo (Google) or initials on a gray gradient.

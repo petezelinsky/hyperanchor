@@ -63,6 +63,7 @@ struct DayScreen: View {
                             }
                         } header: {
                             SectionHeader(title: "To do", count: open.count(where: { !$0.done }))
+                                .padding(.top, 14)
                         }
 
                         if !completed.isEmpty {
@@ -74,11 +75,14 @@ struct DayScreen: View {
                                 CompletedHeader(count: completed.count, expanded: prefs.completedExpanded) {
                                     withAnimation(.snappy) { prefs.completedExpanded.toggle() }
                                 }
+                                .padding(.top, 18)
                             }
                         }
                     }
                 }
                 .listStyle(.plain)
+                .listSectionSpacing(0)
+                .environment(\.defaultMinListHeaderHeight, 0)
                 .scrollContentBackground(.hidden)
                 .background(.surface)
                 .scrollDismissesKeyboard(.interactively)

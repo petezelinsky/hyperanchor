@@ -1,27 +1,69 @@
 import AuthenticationServices
 import SwiftUI
 
-/// The signed-out home screen, as on the web: sign-in (logo, headline, Apple and Google, legal) and the animated showcase.
-/// iPhone: sign-in fills the first screen with the showcase peeking in below, the footer last.
-/// iPad (regular width and height): side by side, sign-in and the footer on the left, the showcase on the right.
+/// The signed-out screen: the logo, one line about the app, Sign in with Apple and Google, the legal line. One calm
+/// screen with nothing to scroll — on purpose unlike the web's landing page.
+/// It takes over from the launch screen: while `splash` is on, the logo sits in the middle of the screen, where the
+/// launch screen drew it, and everything else is hidden; when it turns off, the logo glides to its place and the rest
+/// rises in. iPhone: the logo and the headline in the middle, the buttons at the bottom. iPad: all of it, centered.
 struct SignInView: View {
+    var splash = false
     @Environment(AppModel.self) private var model
     @Environment(\.webAuthenticationSession) private var webAuthentication
     @Environment(\.colorScheme) private var scheme
     @Environment(\.horizontalSizeClass) private var widthClass
     @Environment(\.verticalSizeClass) private var heightClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var working: SignInProvider?
     @State private var error: String?
     @State private var appleNonce = Nonce.make()
     @State private var legal: URL?
-    /// The showcase's pause button stops every looping animation on the screen, the headline's word included.
-    @State private var paused = false
+
+    private static let screen = "signin.screen"
 
     var body: some View {
-        Group {
-            if widthClass == .regular, heightClass == .regular { split } else { stacked }
+        GeometryReader { geo in
+            let regular = widthClass == .regular && heightClass == .regular
+            let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
+            ScrollView {
+                Group {
+                    if regular {
+                        VStack(spacing: 0) {
+                            Spacer(minLength: 40)
+                            hero(headline: 40, center: center)
+                            actions.padding(.top, 48)
+                            Spacer(minLength: 40)
+                        }
+                    } else {
+                        VStack(spacing: 0) {
+                            Spacer(minLength: 40)
+                            hero(headline: 34, center: center)
+                            Spacer(minLength: 40)
+                            actions
+                        }
+                        .padding(.bottom, 12)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .frame(maxWidth: regular ? 400 : 440)
+                .frame(maxWidth: .infinity, minHeight: geo.size.height - geo.safeAreaInsets.top - geo.safeAreaInsets.bottom)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollIndicators(.hidden)
+            .overlay {
+                // With Reduce Motion the logo doesn't travel: the launch screen's one fades out as the other fades in.
+                if reduceMotion {
+                    BrandMark()
+                        .position(center)
+                        .opacity(splash ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.35), value: splash)
+                        .allowsHitTesting(false)
+                }
+            }
         }
-        .background(.surface)
+        .coordinateSpace(.named(Self.screen))
+        .ignoresSafeArea()
+        .background(Color("LaunchBackground"))
         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .environment(\.openURL, OpenURLAction { url in
             legal = url
@@ -30,130 +72,72 @@ struct SignInView: View {
         .sheet(item: $legal) { SafariView(url: $0).ignoresSafeArea() }
     }
 
-    private var stacked: some View {
-        GeometryReader { geo in
-            ScrollView {
-                VStack(spacing: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        header
-                        main(headline: min(40, max(32, geo.size.width * 0.094)))
-                            .padding(.vertical, 40)
-                            .frame(maxHeight: .infinity)
-                    }
-                    .column(padding: 20)
-                    .padding(.top, 8)
-                    // Sign-in fills the first screen; the showcase peeks in below it.
-                    .frame(minHeight: min(geo.size.height - 180, 640))
-
-                    Showcase(paused: $paused)
-                        .frame(minHeight: 640)
-                        .padding(.horizontal, 12)
-
-                    footer
-                        .column(padding: 20)
-                        .padding(.top, 20)
-                        .padding(.bottom, 12)
+    /// The logo, the headline and the line under it.
+    private func hero(headline size: CGFloat, center: CGPoint) -> some View {
+        VStack(spacing: 0) {
+            BrandMark()
+                .visualEffect { [splash, travel = !reduceMotion, space = Self.screen] content, proxy in
+                    // From the middle of the screen (the launch screen's logo) to its place.
+                    let frame = proxy.frame(in: .named(space))
+                    return content.offset(splash && travel ? CGSize(width: center.x - frame.midX, height: center.y - frame.midY) : .zero)
                 }
-            }
-            .scrollBounceBehavior(.basedOnSize)
-        }
-    }
-
-    private var split: some View {
-        GeometryReader { geo in
-            HStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        header
-                        main(headline: 40)
-                            .padding(.vertical, 56)
-                            .frame(maxHeight: .infinity)
-                        footer
-                    }
-                    .column(padding: 32)
-                    .padding(.top, 32)
-                    .padding(.bottom, 36)
-                    .frame(minHeight: geo.size.height)
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .frame(width: geo.size.width / 2.15)
-
-                Showcase(paused: $paused)
-                    .padding(16)
-            }
-        }
-    }
-
-    private var header: some View {
-        Wordmark(size: 20)
-            .frame(height: 32)
-            .rise(0, distance: 0)
-    }
-
-    private func main(headline size: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Headline(size: size, moving: !paused)
-                .rise(0)
-            Text("Hyperanchor is a calm, fast planner.\nSign in to get started.")
+                .opacity(splash && reduceMotion ? 0 : 1)
+                .animation(reduceMotion ? .easeInOut(duration: 0.35) : .timingCurve(0.22, 1, 0.36, 1, duration: 0.85), value: splash)
+            Headline(size: size, moving: !splash)
+                .padding(.top, 22)
+                .rise(hidden: splash, delay: 0.12)
+            Text("Hyperanchor is a calm, fast planner.")
                 .font(.callout)
-                .lineSpacing(4)
                 .foregroundStyle(.ink2)
+                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 12)
-                .rise(0.07)
+                .padding(.top, 10)
+                .rise(hidden: splash, delay: 0.18)
+        }
+    }
 
+    /// The two ways in, a failure if there was one, and the legal line.
+    private var actions: some View {
+        VStack(spacing: 0) {
             VStack(spacing: 10) {
                 appleButton
                 googleButton
             }
             .disabled(working != nil)
-            .padding(.top, 32)
-            .rise(0.14)
 
             if let message = error ?? model.session.notice {
                 Text(message)
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(.redInk)
+                    .multilineTextAlignment(.center)
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 9)
+                    .frame(maxWidth: .infinity)
                     .background(.redSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .padding(.top, 16)
+                    .padding(.top, 14)
                     .accessibilityIdentifier("signin.error")
             }
 
             Text(legalText)
                 .font(.caption)
-                .lineSpacing(3)
-                .foregroundStyle(.ink2)
+                .lineSpacing(2)
+                .foregroundStyle(.ink3)
                 .tint(.ink2)
+                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 20)
-                .rise(0.21)
+                .frame(maxWidth: 300)
+                .padding(.top, 18)
         }
+        .rise(hidden: splash, delay: 0.26)
     }
 
-    /// "Free forever…", with the links underlined in a light gray, as on the web.
+    /// "Free forever…", the links underlined in a light gray (and never broken across lines).
     private var legalText: AttributedString {
-        var text = (try? AttributedString(markdown: "Free forever. By continuing, you agree to the [Terms of Service](https://hyperanchor.app/terms) and [Privacy Policy](https://hyperanchor.app/privacy).")) ?? AttributedString()
+        var text = (try? AttributedString(markdown: "Free forever. By continuing, you agree to the [Terms\u{A0}of\u{A0}Service](https://hyperanchor.app/terms) and [Privacy\u{A0}Policy](https://hyperanchor.app/privacy).")) ?? AttributedString()
         for run in text.runs where run.link != nil {
             text[run.range].underlineStyle = Text.LineStyle(pattern: .solid, color: .ink4)
         }
         return text
-    }
-
-    private var footer: some View {
-        HStack(spacing: 20) {
-            Text("© 2026 Hyperanchor")
-            Spacer(minLength: 0)
-            Link("Privacy", destination: URL(string: "https://hyperanchor.app/privacy")!)
-                .frame(minHeight: 44)
-            Link("Terms", destination: URL(string: "https://hyperanchor.app/terms")!)
-                .frame(minHeight: 44)
-        }
-        .font(.caption)
-        .foregroundStyle(.ink2)
-        .tint(.ink2)
     }
 
     @ViewBuilder
@@ -269,8 +253,8 @@ struct ProviderButtonStyle: ButtonStyle {
     }
 }
 
-/// "Own your day." — the last word cycles day / week / month, each sliding up into place. Stops while the showcase
-/// is paused; with Reduce Motion it stays on "day.".
+/// "Own your day." — the last word goes once around day / week / month, each sliding up into place, and comes
+/// to rest on "day.". Starts when `moving` turns on; with Reduce Motion it stays on "day.".
 private struct Headline: View {
     let size: CGFloat
     let moving: Bool
@@ -301,42 +285,31 @@ private struct Headline: View {
                 if reduceMotion { index = 0 }
                 return
             }
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2.6))
+            for _ in Self.words.indices {
+                try? await Task.sleep(for: .seconds(2.2))
                 guard !Task.isCancelled else { return }
-                withAnimation(.timingCurve(0.7, 0, 0.2, 1, duration: 0.4)) { index = (index + 1) % Self.words.count }
+                withAnimation(.timingCurve(0.7, 0, 0.2, 1, duration: 0.45)) { index = (index + 1) % Self.words.count }
             }
         }
     }
 }
 
-/// The web's `rise` entrance: fades in from 8 points below, after `delay`. Nothing with Reduce Motion.
+/// Hidden while the launch screen hands over; then fades in from a little below, after `delay`.
 private struct Rise: ViewModifier {
+    let hidden: Bool
     let delay: Double
-    let distance: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var shown = false
 
     func body(content: Content) -> some View {
-        let visible = shown || reduceMotion
         content
-            .opacity(visible ? 1 : 0)
-            .offset(y: visible ? 0 : distance)
-            .onAppear {
-                withAnimation(.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.6).delay(delay)) { shown = true }
-            }
+            .opacity(hidden ? 0 : 1)
+            .offset(y: hidden && !reduceMotion ? 14 : 0)
+            .animation(reduceMotion ? .easeInOut(duration: 0.35) : .timingCurve(0.2, 0.8, 0.2, 1, duration: 0.7).delay(delay), value: hidden)
     }
 }
 
 private extension View {
-    func rise(_ delay: Double, distance: CGFloat = 8) -> some View {
-        modifier(Rise(delay: delay, distance: distance))
-    }
-
-    /// The sign-in column: at most 380 points wide, centered, with side margins.
-    func column(padding: CGFloat) -> some View {
-        frame(maxWidth: 380, alignment: .leading)
-            .padding(.horizontal, padding)
-            .frame(maxWidth: .infinity)
+    func rise(hidden: Bool, delay: Double) -> some View {
+        modifier(Rise(hidden: hidden, delay: delay))
     }
 }

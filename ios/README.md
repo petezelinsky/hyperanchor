@@ -25,6 +25,28 @@ xcodebuild -project ios/Hyperanchor.xcodeproj -scheme Hyperanchor -destination '
 | `-today 2026-10-22` | фиксирует «сегодня» (скриншоты, тесты) |
 | `-appearance light\|dark`, `-accent blue\|orange\|green`, `-tab day\|week\|month\|analytics` | внешний вид и вкладка при запуске |
 
+Скриншоты всех экранов в светлой и тёмной теме (для проверки дизайна и для App Store) снимает `ScreenshotTour`;
+по умолчанию он пропускается:
+
+```bash
+TEST_RUNNER_SCREENSHOTS=1 xcodebuild test -project ios/Hyperanchor.xcodeproj -scheme Hyperanchor \
+  -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:HyperanchorUITests/ScreenshotTour -resultBundlePath Tour.xcresult
+xcrun xcresulttool export attachments --path Tour.xcresult --output-path Screenshots
+```
+
+## Логотип и экран запуска
+
+Логотип — «h.»: строчная h и точка синего акцента (первая буква и точка из «hyperanchor.»). Иконка приложения
+светлая (чёрная h на белом), тёмная (белая на чёрном) и tinted — iOS 18+ выбирает по оформлению. Экран запуска —
+знак по центру на белом / почти чёрном фоне; первый экран приложения подхватывает его с того же места: на экране
+входа знак переезжает на своё место, у вошедшего фон растворяется над вкладками. Всё это, вместе с `src/app/icon.svg`
+сайта, рисует `swift ios/scripts/render-icon.swift` (из корня репозитория) по одной геометрии; в приложении тот же
+знак рисует `BrandMark`. В симуляторе iOS кэширует экран запуска: после его изменения сотрите симулятор
+(`xcrun simctl erase`), на устройстве — удалите и поставьте приложение заново.
+
+Экран входа в приложении намеренно не повторяет лендинг сайта: один экран без прокрутки — знак, заголовок, строка о
+приложении, кнопки Apple и Google.
+
 ## Настройка для настоящего входа
 
 Значения для своего аккаунта кладутся в `ios/Config/Local.xcconfig` (в git не попадает), см. `ios/Config/App.xcconfig`:
@@ -48,7 +70,7 @@ API_BASE_URL = http:/$()/localhost:3000     // по умолчанию https://h
 Config/                  xcconfig, Info.plist, entitlements (приложение и виджет)
 Hyperanchor/
   App/                   точка входа, AppModel, Router (навигация и запросы от клавиатуры), шорткаты
-  Auth/                  экран входа и витрина из пяти сцен (как на сайте), Sign in with Apple, Google OAuth + PKCE
+  Auth/                  экран входа (один экран, знак переезжает с экрана запуска), Sign in with Apple, Google OAuth + PKCE
   Data/                  Backend (HTTP с Bearer-токеном и демо в памяти), TaskStore, кэш на диске, Keychain, сессия
   Design/                Tokens.swift (генерируется), тема, чекбокс, кольцо, конфетти, кнопки, тосты
   Model/                 DayKey, даты, сортировка, аналитика — порт src/lib с проверкой против веба
@@ -58,7 +80,7 @@ Shared/                  снимок «на сегодня» для видже�
 HyperanchorWidget/       виджет Today (small, medium)
 HyperanchorTests/        unit-тесты: даты/сортировка/аналитика против веба, TaskStore
 HyperanchorUITests/      основные сценарии на демо-аккаунте
-scripts/render-icon.swift  иконка 1024×1024 из геометрии src/app/icon.svg
+scripts/render-icon.swift  логотип «h.»: иконка (светлая, тёмная, tinted), знак экрана запуска и src/app/icon.svg
 ```
 
 **Данные.** `TaskStore` повторяет веб-`useTasks`: изменения применяются сразу, запросы по одной задаче идут строго

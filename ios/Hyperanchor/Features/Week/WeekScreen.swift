@@ -59,6 +59,7 @@ struct WeekScreen: View {
                 }
 
                 ForEach(visible, id: \.day) { section in
+                    let first = section.day == visible.first?.day
                     Section {
                         ForEach(section.open) { EditableTaskRow(task: $0, editor: editor, focus: $focus, actions: actions) }
                         if editor.composerDay == section.day {
@@ -76,7 +77,7 @@ struct WeekScreen: View {
                         }
                         ForEach(section.completed) { EditableTaskRow(task: $0, editor: editor, focus: $focus, actions: actions) }
                     } header: {
-                        DayHeader(day: section.day, today: today, tasks: store.tasks(on: section.day)) {
+                        DayHeader(day: section.day, today: today, tasks: store.tasks(on: section.day), first: first) {
                             router.query = ""
                             editor.openComposer(on: section.day, store: store, focus: $focus)
                         }
@@ -84,6 +85,8 @@ struct WeekScreen: View {
                 }
             }
             .listStyle(.plain)
+            .listSectionSpacing(0)
+            .environment(\.defaultMinListHeaderHeight, 0)
             .scrollContentBackground(.hidden)
             .background(.surface)
             .scrollDismissesKeyboard(.interactively)
@@ -123,6 +126,8 @@ private struct DayHeader: View {
     let day: DayKey
     let today: DayKey
     let tasks: [TaskItem]
+    /// The first day sits close to the week's summary line; the rest get room above them.
+    let first: Bool
     let add: () -> Void
     @Environment(\.palette) private var palette
 
@@ -146,7 +151,7 @@ private struct DayHeader: View {
                     .foregroundStyle(.ink3)
             }
             .textCase(nil)
-            .padding(.top, 8)
+            .padding(.top, first ? 4 : 20)
         } else {
             row
         }
@@ -190,7 +195,7 @@ private struct DayHeader: View {
             addButton
         }
         .textCase(nil)
-        .padding(.top, 8)
+        .padding(.top, first ? 4 : 20)
         .accessibilityElement(children: .contain)
     }
 }

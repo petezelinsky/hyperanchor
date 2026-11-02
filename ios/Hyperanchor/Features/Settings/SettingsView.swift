@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(Preferences.self) private var prefs
     @Environment(\.dismiss) private var dismiss
     @Environment(\.palette) private var palette
+    @Environment(\.colorScheme) private var scheme
     @State private var confirmDelete = false
     @State private var deleting = false
     @State private var deleteError: String?
@@ -17,7 +18,8 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("Appearance", selection: $prefs.appearance) {
+                    // Until one is picked, the device's setting is the one shown.
+                    Picker("Appearance", selection: Binding(get: { prefs.appearance ?? (scheme == .dark ? .dark : .light) }, set: { prefs.appearance = $0 })) {
                         ForEach(Preferences.Appearance.allCases) { Text($0.label).tag($0) }
                     }
                     .pickerStyle(.segmented)
@@ -26,8 +28,6 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings.appearance")
                 } header: {
                     Text("Appearance")
-                } footer: {
-                    Text("Auto follows your device’s light or dark setting.")
                 }
 
                 Section {
@@ -91,9 +91,12 @@ struct SettingsView: View {
                     Button("Privacy Policy") { legal = AppConfig.privacyURL }
                     Button("Terms of Service") { legal = AppConfig.termsURL }
                 } footer: {
-                    Text("Hyperanchor \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 8)
+                    VStack(spacing: 4) {
+                        BrandMark(size: 40)
+                        Text("Hyperanchor \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 20)
                 }
                 .foregroundStyle(.ink)
             }

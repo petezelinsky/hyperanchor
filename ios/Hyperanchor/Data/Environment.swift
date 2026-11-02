@@ -103,19 +103,14 @@ final class Toaster {
 @Observable
 final class Preferences {
     enum Appearance: String, CaseIterable, Identifiable {
-        case light, system, dark
+        case light, dark
         var id: String { rawValue }
-        var label: String {
-            switch self {
-            case .light: "Light"
-            case .system: "Auto"
-            case .dark: "Dark"
-            }
-        }
+        var label: String { self == .light ? "Light" : "Dark" }
     }
 
-    var appearance: Appearance {
-        didSet { defaults.set(appearance.rawValue, forKey: "appearance") }
+    /// Light or Dark, once picked; until then (nil) the device's setting, as on the web.
+    var appearance: Appearance? {
+        didSet { defaults.set(appearance?.rawValue, forKey: "appearance") }
     }
 
     var accent: AccentChoice {
@@ -136,7 +131,7 @@ final class Preferences {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        appearance = Appearance(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .system
+        appearance = Appearance(rawValue: defaults.string(forKey: "appearance") ?? "")
         accent = AccentChoice(rawValue: defaults.string(forKey: "accent") ?? "") ?? .default
         completedExpanded = defaults.object(forKey: "completedExpanded") as? Bool ?? true
         showBadge = defaults.bool(forKey: "showBadge")
