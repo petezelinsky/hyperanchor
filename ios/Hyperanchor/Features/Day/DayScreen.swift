@@ -180,10 +180,12 @@ struct DayScreen: View {
             AccountMenu(user: user)
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
-            Button("Focus", systemImage: "scope") { router.focus = true }
-                .disabled(!hasOpen)
-                .accessibilityHint("One task at a time")
-                .accessibilityIdentifier("focus")
+            Button { router.focus = true } label: {
+                Label { Text("Focus") } icon: { FocusIcon(enabled: hasOpen) }
+            }
+            .disabled(!hasOpen)
+            .accessibilityHint("One task at a time")
+            .accessibilityIdentifier("focus")
             Menu("Sort", systemImage: "arrow.up.arrow.down") {
                 Picker("Sort by", selection: $router.sort) {
                     ForEach(SortOption.allCases) { Text($0.label).tag($0) }

@@ -84,7 +84,7 @@ final class FlowTests: XCTestCase {
     func testFocusOneThingAtATime() {
         app.launch()
         button("focus").tap()
-        waitFor(app.staticTexts["ONE THING AT A TIME"])
+        waitFor(app.descendants(matching: .any)["Task 3 of 5"])
         waitFor(app.staticTexts["Review the design feedback"])
         waitFor(app.staticTexts["Up next: Call Mom · 1 more after that"])
 
@@ -97,6 +97,7 @@ final class FlowTests: XCTestCase {
         capture.tap()
         capture.typeText("Pick up the keys\n")
         waitFor(app.staticTexts["Added for later"])
+        waitFor(app.descendants(matching: .any)["Task 3 of 6"])
 
         for _ in 0..<4 {
             button("focus.done").tap()
@@ -104,6 +105,7 @@ final class FlowTests: XCTestCase {
         }
         waitFor(app.staticTexts["All done for today."])
         waitFor(app.staticTexts["Nice work. Take a breath."])
+        waitFor(button("Back to the list"))
         button("focus.exit").tap()
         waitFor(app.staticTexts["All done"])
     }
