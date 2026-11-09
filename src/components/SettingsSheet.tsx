@@ -191,11 +191,7 @@ function DeleteAccount() {
   const erase = () =>
     startDelete(async () => {
       setFailed(false);
-      const res = await fetch("/api/account", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: "delete" }),
-      }).catch(() => null);
+      const res = await fetch("/api/account", { method: "DELETE" }).catch(() => null);
       if (!res?.ok) return setFailed(true);
       await signOutAction();
     });
@@ -214,8 +210,8 @@ function DeleteAccount() {
         Delete your account?
       </div>
       <p className="mt-1 text-[13px] leading-[1.5] text-ink-2">
-        Every task is erased right away, on all your devices, and you’re signed out. This can’t be undone, so export your tasks first if
-        you might want them.
+        Every task is erased right away, here and in the iPhone app, and you’re signed out. This can’t be undone, so export your tasks
+        first if you might want them.
       </p>
       {failed && (
         <p role="alert" className="mt-2 text-[13px] font-medium text-red-ink">

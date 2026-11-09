@@ -1,8 +1,21 @@
 import { Children, isValidElement } from "react";
 import { SiteFooter, SiteHeader } from "./Site";
 
-/** A legal document set plainly: title, effective date, numbered contents, then the numbered sections. */
-export function LegalPage({ title, effective, children }: { title: string; effective: string; children: React.ReactNode }) {
+/**
+ * A legal document set plainly: title, effective date (or, for Support, a line of intro), numbered contents, then the
+ * numbered sections.
+ */
+export function LegalPage({
+  title,
+  effective,
+  intro,
+  children,
+}: {
+  title: string;
+  effective?: string;
+  intro?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   // The contents list comes from the sections themselves, so it can't drift from them.
   const sections = Children.toArray(children)
     .filter(isValidElement)
@@ -14,7 +27,8 @@ export function LegalPage({ title, effective, children }: { title: string; effec
 
       <main className="mx-auto max-w-[760px] px-5 pt-12 pb-20 md:pt-16">
         <h1 className="text-[30px] leading-[1.2] font-semibold tracking-[-0.02em] md:text-[34px]">{title}</h1>
-        <p className="mt-2 text-[14px] text-ink-2">Effective {effective}</p>
+        {effective && <p className="mt-2 text-[14px] text-ink-2">Effective {effective}</p>}
+        {intro && <p className="mt-3 text-[15.5px] leading-[1.7] text-ink-2">{intro}</p>}
 
         <nav aria-label="Contents" className="mt-8 border-y border-line py-5">
           <h2 className="text-[13px] font-semibold">Contents</h2>

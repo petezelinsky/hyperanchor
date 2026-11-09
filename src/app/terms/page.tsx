@@ -8,7 +8,7 @@ const CONTACT_EMAIL = "support@hyperanchor.app";
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Service" effective="October 12, 2026">
+    <LegalPage title="Terms of Service" effective="October 26, 2026">
       <LegalSection n={1} title="Agreement">
         <p>
           By using Hyperanchor (“the service”), you agree to these terms. If you don’t agree, please don’t use the service.
@@ -17,7 +17,7 @@ export default function TermsPage() {
 
       <LegalSection n={2} title="Your account">
         <p>
-          You sign in with your Google account and are responsible for activity under it. You must be at least 13 years old to use Hyperanchor.
+          You sign in with your Google or Apple account and are responsible for activity under it. You must be at least 13 years old to use Hyperanchor.
         </p>
       </LegalSection>
 
@@ -47,7 +47,7 @@ export default function TermsPage() {
 
       <LegalSection n={7} title="Ending your use">
         <p>
-          You can stop using Hyperanchor at any time and ask us to delete your account. We may suspend accounts that violate these terms.
+          You can stop using Hyperanchor at any time and delete your account in Settings. We may suspend accounts that violate these terms.
         </p>
       </LegalSection>
 

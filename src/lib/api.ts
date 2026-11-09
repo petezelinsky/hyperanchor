@@ -1,10 +1,17 @@
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { ensureSchema } from "./db";
+import { verifyMobileToken } from "./mobileToken";
 
+/** The signed-in user: the iOS app sends `Authorization: Bearer <token>`, the web its Auth.js session cookie. */
 export async function currentUserId(): Promise<string | null> {
-  const session = await auth();
-  const id = session?.user?.id ?? null;
+  const authorization = (await headers()).get("authorization");
+  // A bearer token decides on its own: an invalid one never falls back to a cookie.
+  const id = authorization?.toLowerCase().startsWith("bearer ")
+    ? await verifyMobileToken(authorization.slice(7).trim())
+    : ((await auth())?.user?.id ?? null);
+  // Both clients read and write the newer columns, so the schema is brought up to date first.
   if (id) await ensureSchema();
   return id;
 }
