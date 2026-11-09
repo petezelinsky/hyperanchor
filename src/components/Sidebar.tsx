@@ -2,11 +2,13 @@
 
 import { useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
-import { addDays, formatLong, monthGrid, MONTHS, ymd } from "@/lib/dates";
+import { addDays, formatLong, monthGrid, MONTHS, weekdayNames, ymd } from "@/lib/dates";
 import type { AppUser, Task } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
-import { CalendarIcon, ChartIcon, ChevronLeft, ChevronRight, SunIcon, WeekIcon } from "./icons";
+import { useDrag } from "./drag";
+import { CalendarIcon, ChartIcon, ChevronLeft, ChevronRight, SearchIcon, SunIcon, WeekIcon } from "./icons";
+import { SyncStatus } from "./SyncStatus";
 import { IconButton, Menu, type Anchor } from "./ui";
 
 export type View = "day" | "week" | "month" | "analytics";
@@ -22,6 +24,7 @@ const NAV_ROW = 38; // item height (36) + gap (2): how far the selection travels
 
 export function Sidebar({
   user,
+  saving,
   view,
   onView,
   onShortcuts,
@@ -30,6 +33,7 @@ export function Sidebar({
   mini,
 }: {
   user: AppUser;
+  saving: boolean;
   view: View;
   onView: (v: View) => void;
   onShortcuts: () => void;
@@ -74,6 +78,7 @@ export function Sidebar({
         </nav>
         <div className="mt-7 px-1">{mini}</div>
         <div className="mt-auto pt-4">
+          <SyncStatus saving={saving} className="px-2.5 pb-2 empty:hidden" />
           <AccountButton user={user} onShortcuts={onShortcuts} onSettings={onSettings} />
         </div>
       </div>
@@ -99,6 +104,7 @@ export function MiniMonth({
   onSelect: (key: string) => void;
 }) {
   const { start, rows } = monthGrid(year, month);
+  const drag = useDrag();
   return (
     <div>
       <div className="flex items-center justify-between pl-1.5">
@@ -106,16 +112,16 @@ export function MiniMonth({
           {MONTHS[month]} <span className="font-normal text-ink-3">{year}</span>
         </span>
         <span className="flex">
-          <IconButton label="Previous month" size="sm" onClick={() => onShift(-1)} className="hover:bg-line">
+          <IconButton label="Previous month" size="sm" onClick={() => onShift(-1)} className="hover:bg-line!">
             <ChevronLeft size={13} strokeWidth={2} />
           </IconButton>
-          <IconButton label="Next month" size="sm" onClick={() => onShift(1)} className="hover:bg-line">
+          <IconButton label="Next month" size="sm" onClick={() => onShift(1)} className="hover:bg-line!">
             <ChevronRight size={13} strokeWidth={2} />
           </IconButton>
         </span>
       </div>
       <div className="mt-1.5 grid grid-cols-7 text-center text-[10.5px] font-medium text-ink-3">
-        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+        {weekdayNames("letter").map((d, i) => (
           <span key={i} className="py-1">
             {d}
           </span>
@@ -136,11 +142,17 @@ export function MiniMonth({
               onClick={() => onSelect(key)}
               aria-label={formatLong(d)}
               aria-pressed={sel}
+              data-drop-date={key}
+              data-drop-zone="calendar"
               className="group relative flex h-[30px] items-center justify-center"
             >
+              {/* Dragging a task over a day: the day lights up to take it. */}
+              {drag.dragging && drag.target?.zone === "calendar" && drag.target.date === key && (
+                <span aria-hidden="true" className="absolute inset-[1px] animate-[pop-in_0.15s_ease-out_both] rounded-[9px] bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--accent)]" />
+              )}
               {/* Today is the accent; another selected day is black (as in Calendar). */}
               <span
-                className={`tabular flex size-[26px] items-center justify-center rounded-full text-[12px] transition-colors duration-150 ${
+                className={`tabular relative flex size-[26px] items-center justify-center rounded-full text-[12px] transition-colors duration-150 ${
                   sel && today
                     ? "bg-accent font-semibold text-on-accent"
                     : sel
@@ -214,14 +226,32 @@ function AccountButton({ user, onShortcuts, onSettings }: { user: AppUser; onSho
 }
 
 /** Phone layout, top: the wordmark and the account. */
-export function MobileHeader({ user, onShortcuts, onSettings }: { user: AppUser; onShortcuts: () => void; onSettings: () => void }) {
+export function MobileHeader({
+  user,
+  saving,
+  onSearch,
+  onShortcuts,
+  onSettings,
+}: {
+  user: AppUser;
+  saving: boolean;
+  onSearch: () => void;
+  onShortcuts: () => void;
+  onSettings: () => void;
+}) {
   const { menu, toggle, open } = useAccountMenu(onShortcuts, onSettings, { email: user.email });
   return (
     <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between pr-4 pl-5 shadow-[0_1px_0_var(--line)] md:hidden">
       <Wordmark />
-      <button type="button" aria-label="Account" aria-haspopup="menu" aria-expanded={open} onClick={(e) => toggle(e.currentTarget)} className="rounded-full">
-        <Avatar name={user.name} image={user.image} size={30} />
-      </button>
+      <div className="flex items-center gap-2">
+        <SyncStatus saving={saving} className="empty:hidden" />
+        <IconButton label="Search" onClick={onSearch} className="size-9 rounded-full">
+          <SearchIcon size={17} />
+        </IconButton>
+        <button type="button" aria-label="Account" aria-haspopup="menu" aria-expanded={open} onClick={(e) => toggle(e.currentTarget)} className="rounded-full">
+          <Avatar name={user.name} image={user.image} size={30} />
+        </button>
+      </div>
       {menu}
     </div>
   );

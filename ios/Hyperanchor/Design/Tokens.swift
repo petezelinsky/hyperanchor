@@ -144,7 +144,8 @@ enum Tokens {
 
     static let ink = ThemeColor(light: RGBA(hex: 0x171717), dark: RGBA(hex: 0xEDEDED))
     static let ink2 = ThemeColor(light: RGBA(hex: 0x525252), dark: RGBA(hex: 0xA3A3A3))
-    static let ink3 = ThemeColor(light: RGBA(hex: 0x8A8A8A), dark: RGBA(hex: 0x737373))
+    /// The quietest text: still 4.5:1 on every surface.
+    static let ink3 = ThemeColor(light: RGBA(hex: 0x6B6B6B), dark: RGBA(hex: 0x8A8A8A))
     static let ink4 = ThemeColor(light: RGBA(hex: 0xD4D4D4), dark: RGBA(hex: 0x3D3D3D))
     static let line = ThemeColor(light: RGBA(hex: 0xEDEDED), dark: RGBA(hex: 0x242424))
     static let line2 = ThemeColor(light: RGBA(hex: 0xE2E2E2), dark: RGBA(hex: 0x2E2E2E))

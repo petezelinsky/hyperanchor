@@ -5,13 +5,16 @@ import { createPortal } from "react-dom";
 
 // ── Buttons ──────────────────────────────────────────────────────────────────
 
-type Variant = "primary" | "secondary" | "plain";
+type Variant = "primary" | "secondary" | "plain" | "danger" | "danger-quiet";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
   primary: "bg-primary text-on-primary shadow-[0_1px_2px_rgba(0,0,0,0.14)] hover:bg-primary-hover active:scale-[0.98]",
   secondary: "bg-surface text-ink shadow-lift hover:bg-surface-2 active:scale-[0.98]",
   plain: "text-ink-2 hover:bg-surface-3 hover:text-ink active:bg-line",
+  // Red only for what can't be undone.
+  danger: "bg-red-ink text-surface shadow-[0_1px_2px_rgba(0,0,0,0.14)] hover:opacity-90 active:scale-[0.98]",
+  "danger-quiet": "bg-surface text-red-ink shadow-lift hover:bg-red-soft active:scale-[0.98]",
 };
 const sizes: Record<Size, string> = {
   sm: "h-7 rounded-[8px] px-2.5 text-[12.5px]",
@@ -23,18 +26,15 @@ const base = "transition-[background-color,color,box-shadow,transform] duration-
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size };
 
+/** A button's look, for the odd link that should read as a button (a download, say). */
+export const buttonClass = (variant: Variant = "secondary", size: Size = "md") =>
+  `inline-flex items-center justify-center gap-1.5 font-medium whitespace-nowrap disabled:opacity-40 ${base} ${variants[variant]} ${sizes[size]}`;
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   { variant = "secondary", size = "md", className = "", type = "button", ...props },
   ref,
 ) {
-  return (
-    <button
-      ref={ref}
-      type={type}
-      className={`inline-flex items-center justify-center gap-1.5 font-medium whitespace-nowrap disabled:opacity-40 ${base} ${variants[variant]} ${sizes[size]} ${className}`}
-      {...props}
-    />
-  );
+  return <button ref={ref} type={type} className={`${buttonClass(variant, size)} ${className}`} {...props} />;
 });
 
 export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { label: string; tip?: string }>(function IconButton(
@@ -296,10 +296,16 @@ function useFloating(anchor: Anchor, align: "start" | "end") {
 }
 
 /**
- * Closes on Escape, on pointer down outside `ref` (and outside `ignore`, usually the trigger that toggles it),
- * on resize and when the page scrolls under it.
+ * Closes on Escape and on pointer down outside `ref` (and outside `ignore`, usually the trigger that toggles it).
+ * Anchored panels (menus, popovers) also close on resize and when the page scrolls under them; modals don't.
  */
-export function useDismiss(ref: React.RefObject<HTMLElement | null>, onClose: () => void, enabled = true, ignore?: HTMLElement | null) {
+export function useDismiss(
+  ref: React.RefObject<HTMLElement | null>,
+  onClose: () => void,
+  enabled = true,
+  ignore?: HTMLElement | null,
+  anchored = true,
+) {
   useEffect(() => {
     if (!enabled) return;
     const opened = performance.now();
@@ -320,15 +326,17 @@ export function useDismiss(ref: React.RefObject<HTMLElement | null>, onClose: ()
     };
     window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("keydown", onKey, true);
-    window.addEventListener("resize", onClose);
-    window.addEventListener("scroll", onScroll, true);
+    if (anchored) {
+      window.addEventListener("resize", onClose);
+      window.addEventListener("scroll", onScroll, true);
+    }
     return () => {
       window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("resize", onClose);
       window.removeEventListener("scroll", onScroll, true);
     };
-  }, [ref, onClose, enabled, ignore]);
+  }, [ref, onClose, enabled, ignore, anchored]);
 }
 
 export function Popover({
@@ -476,13 +484,46 @@ export function Menu({
   );
 }
 
-/** A centered sheet over a dimmed page; closes on Escape or a click outside. */
-export function Modal({ label, onClose, className = "", children }: { label: string; onClose: () => void; className?: string; children: React.ReactNode }) {
+/**
+ * A sheet over a dimmed page; closes on Escape or a click outside, never because something scrolled. The page
+ * behind holds still while it's open, and a sheet taller than the screen scrolls inside. `top` pins it near the
+ * top of the screen, so a sheet that changes height (Settings tabs) grows downward instead of jumping.
+ */
+export function Modal({
+  label,
+  onClose,
+  top = false,
+  className = "",
+  children,
+}: {
+  label: string;
+  onClose: () => void;
+  top?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
   const ref = useRef<HTMLDivElement>(null);
-  useDismiss(ref, onClose);
-  useEffect(() => ref.current?.focus(), []);
+  useDismiss(ref, onClose, true, null, false);
+  useEffect(() => {
+    if (!ref.current?.contains(document.activeElement)) ref.current?.focus();
+  }, []);
+  useEffect(() => {
+    // The gutter stays, so locking the page doesn't shift it sideways where scrollbars take space.
+    const s = document.documentElement.style;
+    const { overflow, scrollbarGutter } = s;
+    s.overflow = "hidden";
+    s.scrollbarGutter = "stable";
+    return () => {
+      s.overflow = overflow;
+      s.scrollbarGutter = scrollbarGutter;
+    };
+  }, []);
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex animate-[fade_0.2s_ease-out_both] items-center justify-center bg-[var(--scrim)] p-4 backdrop-blur-[2px]">
+    <div
+      className={`fixed inset-0 z-[110] flex animate-[fade_0.2s_ease-out_both] justify-center bg-[var(--scrim)] p-4 backdrop-blur-[2px] ${
+        top ? "items-start pt-[max(1rem,10vh)]" : "items-center"
+      }`}
+    >
       <div
         ref={ref}
         role="dialog"
@@ -490,7 +531,7 @@ export function Modal({ label, onClose, className = "", children }: { label: str
         aria-label={label}
         tabIndex={-1}
         data-floating=""
-        className={`w-full animate-pop-in rounded-[18px] bg-elevated shadow-float outline-none ${className}`}
+        className={`max-h-full w-full animate-pop-in overflow-y-auto overscroll-contain rounded-[18px] bg-elevated shadow-float outline-none ${className}`}
       >
         {children}
       </div>

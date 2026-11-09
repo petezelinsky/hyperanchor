@@ -7,7 +7,7 @@ const CONTACT_EMAIL = "privacy@hyperanchor.app";
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" effective="October 26, 2026">
+    <LegalPage title="Privacy Policy" effective="November 9, 2026">
       <LegalSection n={1} title="Overview">
         <p>
           Hyperanchor (“we”, “us”) is a task planner. This policy explains what information we collect when you use Hyperanchor, how we use it
@@ -20,10 +20,11 @@ export default function PrivacyPage() {
           <li>
             <Strong>Account details.</Strong> When you sign in with Google, we receive your name, email address, profile picture and Google
             account ID. When you sign in with Apple, we receive your Apple account ID, your email address (or a private relay address if you
-            choose to hide it) and, the first time only, your name. We never receive your password.
+            choose to hide it) and, the first time only, your name. We keep these with your account, along with when you joined and last
+            signed in. We never receive your password.
           </li>
           <li>
-            <Strong>Your tasks.</Strong> Task titles, descriptions, dates and completion status that you create in Hyperanchor.
+            <Strong>Your tasks.</Strong> Task titles, notes, dates, order and completion status that you create in Hyperanchor.
           </li>
           <li>
             <Strong>Technical data.</Strong> Basic server logs such as IP address, browser or app version and request times, used to run and
@@ -71,9 +72,10 @@ export default function PrivacyPage() {
 
       <LegalSection n={8} title="Your choices">
         <p>
-          You can delete your account at any time in Settings, on the web or in the iPhone app: all of your tasks are deleted right away and,
-          if you use Sign in with Apple, Hyperanchor’s access to your Apple account is revoked. You can also ask us to access, export, correct
-          or delete your data by contacting us, and revoke Hyperanchor’s access in your{" "}
+          You can export all of your tasks as a CSV file in Settings on the web, and delete your account at any time in Settings, on the web or
+          in the iPhone app: your tasks and profile are deleted right away (copies in our providers’ backups expire within 30 days) and, if you
+          use Sign in with Apple, Hyperanchor’s access to your Apple account is revoked. You can also ask us to access, export, correct or delete
+          your data by contacting us, and revoke Hyperanchor’s access in your{" "}
           <a href="https://myaccount.google.com/permissions">Google account settings</a> or in your Apple account’s Sign in with Apple settings.
         </p>
       </LegalSection>

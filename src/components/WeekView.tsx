@@ -1,28 +1,29 @@
 "use client";
 
+import { useLayoutEffect, useRef, useState } from "react";
 import { addDays, dayDiff, formatShort, parseYmd, rangeLabel, startOfWeek, ymd } from "@/lib/dates";
-import { ListIcon } from "./icons";
-import { TaskTable } from "./table/TaskTable";
+import { SortMenu, TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
-import { EmptyState, NavGroup, NewTaskButton, SearchField, Toolbar } from "./Toolbar";
+import { WeekBoard } from "./table/WeekBoard";
+import { NavGroup, NewTaskButton, SearchButton, Toolbar } from "./Toolbar";
 import { ProgressRing } from "./ui";
+
+const BOARD_MIN = 1040; // px of sheet below which seven columns get too narrow and the week becomes a list
 
 export function WeekView({
   selected,
   sections,
   state,
   actions,
-  query,
-  onQuery,
   onSelectDate,
+  onSearch,
 }: {
   selected: string;
   sections: Section[];
   state: TableState;
   actions: TableActions;
-  query: string;
-  onQuery: (q: string) => void;
   onSelectDate: (key: string) => void;
+  onSearch: () => void;
 }) {
   const { todayKey } = state;
   const start = startOfWeek(parseYmd(selected));
@@ -30,6 +31,20 @@ export function WeekView({
   const title = weeks === 0 ? "This Week" : weeks === -1 ? "Last Week" : weeks === 1 ? "Next Week" : `Week of ${formatShort(start)}`;
   const tasks = sections.flatMap((s) => [...s.tasks, ...(s.completed ?? [])]);
   const done = tasks.filter((t) => t.done).length;
+
+  // Seven columns side by side where they fit; a list of days on smaller screens. Measured before the first paint,
+  // so the week never flashes up in the wrong layout.
+  const box = useRef<HTMLDivElement>(null);
+  const [board, setBoard] = useState(false);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const style = getComputedStyle(el);
+    setBoard(el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) >= BOARD_MIN);
+    const ro = new ResizeObserver(([entry]) => setBoard(entry.contentRect.width >= BOARD_MIN));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <>
@@ -43,8 +58,9 @@ export function WeekView({
             <span>{tasks.length ? `${done} of ${tasks.length} done` : "No tasks"}</span>
           </>
         }
+        wide={board}
       >
-        <SearchField value={query} onChange={onQuery} />
+        <SearchButton onClick={onSearch} />
         <NavGroup
           prevLabel="Previous week"
           nextLabel="Next week"
@@ -57,20 +73,19 @@ export function WeekView({
         <NewTaskButton onClick={() => actions.openComposer(selected)} />
       </Toolbar>
 
-      <div className="mx-auto max-w-[1184px] px-3 pb-16 md:px-8">
-        <TaskTable
-          sections={sections}
-          state={state}
-          actions={actions}
-          grouped
-          empty={
-            query ? (
-              <EmptyState icon={<ListIcon size={22} />} title="No matching tasks">
-                Nothing this week matches “{query}”.
-              </EmptyState>
-            ) : null
-          }
-        />
+      <div ref={box} className="px-3 pb-16 md:px-8">
+        {board ? (
+          <>
+            <div className="-mt-1 mb-2 flex justify-end">
+              <SortMenu sort={state.sort} onSort={actions.sort} />
+            </div>
+            <WeekBoard sections={sections} state={state} actions={actions} />
+          </>
+        ) : (
+          <div className="mx-auto max-w-[1120px]">
+            <TaskTable sections={sections} state={state} actions={actions} grouped />
+          </div>
+        )}
       </div>
     </>
   );

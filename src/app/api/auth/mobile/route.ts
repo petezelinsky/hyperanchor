@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { badRequest } from "@/lib/api";
 import { verifyAppleIdToken, verifyGoogleIdToken, type Identity } from "@/lib/identity";
 import { signMobileToken } from "@/lib/mobileToken";
+import { touchUser } from "@/lib/users";
 import type { AppUser } from "@/lib/types";
 
 /**
@@ -26,6 +27,8 @@ export async function POST(req: NextRequest) {
   // Apple shares the name only on the first sign-in, in the app; it arrives separately.
   const given = typeof body.name === "string" ? body.name.trim().slice(0, 200) : "";
   const user: AppUser = { name: identity.name || given || identity.email, email: identity.email, image: identity.image };
-  const token = await signMobileToken(`${provider}:${identity.sub}`, user);
+  const uid = `${provider}:${identity.sub}`;
+  await touchUser(uid, { ...user, name: identity.name || given }); // counted in users, like a web sign-in
+  const token = await signMobileToken(uid, user);
   return NextResponse.json({ token, user });
 }

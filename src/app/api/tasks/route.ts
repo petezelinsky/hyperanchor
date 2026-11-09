@@ -30,12 +30,12 @@ export async function POST(req: NextRequest) {
   if (!isUuid(body?.id)) return badRequest("Invalid id");
   const parsed = parsePatch(body);
   if ("error" in parsed) return badRequest(parsed.error);
-  const { title, description = "", date, done = false } = parsed.patch;
+  const { title, description = "", date, done = false, position = null } = parsed.patch;
   if (!title || !date) return badRequest("Title and date are required");
 
   const [task] = await sql<Task[]>`
-    insert into tasks (id, user_id, date, title, description, done)
-    values (${body.id}, ${userId}, ${date}, ${title}, ${description}, ${done})
+    insert into tasks (id, user_id, date, title, description, done, "position")
+    values (${body.id}, ${userId}, ${date}, ${title}, ${description}, ${done}, ${position})
     on conflict (id) do nothing
     returning ${sql.unsafe(TASK_COLUMNS)}`;
   if (!task) return NextResponse.json({ error: "Task already exists" }, { status: 409 });

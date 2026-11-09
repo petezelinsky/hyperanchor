@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
 
-type Fields = Pick<Task, "title" | "description" | "date" | "done">;
+type Fields = Pick<Task, "title" | "description" | "date" | "done" | "position">;
 
 async function request(url: string, init?: RequestInit) {
   const res = await fetch(url, {
@@ -29,6 +29,9 @@ async function request(url: string, init?: RequestInit) {
  */
 export function useTasks(onError: (message: string) => void) {
   const [tasks, setTasks] = useState<Record<string, Task>>({});
+  // Requests on the wire (for the "Saving…" hint) and whether the first load has come back.
+  const [inFlight, setInFlight] = useState(0);
+  const [loads, setLoads] = useState(0);
   // Ranges loaded recently (main view, mini calendar, analytics…); all are re-fetched after a failure.
   const ranges = useRef(new Map<string, [string, string]>());
   const chains = useRef(new Map<string, Promise<unknown>>());
@@ -53,6 +56,7 @@ export function useTasks(onError: (message: string) => void) {
           for (const t of fetched) if (!isBusy(t.id)) next[t.id] = t;
           return next;
         });
+        setLoads((n) => n + 1);
       } catch (e) {
         onError(e instanceof Error ? e.message : "Couldn’t load tasks");
       }
@@ -64,7 +68,11 @@ export function useTasks(onError: (message: string) => void) {
   const enqueue = useCallback(
     (id: string, req: () => Promise<unknown>) => {
       busy.current.set(id, (busy.current.get(id) ?? 0) + 1);
-      const run = (chains.current.get(id) ?? Promise.resolve()).then(req).catch((e) => {
+      const tracked = () => {
+        setInFlight((n) => n + 1);
+        return req().finally(() => setInFlight((n) => n - 1));
+      };
+      const run = (chains.current.get(id) ?? Promise.resolve()).then(tracked).catch((e) => {
         onError(e instanceof Error ? e.message : "Something went wrong");
         busy.current.set(id, 0);
         // Copy first: load() moves its range to the end of the map, which would keep a live iteration going forever.
@@ -92,9 +100,9 @@ export function useTasks(onError: (message: string) => void) {
   );
 
   const create = useCallback(
-    (input: Fields) => {
+    (input: Omit<Fields, "position"> & { position?: number | null }) => {
       const now = new Date().toISOString();
-      const task: Task = { ...input, id: crypto.randomUUID(), createdAt: now, updatedAt: now };
+      const task: Task = { position: null, ...input, id: crypto.randomUUID(), createdAt: now, updatedAt: now };
       setTasks((prev) => ({ ...prev, [task.id]: task }));
       enqueue(task.id, () => request("/api/tasks", { method: "POST", body: JSON.stringify(task) }));
       return task.id;
@@ -132,11 +140,20 @@ export function useTasks(onError: (message: string) => void) {
   const restore = useCallback(
     (task: Task) => {
       setTasks((prev) => ({ ...prev, [task.id]: task }));
-      const { id, title, description, date, done } = task;
-      enqueue(id, () => request("/api/tasks", { method: "POST", body: JSON.stringify({ id, title, description, date, done }) }));
+      const { id, title, description, date, done, position } = task;
+      enqueue(id, () => request("/api/tasks", { method: "POST", body: JSON.stringify({ id, title, description, date, done, position }) }));
     },
     [enqueue],
   );
 
-  return { tasks, load, create, edit, remove, restore };
+  /** Adds tasks fetched elsewhere (search results) without touching ones being edited. */
+  const merge = useCallback((list: Task[]) => {
+    setTasks((prev) => {
+      const next = { ...prev };
+      for (const t of list) if (!isBusy(t.id)) next[t.id] = t;
+      return next;
+    });
+  }, []);
+
+  return { tasks, load, create, edit, remove, restore, merge, saving: inFlight > 0, loads };
 }

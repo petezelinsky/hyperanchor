@@ -417,7 +417,11 @@ export function Showcase() {
     >
       <div aria-hidden="true" className="dot-grid absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_60%_55%_at_50%_45%,#000_20%,transparent_78%)]" />
 
-      <div aria-live={moving ? "off" : "polite"} className="grid flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] place-items-center">
+      {/* On big screens the scenes grow with the panel instead of floating small in it. */}
+      <div
+        aria-live={moving ? "off" : "polite"}
+        className="grid flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] place-items-center @[52rem]:scale-[1.12] @[64rem]:scale-[1.25]"
+      >
         {(prev >= 0 ? [prev, slide] : [slide]).map((i) => {
           const { title, text, Scene } = SLIDES[i];
           const leaving = i !== slide;

@@ -65,7 +65,8 @@ export function SignInScreen({ error }: { error?: boolean }) {
       </aside>
 
       <footer className="flex min-w-0 justify-center px-5 pt-7 pb-9 sm:px-8 lg:col-start-1 lg:row-start-2 lg:pt-0 lg:pb-11">
-        <div className="flex w-full max-w-[380px] flex-wrap items-center justify-between gap-x-5 gap-y-3 text-[12.5px] leading-5 text-ink-2">
+        {/* One line on computers, level with the carousel dots (it may run a little past the column); it wraps on phones. */}
+        <div className="flex w-full max-w-[380px] flex-wrap items-center justify-between gap-x-5 gap-y-3 text-[12.5px] leading-5 whitespace-nowrap text-ink-2 lg:flex-nowrap">
           <span>© 2026 Hyperanchor</span>
           <div className="flex items-center gap-4">
             <nav aria-label="Help and legal" className="flex gap-5">

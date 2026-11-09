@@ -15,7 +15,7 @@ export function isUuid(v: unknown): v is string {
   return typeof v === "string" && UUID_RE.test(v);
 }
 
-export type TaskPatch = { title?: string; description?: string; date?: string; done?: boolean };
+export type TaskPatch = { title?: string; description?: string; date?: string; done?: boolean; position?: number | null };
 
 /** Validates the editable task fields. Returns an error message or the cleaned patch. */
 export function parsePatch(body: unknown): { patch: TaskPatch } | { error: string } {
@@ -41,6 +41,11 @@ export function parsePatch(body: unknown): { patch: TaskPatch } | { error: strin
   if ("done" in b) {
     if (typeof b.done !== "boolean") return { error: "Invalid done" };
     patch.done = b.done;
+  }
+  if ("position" in b) {
+    if (b.position !== null && (typeof b.position !== "number" || !Number.isFinite(b.position) || Math.abs(b.position) > 1e15))
+      return { error: "Invalid position" };
+    patch.position = b.position;
   }
   return { patch };
 }

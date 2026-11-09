@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
-import { CheckIcon, PlusIcon } from "./icons";
-import { Burst, Button, Checkbox, Kbd } from "./ui";
+import { CheckIcon, PlusIcon, TimerIcon } from "./icons";
+import { Burst, Button, Checkbox, Kbd, ProgressRing } from "./ui";
 
 /**
  * Focus mode: one task at a time, on the top card of a small stack — the edges peeking out below are what's left.
@@ -43,7 +43,13 @@ export function FocusPanel({
     <div className="mx-auto flex min-h-[calc(100dvh-22rem)] w-full max-w-[600px] flex-col items-center justify-center pt-4 pb-6 md:min-h-[calc(100dvh-14rem)]">
       {task ? (
         <>
-          <Progress done={done} total={total} />
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+            <Progress done={done} total={total} />
+            <span aria-hidden="true" className="text-ink-4">
+              ·
+            </span>
+            <FocusTimer />
+          </div>
           <div className="relative mt-6 w-full">
             {waiting > 1 && <span aria-hidden="true" className="absolute inset-x-[9%] -bottom-[18px] h-16 rounded-[20px] bg-surface-2 shadow-lift" />}
             {waiting > 0 && <span aria-hidden="true" className="absolute inset-x-[4.5%] -bottom-[9px] h-16 rounded-[22px] bg-surface shadow-lift" />}
@@ -120,6 +126,112 @@ function Progress({ done, total }: { done: number; total: number }) {
       </span>
     </div>
   );
+}
+
+const TIMER_MINUTES = 25;
+
+/**
+ * An optional timer for a stretch of focus: one click starts 25 minutes, another stops it. When the time is up a soft
+ * chime plays (and phones buzz), then it rests until you want another round.
+ */
+function FocusTimer() {
+  const [end, setEnd] = useState<number | null>(null);
+  const [now, setNow] = useState(0);
+  const [over, setOver] = useState(false);
+  const audio = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    if (!end) return;
+    const tick = () => {
+      const t = Date.now();
+      setNow(t);
+      if (t < end) return;
+      setEnd(null);
+      setOver(true);
+      chime(audio.current);
+      navigator.vibrate?.([90, 70, 90]);
+    };
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [end]);
+  useEffect(() => {
+    if (!over) return;
+    const id = setTimeout(() => setOver(false), 10_000);
+    return () => clearTimeout(id);
+  }, [over]);
+  useEffect(() => () => void audio.current?.close().catch(() => {}), []);
+
+  const total = TIMER_MINUTES * 60_000;
+  const start = () => {
+    // Made during the click, so the browser lets it play when the time is up.
+    try {
+      audio.current ??= new AudioContext();
+      void audio.current.resume();
+    } catch {}
+    const t = Date.now();
+    setNow(t);
+    setOver(false);
+    setEnd(t + total);
+  };
+
+  if (end) {
+    const left = Math.max(0, end - now);
+    const secs = Math.ceil(left / 1000);
+    const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+    return (
+      <button
+        type="button"
+        onClick={() => setEnd(null)}
+        aria-label={`Stop the timer, ${Math.ceil(secs / 60)} minutes left`}
+        data-tip="Stop the timer"
+        className="group flex h-7 items-center gap-1.5 rounded-full bg-accent-soft pr-2.5 pl-2 text-[12.5px] font-medium text-accent-ink transition-colors duration-150 hover:bg-accent-track/60"
+      >
+        <ProgressRing value={1 - left / total} size={14} stroke={2.2} />
+        <span className="tabular min-w-[34px] text-left">{clock}</span>
+      </button>
+    );
+  }
+  if (over)
+    return (
+      <span role="status" className="flex h-7 animate-pop-in items-center gap-1.5 rounded-full bg-accent-soft px-2.5 text-[12.5px] font-medium text-accent-ink">
+        <CheckIcon size={11} strokeWidth={2.4} />
+        Time’s up. Take a breath.
+      </span>
+    );
+  return (
+    <button
+      type="button"
+      onClick={start}
+      aria-label={`Start a ${TIMER_MINUTES}-minute timer`}
+      data-tip={`Start a ${TIMER_MINUTES}-minute timer`}
+      className="flex h-7 items-center gap-1.5 rounded-full px-2 text-[12.5px] text-ink-3 transition-colors duration-150 hover:bg-surface-3 hover:text-ink"
+    >
+      <TimerIcon size={13} />
+      {TIMER_MINUTES} min
+    </button>
+  );
+}
+
+/** Two soft notes, a fifth apart. */
+function chime(ctx: AudioContext | null) {
+  if (!ctx) return;
+  try {
+    void ctx.resume();
+    const t = ctx.currentTime + 0.05;
+    [659.25, 987.77].forEach((freq, i) => {
+      const at = t + i * 0.22;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.16, at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 1.4);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(at);
+      osc.stop(at + 1.5);
+    });
+  } catch {}
 }
 
 function Card({

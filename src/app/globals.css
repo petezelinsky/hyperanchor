@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — minimal: neutral grays, black for primary actions, and one accent color used
- * sparingly (today, completion, progress, data). The accent is blue by default; people can switch
- * it to orange or green (html[data-accent]). Red is reserved for destructive actions and drops,
+ * Design tokens — minimal: neutral grays, black for primary actions, and one blue accent used
+ * sparingly (today, completion, progress, data). (The orange and green accents in the token block serve the iOS
+ * app's accent setting; the web stays blue.) Red is reserved for destructive actions and drops,
  * green for rises. Translucent glass only on floating chrome.
  * Theme: html[data-theme] is "light" or "dark" — set before first paint from the saved choice (until there is one,
  * the device's setting; see prefs.ts). Components use the tokens through the Tailwind theme below.
@@ -24,7 +24,7 @@
 
   --ink: #171717;
   --ink-2: #525252;
-  --ink-3: #8a8a8a;
+  --ink-3: #6b6b6b; /* the quietest text: still 4.5:1 on every surface */
   --ink-4: #d4d4d4;
   --line: #ededed;
   --line-2: #e2e2e2;
@@ -104,7 +104,7 @@
 
   --ink: #ededed;
   --ink-2: #a3a3a3;
-  --ink-3: #737373;
+  --ink-3: #8a8a8a; /* the quietest text: still 4.5:1 on every surface */
   --ink-4: #3d3d3d;
   --line: #242424;
   --line-2: #2e2e2e;
@@ -273,7 +273,24 @@
   }
 }
 
-/* A theme or accent change lands in one frame: color transitions wait (movement still animates). */
+/* While a task is dragged: the grabbing hand everywhere, and no text gets selected along the way. */
+:root[data-dragging],
+:root[data-dragging] * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+/* The dragged card lifts off the list. */
+@keyframes lift {
+  from {
+    transform: scale(1) rotate(0deg);
+  }
+  to {
+    transform: scale(1.03) rotate(-1.5deg);
+  }
+}
+
+/* A theme change lands in one frame: color transitions wait (movement still animates). */
 :root[data-switching] *,
 :root[data-switching] *::before,
 :root[data-switching] *::after {

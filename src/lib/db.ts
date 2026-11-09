@@ -1,6 +1,6 @@
 import postgres from "postgres";
 
-const globalForSql = globalThis as unknown as { sql?: postgres.Sql };
+const globalForSql = globalThis as unknown as { sql?: postgres.Sql; schemaReady?: Promise<void> | null };
 
 // Tuned for Vercel serverless + Supabase transaction pooler (port 6543):
 // - `prepare: false`: transaction-mode poolers don't support named prepared statements.
@@ -8,6 +8,40 @@ const globalForSql = globalThis as unknown as { sql?: postgres.Sql };
 // - `idle_timeout`: release idle connections so frozen instances don't hold pooler slots.
 export const sql =
   globalForSql.sql ??
-  postgres(process.env.DATABASE_URL ?? "", { prepare: false, max: 1, idle_timeout: 20, connect_timeout: 10 });
+  postgres(process.env.DATABASE_URL ?? "", { prepare: false, max: 1, idle_timeout: 20, connect_timeout: 10, onnotice: () => {} });
 
 if (process.env.NODE_ENV !== "production") globalForSql.sql = sql;
+
+// What newer code needs from db/schema.sql. Each change runs only when it's missing, so a cold start that finds the
+// schema current takes no table locks.
+const UPGRADES = `
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'tasks' and column_name = 'position') then
+    alter table tasks add column if not exists "position" double precision;
+  end if;
+  if to_regclass('users') is null then
+    create table if not exists users (
+      id           text primary key,
+      email        text not null default '',
+      name         text not null default '',
+      image        text,
+      created_at   timestamptz not null default now(),
+      last_seen_at timestamptz not null default now()
+    );
+    alter table users enable row level security;
+  end if;
+end $$;
+`;
+
+/** Brings the database up to what the code expects, once per server instance; a failure is retried on the next call. */
+export function ensureSchema(): Promise<void> {
+  globalForSql.schemaReady ??= sql.unsafe(UPGRADES).then(
+    () => undefined,
+    (e) => {
+      globalForSql.schemaReady = null;
+      console.error("Schema upgrade failed", e);
+    },
+  );
+  return globalForSql.schemaReady;
+}

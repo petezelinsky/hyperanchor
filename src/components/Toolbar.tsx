@@ -1,7 +1,7 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, PlusIcon, SearchIcon, XIcon } from "./icons";
-import { Button } from "./ui";
+import { ChevronLeft, ChevronRight, PlusIcon, SearchIcon } from "./icons";
+import { Button, Kbd } from "./ui";
 
 /**
  * Header of a view: title + subtitle on the left, controls on the right.
@@ -69,30 +69,28 @@ export function NavGroup({
   );
 }
 
-export function SearchField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/** ⌘K on Apple devices, Ctrl K elsewhere. */
+export const searchKeys = () => (typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K");
+
+/**
+ * Opens search across all tasks. On wide screens it looks like a field, so it reads as "type here"; on tablets and
+ * small laptops it's a round icon, leaving the title its room. Phones have it in the top bar.
+ */
+export function SearchButton({ onClick }: { onClick: () => void }) {
   return (
-    <div className="relative hidden xl:block">
-      <SearchIcon size={13} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-3" />
-      <input
-        type="search"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => e.key === "Escape" && onChange("")}
-        placeholder="Filter"
-        aria-label="Filter tasks"
-        className="h-8 w-40 rounded-[9px] bg-surface-3 pr-7 pl-8 text-[13px] text-ink outline-none transition-[width,background-color,box-shadow] duration-200 ease-out focus:w-56 focus:bg-surface focus:shadow-[0_0_0_1px_var(--accent),0_0_0_4px_var(--accent-soft)] [&::-webkit-search-cancel-button]:hidden"
-      />
-      {value && (
-        <button
-          type="button"
-          aria-label="Clear filter"
-          onClick={() => onChange("")}
-          className="absolute top-1/2 right-2 flex size-4 -translate-y-1/2 items-center justify-center rounded-full bg-ink-3 text-surface"
-        >
-          <XIcon size={9} strokeWidth={2.4} />
-        </button>
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Search"
+      data-tip="Search all tasks (/)"
+      className="hidden size-8 flex-none items-center justify-center gap-2 rounded-[9px] bg-surface-3 text-[13px] text-ink-3 transition-colors duration-150 hover:bg-line hover:text-ink-2 md:flex xl:w-44 xl:justify-start xl:pr-1.5 xl:pl-2.5"
+    >
+      <SearchIcon size={13} />
+      <span className="hidden flex-1 text-left xl:inline">Search</span>
+      <span className="hidden xl:inline">
+        <Kbd>{searchKeys()}</Kbd>
+      </span>
+    </button>
   );
 }
 

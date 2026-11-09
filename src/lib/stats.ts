@@ -74,7 +74,7 @@ export function summarize(days: DayStat[]): Summary {
 
 export type WeekdayStat = { index: number; done: number; planned: number; days: number; avg: number; rate: number | null };
 
-/** Per weekday (Mon…Sun) across the elapsed days of the period. */
+/** Per weekday (in week order, see dowIndex) across the elapsed days of the period. */
 export function weekdayStats(days: DayStat[]): WeekdayStat[] {
   const out = Array.from({ length: 7 }, (_, index) => ({ index, done: 0, planned: 0, days: 0, avg: 0, rate: null as number | null }));
   for (const d of days) {

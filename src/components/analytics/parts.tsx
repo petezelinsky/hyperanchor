@@ -82,9 +82,24 @@ export function Meter({ value, className = "" }: { value: number | null; classNa
   );
 }
 
-function Tile({ label, value, unit, visual, foot }: { label: string; value: React.ReactNode; unit?: string; visual?: React.ReactNode; foot: React.ReactNode }) {
+function Tile({
+  label,
+  tip,
+  value,
+  unit,
+  visual,
+  foot,
+}: {
+  label: string;
+  /** What the number means, on hover. */
+  tip?: string;
+  value: React.ReactNode;
+  unit?: string;
+  visual?: React.ReactNode;
+  foot: React.ReactNode;
+}) {
   return (
-    <div className="flex min-w-0 animate-rise flex-col rounded-[16px] bg-surface p-4 shadow-lift">
+    <div data-tip={tip} className="flex min-w-0 animate-rise flex-col rounded-[16px] bg-surface p-4 shadow-lift">
       <div className="flex h-7 items-center justify-between gap-2">
         <span className="truncate text-[12.5px] font-medium text-ink-2">{label}</span>
         {visual && <span className="flex-none max-sm:hidden">{visual}</span>}
@@ -120,7 +135,8 @@ export function Kpis({
   /** Whether each of the last 7 days had something completed, oldest first. */
   recent: boolean[];
 }) {
-  const vs = `vs ${current ? "last" : "previous"} ${period}`;
+  // The current period is compared with the same stretch of the previous one (this point last week), not all of it.
+  const vs = current ? `vs this time last ${period}` : `vs previous ${period}`;
   const prevHas = prev.planned > 0;
   const completed = useCountUp(sum.completed);
   const rate = useCountUp(sum.rate ?? 0);
@@ -162,6 +178,7 @@ export function Kpis({
       />
       <Tile
         label={current ? "Current streak" : "Longest streak"}
+        tip="Days in a row with at least one task done"
         value={Math.round(streakN)}
         unit={streak === 1 ? "day" : "days"}
         visual={

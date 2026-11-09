@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DOW_FULL, DOW_SHORT, formatShort } from "@/lib/dates";
+import { formatShort, weekdayNames } from "@/lib/dates";
 import { fmt1, pct, type DayStat, type Summary, weekdayStats } from "@/lib/stats";
 import type { Task } from "@/lib/types";
 import { Button, Checkbox } from "../ui";
@@ -10,6 +10,7 @@ import { Card } from "./parts";
 /** Average completed per weekday. Emphasis: the best day in the accent, the rest de-emphasized. */
 export function WeekdayCard({ days }: { days: DayStat[] }) {
   const ws = weekdayStats(days);
+  const short = weekdayNames("short");
   const max = Math.max(...ws.map((w) => w.avg));
   const best = max > 0 ? ws.reduce((b, w) => (w.avg > b.avg ? w : b)) : null;
 
@@ -20,7 +21,7 @@ export function WeekdayCard({ days }: { days: DayStat[] }) {
           const top = best?.index === w.index;
           return (
             <div key={w.index} className="grid grid-cols-[34px_minmax(0,1fr)_76px] items-center gap-3">
-              <span className={`text-[12.5px] ${top ? "font-semibold text-ink" : "text-ink-2"}`}>{DOW_SHORT[w.index]}</span>
+              <span className={`text-[12.5px] ${top ? "font-semibold text-ink" : "text-ink-2"}`}>{short[w.index]}</span>
               <span className="h-2 overflow-hidden rounded-full bg-surface-3">
                 <span
                   className={`block h-full rounded-full transition-[width] duration-700 ease-out ${top ? "bg-accent" : "bg-ink-4"}`}
@@ -38,7 +39,7 @@ export function WeekdayCard({ days }: { days: DayStat[] }) {
       <p className="mt-4 text-[12.5px] text-ink-2">
         {best ? (
           <>
-            You get the most done on <span className="font-semibold text-ink">{DOW_FULL[best.index]}s</span>.
+            You get the most done on <span className="font-semibold text-ink">{weekdayNames("full")[best.index]}s</span>.
           </>
         ) : (
           "Not enough completed tasks yet."

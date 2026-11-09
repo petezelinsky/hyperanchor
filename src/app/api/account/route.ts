@@ -5,7 +5,7 @@ import { sql } from "@/lib/db";
 import { exchangeAppleCode, revokeAppleToken, appleBundleId } from "@/lib/identity";
 
 /**
- * Deletes the account: every task of the signed-in user. For Sign in with Apple the token is revoked too
+ * Deletes the account: every task of the signed-in user and their profile. For Sign in with Apple the token is revoked too
  * (App Store guideline 5.1.1(v)): the iOS app sends a fresh `authorizationCode`, the web keeps Apple's
  * refresh token in its session. Data is deleted even if Apple can't be reached; `revoked` says how that went.
  */
@@ -34,6 +34,10 @@ export async function DELETE(req: NextRequest) {
     }
   }
 
-  const rows = await sql`delete from tasks where user_id = ${userId} returning id`;
-  return NextResponse.json({ deleted: rows.length, revoked });
+  const deleted = await sql.begin(async (tx) => {
+    const rows = await tx`delete from tasks where user_id = ${userId} returning id`;
+    await tx`delete from users where id = ${userId}`;
+    return rows.length;
+  });
+  return NextResponse.json({ deleted, revoked });
 }
