@@ -22,12 +22,15 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-[760px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-6 text-[12.5px] text-ink-2">
         <span>© 2026 Hyperanchor</span>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <nav aria-label="Legal" className="flex gap-5">
+          <nav aria-label="Help and legal" className="flex gap-5">
             <Link href="/privacy" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
               Privacy
             </Link>
             <Link href="/terms" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
               Terms
+            </Link>
+            <Link href="/support" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
+              Support
             </Link>
           </nav>
           <ThemeSwitch />

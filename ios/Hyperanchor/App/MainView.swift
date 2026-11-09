@@ -95,6 +95,7 @@ struct AccountMenu: View {
             Section {
                 Button("Privacy Policy", systemImage: "hand.raised") { legal = AppConfig.privacyURL }
                 Button("Terms of Service", systemImage: "doc.text") { legal = AppConfig.termsURL }
+                Button("Support", systemImage: "questionmark.circle") { legal = AppConfig.supportURL }
             }
             Section {
                 Button("Sign Out", systemImage: "rectangle.portrait.and.arrow.right") { model.signOut() }

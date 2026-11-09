@@ -17,6 +17,7 @@ enum AppConfig {
 
     static let privacyURL = URL(string: "https://hyperanchor.app/privacy")!
     static let termsURL = URL(string: "https://hyperanchor.app/terms")!
+    static let supportURL = URL(string: "https://hyperanchor.app/support")!
 }
 
 /// Launch arguments for working without a server: `-demo` (sample data, signed in), `-uitest` (the same,

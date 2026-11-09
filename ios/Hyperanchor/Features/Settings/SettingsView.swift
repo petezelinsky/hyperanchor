@@ -90,6 +90,7 @@ struct SettingsView: View {
                 Section {
                     Button("Privacy Policy") { legal = AppConfig.privacyURL }
                     Button("Terms of Service") { legal = AppConfig.termsURL }
+                    Button("Support") { legal = AppConfig.supportURL }
                 } footer: {
                     VStack(spacing: 4) {
                         BrandMark(size: 40)

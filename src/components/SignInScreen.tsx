@@ -68,12 +68,15 @@ export function SignInScreen({ error }: { error?: boolean }) {
         <div className="flex w-full max-w-[380px] flex-wrap items-center justify-between gap-x-5 gap-y-3 text-[12.5px] leading-5 text-ink-2">
           <span>© 2026 Hyperanchor</span>
           <div className="flex items-center gap-4">
-            <nav aria-label="Legal" className="flex gap-5">
+            <nav aria-label="Help and legal" className="flex gap-5">
               <Link href="/privacy" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
                 Privacy
               </Link>
               <Link href="/terms" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
                 Terms
+              </Link>
+              <Link href="/support" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
+                Support
               </Link>
             </nav>
             <ThemeSwitch />
