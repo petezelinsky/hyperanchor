@@ -1,3 +1,6 @@
+-- The whole schema, idempotent: run it in the Supabase SQL editor or with `npm run db:migrate`.
+-- The app also applies the newer statements itself on first use (src/lib/db.ts), so a deploy never waits on this.
+
 create table if not exists tasks (
   id          uuid primary key,
   user_id     text not null,
@@ -9,6 +12,21 @@ create table if not exists tasks (
   updated_at  timestamptz not null default now()
 );
 
+-- Manual order within a day (drag and drop). Null until a task is moved: it then sorts by creation time.
+alter table tasks add column if not exists "position" double precision;
+
 create index if not exists tasks_user_date_idx on tasks (user_id, date);
 
 alter table tasks enable row level security;
+
+-- Everyone who has signed in: Google account ID (as in tasks.user_id), profile, first and latest visit.
+create table if not exists users (
+  id           text primary key,
+  email        text not null default '',
+  name         text not null default '',
+  image        text,
+  created_at   timestamptz not null default now(),
+  last_seen_at timestamptz not null default now()
+);
+
+alter table users enable row level security;

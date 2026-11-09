@@ -4,6 +4,8 @@ export type Task = {
   title: string;
   description: string;
   done: boolean;
+  /** Manual order within the day; null sorts by creation time (see sortTasks). */
+  position: number | null;
   createdAt: string;
   updatedAt: string;
 };

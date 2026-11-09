@@ -195,3 +195,24 @@ export const FocusIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Offline: a cloud with a slash. */
+export const CloudOffIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5.2 5.2A3.6 3.6 0 0 0 4.4 12h7.1M8.4 4.5a3.6 3.6 0 0 1 3.4 3.1A2.4 2.4 0 0 1 13.6 11M2.5 2.5l11 11" />
+  </Svg>
+);
+
+/** A stopwatch, for the focus timer. */
+export const TimerIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="8" cy="9" r="5.2" />
+    <path d="M8 6.4V9l1.6 1.2M6.4 1.8h3.2" />
+  </Svg>
+);
+
+/** Download (export). */
+export const DownloadIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 2.5v7.5M4.8 7 8 10.2 11.2 7M3 13h10" />
+  </Svg>
+);

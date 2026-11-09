@@ -10,11 +10,13 @@ const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter", 
 export const metadata: Metadata = {
   metadataBase: new URL("https://hyperanchor.app"),
   title: "Hyperanchor",
-  description:
-    "A calm, focused planner. Plan each day in a clean table, see your week and month at a glance, and understand how you get things done.",
+  description: "A calm, fast planner: your day, week and month on one quiet screen, and a focus mode for one thing at a time.",
+  applicationName: "Hyperanchor",
+  appleWebApp: { capable: true, title: "Hyperanchor", statusBarStyle: "default" },
+  twitter: { card: "summary_large_image" },
   openGraph: {
     title: "Hyperanchor",
-    description: "Your whole week on one screen.",
+    description: "Own your day, week and month. A calm, fast planner.",
     url: "https://hyperanchor.app",
     siteName: "Hyperanchor",
     type: "website",

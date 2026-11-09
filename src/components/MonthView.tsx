@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { addDays, formatLong, isWeekend, monthGrid, MONTHS, plural, weekdayNames, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
+import { useDrag } from "./drag";
 import { ArrowRightIcon, PlusIcon, XIcon } from "./icons";
-import { NavGroup, Toolbar } from "./Toolbar";
+import { NavGroup, SearchButton, Toolbar } from "./Toolbar";
 import { Button, Checkbox, IconButton, Popover, ProgressRing } from "./ui";
 
 export function MonthView({
@@ -19,6 +20,7 @@ export function MonthView({
   onOpenDay,
   onToggle,
   onCreate,
+  onSearch,
 }: {
   year: number;
   month: number;
@@ -31,8 +33,10 @@ export function MonthView({
   onOpenDay: (key: string) => void;
   onToggle: (t: Task) => void;
   onCreate: (date: string, title: string) => void;
+  onSearch: () => void;
 }) {
   const [pop, setPop] = useState<{ key: string; rect: DOMRect } | null>(null);
+  const drag = useDrag();
   const { start, rows } = monthGrid(year, month);
   const cells = Array.from({ length: rows * 7 }, (_, i) => addDays(start, i));
   const inMonth = cells.filter((d) => d.getMonth() === month).flatMap((d) => byDate(ymd(d)));
@@ -61,6 +65,7 @@ export function MonthView({
         }
         wide
       >
+        <SearchButton onClick={onSearch} />
         <NavGroup
           prevLabel="Previous month"
           nextLabel="Next month"
@@ -97,10 +102,13 @@ export function MonthView({
             const isToday = key === todayKey;
             const isSel = key === selected;
             const weekend = isWeekend(d);
+            const hot = drag.dragging && drag.target?.zone === "month" && drag.target.date === key;
             return (
               <button
                 key={key}
                 type="button"
+                data-drop-date={key}
+                data-drop-zone="month"
                 onClick={(e) => {
                   onSelectDate(key);
                   setPop({ key, rect: e.currentTarget.getBoundingClientRect() });
@@ -109,7 +117,7 @@ export function MonthView({
                 aria-label={`${formatLong(d)}${tasks.length ? `, ${plural(tasks.length, "task")}` : ""}`}
                 className={`flex min-w-0 flex-col gap-1 border-line p-1.5 text-left transition-[background-color,box-shadow] duration-150 md:p-2 ${i % 7 < 6 ? "border-r" : ""} ${
                   i < cells.length - 7 ? "border-b" : ""
-                } ${isSel ? "bg-surface-3" : weekend ? "bg-surface-2 hover:bg-surface-3" : "hover:bg-surface-2"}`}
+                } ${hot ? "bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--accent)]" : isSel ? "bg-surface-3" : weekend ? "bg-surface-2 hover:bg-surface-3" : "hover:bg-surface-2"}`}
               >
                 <span className="flex justify-end">
                   {/* Today is the accent; another selected day is black (as in Calendar). */}
@@ -123,7 +131,14 @@ export function MonthView({
                 </span>
                 <span className="flex min-w-0 flex-col gap-[3px] max-md:hidden">
                   {tasks.slice(0, 3).map((t) => (
-                    <span key={t.id} className={`flex min-w-0 items-center gap-1.5 text-[12px] leading-4 ${t.done ? "text-ink-3" : out ? "text-ink-3" : "text-ink"}`}>
+                    // A task can be dragged straight from here onto another day.
+                    <span
+                      key={t.id}
+                      onPointerDown={(e) => drag.start(e, t)}
+                      className={`flex min-w-0 cursor-grab items-center gap-1.5 rounded-[4px] text-[12px] leading-4 ${drag.dragging?.id === t.id ? "opacity-35" : ""} ${
+                        t.done ? "text-ink-3" : out ? "text-ink-3" : "text-ink"
+                      }`}
+                    >
                       <span className={`size-[7px] flex-none rounded-full ${t.done ? "bg-accent" : "shadow-[inset_0_0_0_1.5px_var(--check-ring)]"}`} />
                       <span className="truncate">{t.title}</span>
                     </span>
@@ -140,6 +155,17 @@ export function MonthView({
               </button>
             );
           })}
+        </div>
+        {/* Phones show dots, not titles: say what they mean. */}
+        <div className="mt-3 flex items-center justify-center gap-4 text-[12px] text-ink-3 md:hidden">
+          <span className="flex items-center gap-1.5">
+            <span className="size-[6px] rounded-full bg-accent" />
+            Done
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-[6px] rounded-full bg-ink-4" />
+            Still open
+          </span>
         </div>
       </div>
 

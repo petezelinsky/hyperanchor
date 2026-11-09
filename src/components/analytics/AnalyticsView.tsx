@@ -3,8 +3,9 @@
 import { addDays, dayShort, formatLong, formatMedium, MONTHS, MONTHS_SHORT, parseYmd, rangeLabel, relativeDay, ymd } from "@/lib/dates";
 import { currentStreak, dayStats, longestStreak, monthStats, periodBounds, summarize, type Period } from "@/lib/stats";
 import type { Task } from "@/lib/types";
-import { NavGroup, Toolbar } from "../Toolbar";
-import { SegmentedControl } from "../ui";
+import { ChartIcon } from "../icons";
+import { EmptyState, NavGroup, Toolbar } from "../Toolbar";
+import { Button, SegmentedControl } from "../ui";
 import { BarChart, type Bar } from "./BarChart";
 import { OpenCard, WeekdayCard } from "./Breakdown";
 import { Heatmap } from "./Heatmap";
@@ -24,6 +25,7 @@ export function AnalyticsView({
   onOpenDay,
   onToggle,
   onMove,
+  onPlan,
 }: {
   period: Period;
   offset: number;
@@ -35,11 +37,15 @@ export function AnalyticsView({
   onOpenDay: (key: string) => void;
   onToggle: (t: Task) => void;
   onMove: (t: Task, date: string) => void;
+  /** Goes to where this period gets planned (Week or Month). */
+  onPlan: () => void;
 }) {
   const b = periodBounds(period, offset, todayKey);
   const days = dayStats(b, todayKey, byDate);
   const sum = summarize(days);
-  const prev = summarize(dayStats(periodBounds(period, offset - 1, todayKey), todayKey, byDate));
+  // Like for like: this period so far against the same number of days of the previous one.
+  const prevDays = dayStats(periodBounds(period, offset - 1, todayKey), todayKey, byDate);
+  const prev = summarize(offset === 0 ? prevDays.slice(0, sum.elapsedDays) : prevDays);
   const today = parseYmd(todayKey);
   const year = b.start.getFullYear();
   const current = offset === 0;
@@ -133,6 +139,20 @@ export function AnalyticsView({
         />
       </Toolbar>
 
+      {!sum.planned && !sum.upcoming && !prev.planned ? (
+        // Nothing to measure yet: one calm line instead of empty charts.
+        <div className="mx-auto max-w-[1240px] px-3 pb-10 md:px-8">
+          {current ? (
+            <EmptyState icon={<ChartIcon size={22} />} title={`Nothing planned this ${period} yet`} action={<Button onClick={onPlan}>{period === "week" ? "Plan your week" : "Plan your month"}</Button>}>
+              Your progress shows up here as you add and finish tasks.
+            </EmptyState>
+          ) : (
+            <EmptyState icon={<ChartIcon size={22} />} title={`Nothing was planned in ${label}`} action={<Button onClick={() => onOffset(0)}>{`Back to ${NOW[period].toLowerCase()}`}</Button>}>
+              There’s nothing to measure for this {period}.
+            </EmptyState>
+          )}
+        </div>
+      ) : (
       <div className="mx-auto max-w-[1240px] space-y-3 px-3 pb-10 md:space-y-4 md:px-8">
         <Kpis
           sum={sum}
@@ -197,6 +217,7 @@ export function AnalyticsView({
 
         <HistoryCard rows={history} unit={period === "year" ? "months" : "days"} />
       </div>
+      )}
     </>
   );
 }

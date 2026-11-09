@@ -7,7 +7,7 @@ const CONTACT_EMAIL = "privacy@hyperanchor.app";
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" effective="October 12, 2026">
+    <LegalPage title="Privacy Policy" effective="November 9, 2026">
       <LegalSection n={1} title="Overview">
         <p>
           Hyperanchor (“we”, “us”) is a task planner. This policy explains what information we collect when you use Hyperanchor, how we use it
@@ -19,10 +19,10 @@ export default function PrivacyPage() {
         <LegalList>
           <li>
             <Strong>Google account details.</Strong> When you sign in with Google, we receive your name, email address, profile picture and Google
-            account ID. We never receive your Google password.
+            account ID, and keep them with your account along with when you joined and last signed in. We never receive your Google password.
           </li>
           <li>
-            <Strong>Your tasks.</Strong> Task titles, descriptions, dates and completion status that you create in Hyperanchor.
+            <Strong>Your tasks.</Strong> Task titles, notes, dates, order and completion status that you create in Hyperanchor.
           </li>
           <li>
             <Strong>Technical data.</Strong> Basic server logs such as IP address, browser type and request times, used to run and secure the
@@ -69,8 +69,9 @@ export default function PrivacyPage() {
 
       <LegalSection n={8} title="Your choices">
         <p>
-          You can ask us to access, export, correct or delete your data at any time by contacting us. When you delete your account, your tasks
-          and profile data are removed within 30 days. You can also revoke Hyperanchor’s access in your{" "}
+          You can export all of your tasks as a CSV file, or delete your account, at any time in Settings. Deleting your account erases your
+          tasks and profile right away; copies in our providers’ backups expire within 30 days. You can also ask us to access, correct or delete
+          your data by contacting us, and revoke Hyperanchor’s access in your{" "}
           <a href="https://myaccount.google.com/permissions">Google account settings</a>.
         </p>
       </LegalSection>

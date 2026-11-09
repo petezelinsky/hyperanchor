@@ -6,10 +6,11 @@ import { DEFAULT_SORT, type Sort } from "@/lib/tasks";
 import type { Task } from "@/lib/types";
 import { ChevronDown, PlusIcon, SortIcon } from "../icons";
 import { IconButton, Menu, type Anchor, type MenuEntry } from "../ui";
+import { useDrag } from "../drag";
 import { COLS, TaskRow } from "./TaskRow";
 import type { Composer, Section, TableActions, TableState } from "./types";
 
-type MenuState = { task: Task; anchor: Anchor; trigger?: HTMLElement } | null;
+export type MenuState = { task: Task; anchor: Anchor; trigger?: HTMLElement } | null;
 
 export function taskMenu(task: Task, todayKey: string, actions: TableActions): MenuEntry[] {
   const today = parseYmd(todayKey);
@@ -29,14 +30,14 @@ export function taskMenu(task: Task, todayKey: string, actions: TableActions): M
 }
 
 const SORTS: { label: string; sort: Sort }[] = [
-  { label: "Order Added", sort: DEFAULT_SORT },
+  { label: "My Order", sort: DEFAULT_SORT },
   { label: "Newest First", sort: { key: "added", dir: "desc" } },
   { label: "Name A–Z", sort: { key: "title", dir: "asc" } },
   { label: "Name Z–A", sort: { key: "title", dir: "desc" } },
 ];
 
-/** A quiet "⇅ Order added" button that opens the sort options. */
-function SortMenu({ sort, onSort }: { sort: Sort; onSort: (s: Sort) => void }) {
+/** A quiet "⇅ My Order" button that opens the sort options. */
+export function SortMenu({ sort, onSort }: { sort: Sort; onSort: (s: Sort) => void }) {
   const [anchor, setAnchor] = useState<{ rect: Anchor; el: HTMLElement } | null>(null);
   const current = SORTS.find((s) => s.sort.key === sort.key && s.sort.dir === sort.dir) ?? SORTS[0];
   return (
@@ -151,7 +152,7 @@ function NewTaskRow({ onClick }: { onClick: () => void }) {
 }
 
 /** Remembers which task ids each list showed last time, so rows that just arrived can ease in. */
-function useFresh() {
+export function useFresh() {
   const seen = useRef<Map<string, Set<string>> | null>(null);
   const next = new Map<string, Set<string>>();
   const isFresh = (list: string, id: string) => {
@@ -194,6 +195,7 @@ export function TaskTable({
   const [menu, setMenu] = useState<MenuState>(null);
   const root = useRef<HTMLDivElement>(null);
   const isFresh = useFresh();
+  const drag = useDrag();
 
   // Keep the keyboard selection in view.
   useEffect(() => {
@@ -206,6 +208,7 @@ export function TaskTable({
   // Nothing to list: the empty state alone.
   if (!total && !state.composer && empty) return <div ref={root}>{empty}</div>;
 
+  const tomorrow = ymd(addDays(parseYmd(state.todayKey), 1));
   const row = (t: Task, list: string) => (
     <TaskRow
       key={t.id}
@@ -213,6 +216,7 @@ export function TaskTable({
       selected={state.selectedId === t.id}
       editingField={state.editing?.id === t.id ? state.editing.field : null}
       fresh={isFresh(list, t.id)}
+      tomorrow={tomorrow}
       actions={actions}
       onMenu={openMenu}
     />
@@ -228,14 +232,25 @@ export function TaskTable({
           const isToday = s.date === state.todayKey;
           const all = s.tasks.length + (s.completed?.length ?? 0);
           const doneN = s.tasks.filter((t) => t.done).length + (s.completed?.length ?? 0);
+          const free = grouped && !all && state.composer?.date !== s.date;
+          // Each day is a drop zone; its open rows set the order a dragged task lands in.
+          const hot = drag.target?.zone === "list" && drag.target.date === s.date && drag.dragging?.date !== s.date;
           return (
-            <div key={s.date} role="rowgroup" aria-label={grouped ? `${dayName(d)}, ${formatShort(d)}` : undefined}>
+            <div
+              key={s.date}
+              role="rowgroup"
+              aria-label={grouped ? `${dayName(d)}, ${formatShort(d)}` : undefined}
+              data-drop-date={s.date}
+              data-drop-zone="list"
+              data-drop-list=""
+              className={`rounded-[12px] transition-colors duration-150 ${hot ? "bg-accent-soft" : ""}`}
+            >
               {grouped ? (
-                <div className={`flex items-center gap-2.5 border-b border-line pr-1 pb-2 pl-3 ${i === 0 ? "pt-2" : "pt-7"}`}>
-                  <span className="text-[15px] font-semibold tracking-[-0.015em] text-ink">{dayName(d)}</span>
+                <div className={`flex items-center gap-2.5 pr-1 pl-3 ${free ? "" : "border-b border-line"} ${i === 0 ? "pt-2" : free ? "pt-4" : "pt-7"} pb-2`}>
+                  <span className={`text-[15px] font-semibold tracking-[-0.015em] ${free ? "text-ink-2" : "text-ink"}`}>{dayName(d)}</span>
                   <span className="text-[13px] text-ink-3">{formatShort(d)}</span>
                   {isToday && <span className="rounded-full bg-accent-soft px-2 py-px text-[11px] font-semibold text-accent-ink">Today</span>}
-                  <span className="tabular ml-auto text-[12px] text-ink-3">{all ? `${doneN} of ${all}` : ""}</span>
+                  <span className="tabular ml-auto text-[12px] text-ink-3">{all ? `${doneN} of ${all}` : "Free"}</span>
                   <IconButton label={`Add task to ${dayName(d)}`} size="sm" onClick={() => actions.openComposer(s.date)}>
                     <PlusIcon size={14} strokeWidth={2} />
                   </IconButton>
@@ -255,9 +270,7 @@ export function TaskTable({
                   <ComposerRow composer={state.composer} actions={actions} />
                 ) : placeholderRow ? (
                   <NewTaskRow onClick={() => actions.openComposer(s.date)} />
-                ) : (
-                  grouped && !all && <div className="py-3 pl-12 text-[13px] text-ink-4">No tasks</div>
-                )}
+                ) : null}
                 {grouped && !!s.completed?.length && <div data-list="done">{s.completed.map((t) => row(t, "done"))}</div>}
               </div>
               {!grouped && !!s.completed?.length && (

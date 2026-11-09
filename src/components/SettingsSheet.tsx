@@ -1,55 +1,61 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
 import type { WeekStart } from "@/lib/dates";
 import type { AppUser } from "@/lib/types";
 import { Avatar } from "./Avatar";
-import { XIcon } from "./icons";
+import { DownloadIcon, XIcon } from "./icons";
 import { applyTheme, readTheme, type Theme } from "./prefs";
 import { THEMES } from "./ThemeSwitch";
-import { Button, IconButton, Kbd, Modal, SegmentedControl } from "./ui";
+import { Button, buttonClass, IconButton, Kbd, Modal, SegmentedControl } from "./ui";
 
 export type SettingsTab = "general" | "shortcuts";
 
-const SHORTCUTS: { title: string; items: [string, string][] }[] = [
-  {
-    title: "Anywhere",
-    items: [
-      ["N", "New task"],
-      ["F", "Focus: one task at a time"],
-      ["T", "Go to today"],
-      ["← →", "Previous / next"],
-      ["D W M A", "Switch view"],
-      ["?", "Keyboard shortcuts"],
-      [",", "Settings"],
-    ],
-  },
-  {
-    title: "In a list",
-    items: [
-      ["↑ ↓", "Select a task"],
-      ["Space", "Complete"],
-      ["↵", "Edit the title"],
-      ["Tab", "Title or notes"],
-      ["⌫", "Delete"],
-      ["Esc", "Cancel or deselect"],
-    ],
-  },
-  {
-    title: "In focus",
-    items: [
-      ["Space", "Done"],
-      ["→", "Not now"],
-      ["N", "Jot something down"],
-      ["Esc", "Leave focus"],
-    ],
-  },
-];
+/** The shortcuts, with the modifier spelled the way this keyboard labels it. */
+function shortcuts(): { title: string; items: [string, string][] }[] {
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+  return [
+    {
+      title: "Anywhere",
+      items: [
+        ["N", "New task"],
+        ["F", "Focus: one task at a time"],
+        ["/", "Search all tasks"],
+        ["T", "Go to today"],
+        ["← →", "Previous / next"],
+        ["D W M A", "Switch view"],
+        ["?", "Keyboard shortcuts"],
+        [",", "Settings"],
+      ],
+    },
+    {
+      title: "In a list",
+      items: [
+        ["↑ ↓", "Select a task"],
+        [`${mac ? "⌥" : "Alt"} ↑ ↓`, "Move it up or down"],
+        ["Space", "Complete"],
+        ["↵", "Edit the title"],
+        ["Tab", "Title or notes"],
+        ["⌫", "Delete"],
+        ["Esc", "Cancel or deselect"],
+      ],
+    },
+    {
+      title: "In focus",
+      items: [
+        ["Space", "Done"],
+        ["→", "Not now"],
+        ["N", "Jot something down"],
+        ["Esc", "Leave focus"],
+      ],
+    },
+  ];
+}
 
 /**
- * Settings: appearance, the first day of the week and the account, with the keyboard shortcuts on a tab of their own
- * (computers only; phones have no keys to learn). Every change applies at once.
+ * Settings: appearance, the first day of the week, your data and the account, with the keyboard shortcuts on a tab of
+ * their own (computers only; phones have no keys to learn). Every change applies at once.
  */
 export function SettingsSheet({
   tab: initialTab,
@@ -117,7 +123,13 @@ export function SettingsSheet({
               className="w-[184px]"
             />
           </Row>
-          <div className="flex items-center gap-3 py-4">
+          <Row title="Your tasks" hint="Every task as a CSV file, for any spreadsheet.">
+            <a href="/api/export" download className={`${buttonClass()} w-[184px]`}>
+              <DownloadIcon size={14} />
+              Export
+            </a>
+          </Row>
+          <div className="flex items-center gap-3 border-b border-line py-4">
             <Avatar name={user.name} image={user.image} size={36} />
             <div className="min-w-0 flex-1">
               <div className="truncate text-[14px] font-medium">{user.name}</div>
@@ -127,11 +139,12 @@ export function SettingsSheet({
               Sign out
             </Button>
           </div>
-          <p className="text-[12px] text-ink-3">Appearance and the first day of the week are saved on this device.</p>
+          <DeleteAccount />
+          <p className="pt-4 text-[12px] text-ink-3">Appearance and the first day of the week are saved on this device.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-x-8 gap-y-5 px-6 pt-4 pb-6 sm:grid-cols-2">
-          {SHORTCUTS.map((g) => (
+          {shortcuts().map((g) => (
             <div key={g.title}>
               <div className="mb-1 text-[12px] font-medium text-ink-3">{g.title}</div>
               {g.items.map(([keys, what]) => (
@@ -161,6 +174,62 @@ function Row({ title, hint, children }: { title: string; hint?: string; children
         {hint && <div className="mt-0.5 text-[12.5px] text-ink-3">{hint}</div>}
       </div>
       {children}
+    </div>
+  );
+}
+
+/** Deleting the account takes a second, deliberate step; then everything goes and you're signed out. */
+function DeleteAccount() {
+  const [asking, setAsking] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [busy, startDelete] = useTransition();
+  const cancel = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (asking) cancel.current?.focus();
+  }, [asking]);
+
+  const erase = () =>
+    startDelete(async () => {
+      setFailed(false);
+      const res = await fetch("/api/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "delete" }),
+      }).catch(() => null);
+      if (!res?.ok) return setFailed(true);
+      await signOutAction();
+    });
+
+  if (!asking)
+    return (
+      <Row title="Delete account" hint="Your tasks and account, erased for good.">
+        <Button variant="danger-quiet" onClick={() => setAsking(true)} className="w-[184px]">
+          Delete account…
+        </Button>
+      </Row>
+    );
+  return (
+    <div role="group" aria-labelledby="delete-title" className="mt-4 animate-rise rounded-[14px] bg-red-soft p-4">
+      <div id="delete-title" className="text-[14px] font-semibold text-red-ink">
+        Delete your account?
+      </div>
+      <p className="mt-1 text-[13px] leading-[1.5] text-ink-2">
+        Every task is erased right away, on all your devices, and you’re signed out. This can’t be undone, so export your tasks first if
+        you might want them.
+      </p>
+      {failed && (
+        <p role="alert" className="mt-2 text-[13px] font-medium text-red-ink">
+          Couldn’t delete your account. Check your connection and try again.
+        </p>
+      )}
+      <div className="mt-3.5 flex justify-end gap-2">
+        <Button ref={cancel} onClick={() => setAsking(false)} disabled={busy}>
+          Cancel
+        </Button>
+        <Button variant="danger" onClick={erase} disabled={busy}>
+          {busy ? "Deleting…" : "Delete for good"}
+        </Button>
+      </div>
     </div>
   );
 }

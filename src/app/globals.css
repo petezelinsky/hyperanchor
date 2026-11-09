@@ -20,7 +20,7 @@
 
   --ink: #171717;
   --ink-2: #525252;
-  --ink-3: #8a8a8a;
+  --ink-3: #6b6b6b; /* the quietest text: still 4.5:1 on every light surface */
   --ink-4: #d4d4d4;
   --line: #ededed;
   --line-2: #e2e2e2;
@@ -65,7 +65,7 @@
 
   --ink: #ededed;
   --ink-2: #a3a3a3;
-  --ink-3: #737373;
+  --ink-3: #8a8a8a;
   --ink-4: #3d3d3d;
   --line: #242424;
   --line-2: #2e2e2e;
@@ -205,6 +205,23 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* While a task is dragged: the grabbing hand everywhere, and no text gets selected along the way. */
+:root[data-dragging],
+:root[data-dragging] * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+/* The dragged card lifts off the list. */
+@keyframes lift {
+  from {
+    transform: scale(1) rotate(0deg);
+  }
+  to {
+    transform: scale(1.03) rotate(-1.5deg);
   }
 }
 

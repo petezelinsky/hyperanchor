@@ -5,13 +5,16 @@ import { createPortal } from "react-dom";
 
 // ── Buttons ──────────────────────────────────────────────────────────────────
 
-type Variant = "primary" | "secondary" | "plain";
+type Variant = "primary" | "secondary" | "plain" | "danger" | "danger-quiet";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
   primary: "bg-primary text-on-primary shadow-[0_1px_2px_rgba(0,0,0,0.14)] hover:bg-primary-hover active:scale-[0.98]",
   secondary: "bg-surface text-ink shadow-lift hover:bg-surface-2 active:scale-[0.98]",
   plain: "text-ink-2 hover:bg-surface-3 hover:text-ink active:bg-line",
+  // Red only for what can't be undone.
+  danger: "bg-red-ink text-surface shadow-[0_1px_2px_rgba(0,0,0,0.14)] hover:opacity-90 active:scale-[0.98]",
+  "danger-quiet": "bg-surface text-red-ink shadow-lift hover:bg-red-soft active:scale-[0.98]",
 };
 const sizes: Record<Size, string> = {
   sm: "h-7 rounded-[8px] px-2.5 text-[12.5px]",
@@ -23,18 +26,15 @@ const base = "transition-[background-color,color,box-shadow,transform] duration-
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size };
 
+/** A button's look, for the odd link that should read as a button (a download, say). */
+export const buttonClass = (variant: Variant = "secondary", size: Size = "md") =>
+  `inline-flex items-center justify-center gap-1.5 font-medium whitespace-nowrap disabled:opacity-40 ${base} ${variants[variant]} ${sizes[size]}`;
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   { variant = "secondary", size = "md", className = "", type = "button", ...props },
   ref,
 ) {
-  return (
-    <button
-      ref={ref}
-      type={type}
-      className={`inline-flex items-center justify-center gap-1.5 font-medium whitespace-nowrap disabled:opacity-40 ${base} ${variants[variant]} ${sizes[size]} ${className}`}
-      {...props}
-    />
-  );
+  return <button ref={ref} type={type} className={`${buttonClass(variant, size)} ${className}`} {...props} />;
 });
 
 export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { label: string; tip?: string }>(function IconButton(
@@ -504,7 +504,9 @@ export function Modal({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useDismiss(ref, onClose, true, null, false);
-  useEffect(() => ref.current?.focus(), []);
+  useEffect(() => {
+    if (!ref.current?.contains(document.activeElement)) ref.current?.focus();
+  }, []);
   useEffect(() => {
     // The gutter stays, so locking the page doesn't shift it sideways where scrollbars take space.
     const s = document.documentElement.style;

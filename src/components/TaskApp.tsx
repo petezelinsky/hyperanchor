@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, formatMedium, monthGrid, parseYmd, relativeDay, setWeekStart, startOfWeek, ymd, type WeekStart } from "@/lib/dates";
 import { statsRange, type Period } from "@/lib/stats";
-import { DEFAULT_SORT, matchesQuery, sortTasks, type Sort } from "@/lib/tasks";
+import { DEFAULT_SORT, placeBetween, placeOf, sortTasks, type Sort } from "@/lib/tasks";
 import type { AppUser, Task } from "@/lib/types";
 import { AnalyticsView } from "./analytics/AnalyticsView";
-import { DayView, type Focus } from "./DayView";
+import { DayView, type Focus, type Welcome } from "./DayView";
+import { DragProvider, type DropTarget } from "./drag";
 import { MonthView } from "./MonthView";
 import { readWeekStart, saveWeekStart } from "./prefs";
+import { SearchPalette } from "./SearchPalette";
 import { SettingsSheet, type SettingsTab } from "./SettingsSheet";
 import { MiniMonth, MobileHeader, Sidebar, TabBar, type View } from "./Sidebar";
 import type { Composer, Editing, Section, TableActions } from "./table/types";
@@ -76,7 +78,7 @@ export function TaskApp({ user }: { user: AppUser }) {
   // Focus mode (Day view): one task at a time. "Not now" sends a task to the back of the queue for this session.
   const [focusOn, setFocusOn] = useState(false);
   const [later, setLater] = useState<string[]>([]);
-  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const scroller = useRef<HTMLElement>(null);
@@ -87,7 +89,7 @@ export function TaskApp({ user }: { user: AppUser }) {
     toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : 4000);
   }, []);
 
-  const { tasks, load, create, edit, remove, restore } = useTasks(notify);
+  const { tasks, load, create, edit, remove, restore, merge, saving, loads } = useTasks(notify);
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const mainRange = useMemo((): [string, string] => {
@@ -131,7 +133,7 @@ export function TaskApp({ user }: { user: AppUser }) {
   const byDate = useCallback((key: string) => byDateMap.get(key) ?? [], [byDateMap]);
 
   const sections = useMemo((): Section[] => {
-    const make = (date: string) => ({ date, tasks: sortTasks(byDate(date).filter((t) => matchesQuery(t, query)), sort) });
+    const make = (date: string) => ({ date, tasks: sortTasks(byDate(date), sort) });
     if (view === "day") {
       // What's left first; finished tasks gather in a Completed group below.
       const { date, tasks } = make(selected);
@@ -146,8 +148,8 @@ export function TaskApp({ user }: { user: AppUser }) {
       const completed = tasks.filter((t) => t.done && !settling.includes(t.id));
       return { date, tasks: tasks.filter((t) => !completed.includes(t)), completed };
     });
-    return query ? all.filter((s) => s.tasks.length || s.completed.length) : all;
-  }, [view, selected, byDate, query, sort, settling, weekStart]);
+    return all;
+  }, [view, selected, byDate, sort, settling, weekStart]);
   // In screen order. Week view always shows finished tasks; Day view folds them into a collapsible group.
   const visibleIds = useMemo(
     () => sections.flatMap((s) => [...s.tasks, ...(view === "week" || completedOpen ? (s.completed ?? []) : [])].map((t) => t.id)),
@@ -180,8 +182,8 @@ export function TaskApp({ user }: { user: AppUser }) {
   // Latest state for stable callbacks and global listeners.
   const focusTask = focusQueue[0];
   const focusNext = focusQueue[1];
-  const latest = useRef({ tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen });
-  latest.current = { tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen };
+  const latest = useRef({ tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen, sort });
+  latest.current = { tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen, sort };
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const selectDate = useCallback((key: string) => {
@@ -198,13 +200,31 @@ export function TaskApp({ user }: { user: AppUser }) {
     setView(v);
   }, []);
 
-  const setFocus = useCallback((on: boolean) => {
-    setFocusOn(on);
-    setLater([]);
-    setSelectedId(null);
-    setComposer(null);
-    latest.current.composer = null;
-  }, []);
+  // Leaving focus says how it went.
+  const focusDone = useRef(0);
+  const setFocus = useCallback(
+    (on: boolean) => {
+      const n = focusDone.current;
+      if (!on && latest.current.focusOn && n > 0) notify(n === 1 ? "1 task done in focus. Nice." : `${n} tasks done in focus. Nice.`);
+      focusDone.current = 0;
+      setFocusOn(on);
+      setLater([]);
+      setSelectedId(null);
+      setComposer(null);
+      latest.current.composer = null;
+    },
+    [notify],
+  );
+
+  // A tab left open overnight moves on to the new day if it was showing "today".
+  const lastToday = useRef(todayKey);
+  useEffect(() => {
+    const was = lastToday.current;
+    lastToday.current = todayKey;
+    if (was === todayKey || latest.current.selected !== was) return;
+    selectDate(todayKey);
+    setCal((c) => (c.y === monthOf(was).y && c.m === monthOf(was).m ? monthOf(todayKey) : c));
+  }, [todayKey, selectDate]);
 
   const openDay = useCallback(
     (key: string) => {
@@ -267,7 +287,8 @@ export function TaskApp({ user }: { user: AppUser }) {
         edit(task.id, { done: !task.done });
         if (task.done) return;
         setSettling((s) => [...s, task.id]);
-        setTimeout(() => setSettling((s) => s.filter((id) => id !== task.id)), 900);
+        // The tick plays before the task moves on; in focus the next card shouldn't wait long.
+        setTimeout(() => setSettling((s) => s.filter((id) => id !== task.id)), latest.current.focusOn ? 520 : 900);
       },
       move: (task, date) => {
         const from = task.date;
@@ -305,7 +326,11 @@ export function TaskApp({ user }: { user: AppUser }) {
           task: focusQueue[0],
           next: focusQueue[1],
           after: Math.max(0, focusQueue.length - 2),
-          onDone: (t) => !t.done && actions.toggle(t),
+          onDone: (t) => {
+            if (t.done) return;
+            focusDone.current += 1;
+            actions.toggle(t);
+          },
           onLater: (t) => setLater((l) => [...l.filter((id) => id !== t.id), t.id]),
           onExit: () => setFocus(false),
           onCapture: (title) => {
@@ -330,6 +355,113 @@ export function TaskApp({ user }: { user: AppUser }) {
     });
   };
 
+  // ── Order and drag and drop ─────────────────────────────────────────────────
+  /** The open tasks of a day in list order, without `except`. */
+  const openOf = useCallback((date: string, except?: string) => {
+    const l = latest.current;
+    return sortTasks(
+      Object.values(l.tasks).filter((t) => t.date === date && !t.done && t.id !== except),
+      l.sort,
+    );
+  }, []);
+
+  /**
+   * The position that puts a task at `index` of `list` (a day's open tasks without it). Splitting the same gap over and
+   * over eventually leaves no number in between; then the day is renumbered, in its order, to make room again.
+   */
+  const positionAt = useCallback(
+    (list: Task[], index: number) => {
+      const before = list[index - 1];
+      const after = list[index];
+      const p = placeBetween(before, after);
+      if (!before || !after || (p > placeOf(before) && p < placeOf(after))) return p;
+      const base = placeOf(list[0]);
+      list.forEach((t, i) => edit(t.id, { position: base + i * 1024 }));
+      return base + (index - 0.5) * 1024;
+    },
+    [edit],
+  );
+
+  /** ⌥↑ / ⌥↓: nudges the selected task up or down its day. */
+  const nudge = useCallback(
+    (task: Task, dir: -1 | 1) => {
+      if (latest.current.sort.key !== "manual" || task.done) return;
+      const list = openOf(task.date);
+      const j = list.findIndex((t) => t.id === task.id) + dir;
+      if (j < 0 || j >= list.length) return;
+      const rest = list.filter((t) => t.id !== task.id);
+      edit(task.id, { position: positionAt(rest, j) });
+    },
+    [openOf, edit, positionAt],
+  );
+
+  /** A dropped task takes the place it was dropped in — another day, or another spot on its own day. */
+  const dropTask = useCallback(
+    (dragged: Task, target: DropTarget) => {
+      const task = latest.current.tasks[dragged.id] ?? dragged;
+      const list = openOf(target.date, task.id);
+      const position =
+        target.index != null ? positionAt(list, target.index) : target.date !== task.date ? placeBetween(list.at(-1), undefined) : task.position;
+      if (target.date === task.date && position === task.position) return;
+      edit(task.id, { date: target.date, position });
+      setSelectedId(task.id);
+      if (target.date === task.date) return;
+      const name = relativeDay(target.date, latest.current.todayKey) ?? formatMedium(parseYmd(target.date));
+      notify(`Moved to ${name}`, { label: "Undo", run: () => edit(task.id, { date: task.date, position: task.position }) });
+    },
+    [openOf, edit, notify, positionAt],
+  );
+
+  // ── First visit ─────────────────────────────────────────────────────────────
+  const [welcomed, setWelcomed] = useState(() => {
+    try {
+      return localStorage.getItem("hyperanchor:welcomed") === "yes";
+    } catch {
+      return true;
+    }
+  });
+  const markWelcomed = useCallback(() => {
+    setWelcomed(true);
+    try {
+      localStorage.setItem("hyperanchor:welcomed", "yes");
+    } catch {}
+  }, []);
+  const hasAny = Object.keys(tasks).length > 0;
+  useEffect(() => {
+    if (hasAny && !welcomed) markWelcomed();
+  }, [hasAny, welcomed, markWelcomed]);
+  const addExamples = useCallback(() => {
+    const touch = window.matchMedia("(pointer: coarse)").matches;
+    const date = latest.current.todayKey;
+    const examples = touch
+      ? [
+          ["Tick this off: tap the circle, or swipe right", "Notes live under the title. Tap a task to read them in full."],
+          ["Swipe me left to move me to tomorrow", ""],
+          ["Tap the focus button to do one thing at a time", ""],
+        ]
+      : [
+          ["Tick this off: click the circle, or select it and press Space", "Notes live next to the title. Click a task to read them in full."],
+          ["Drag me onto tomorrow in the calendar on the left", ""],
+          ["Press F to focus on one task at a time", ""],
+        ];
+    const now = Date.now();
+    examples.forEach(([title, description], i) => create({ title, description, date, done: false, position: now + i }));
+    markWelcomed();
+  }, [create, markWelcomed]);
+  const welcome: Welcome =
+    loads >= 2 && !welcomed && !hasAny ? { name: user.name.split(" ")[0] || "there", onExamples: addExamples, onDismiss: markWelcomed } : null;
+
+  /** Opens a search result: its day, with the task selected. */
+  const openFound = useCallback(
+    (task: Task) => {
+      merge([task]);
+      if (latest.current.focusOn) setFocus(false);
+      openDay(task.date);
+      setSelectedId(task.id);
+    },
+    [merge, openDay, setFocus],
+  );
+
   // ── Global pointer + keyboard handling ─────────────────────────────────────
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
@@ -347,7 +479,13 @@ export function TaskApp({ user }: { user: AppUser }) {
       else setStats((s) => ({ ...s, offset: Math.min(0, s.offset + dir) }));
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+      // ⌘K / Ctrl K searches from anywhere, even mid-typing.
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (!document.querySelector("[data-floating]")) setSearching(true);
+        return;
+      }
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || isTyping(e.target)) return;
       if (document.querySelector("[data-floating]")) return; // a menu or popover handles its own keys
       const l = latest.current;
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -355,12 +493,22 @@ export function TaskApp({ user }: { user: AppUser }) {
       const table = l.view === "day" || l.view === "week";
       const i = l.selectedId ? l.visibleIds.indexOf(l.selectedId) : -1;
       const sel = l.selectedId ? l.tasks[l.selectedId] : undefined;
+      if (e.altKey) {
+        if (table && sel && (k === "ArrowUp" || k === "ArrowDown")) {
+          e.preventDefault();
+          nudge(sel, k === "ArrowUp" ? -1 : 1);
+        }
+        return;
+      }
 
       if (l.focusOn && l.view === "day") {
         // Focus mode has no list to move through: Space finishes the task, → puts it off, N jots a thought down,
         // Esc or F leaves. The day stays put while focusing.
         if (k === " ") {
-          if (l.focusTask && !l.focusTask.done) actions.toggle(l.focusTask);
+          if (l.focusTask && !l.focusTask.done) {
+            focusDone.current += 1;
+            actions.toggle(l.focusTask);
+          }
         } else if (k === "ArrowRight") {
           const t = l.focusTask;
           if (t && !t.done && l.focusNext) setLater((ids) => [...ids.filter((id) => id !== t.id), t.id]);
@@ -388,6 +536,7 @@ export function TaskApp({ user }: { user: AppUser }) {
       } else if (table && sel && k === "Enter") actions.startEdit(sel.id, "title");
       else if (table && sel && k === " ") actions.toggle(sel);
       else if (table && sel && (k === "Backspace" || k === "Delete")) actions.remove(sel);
+      else if (k === "/") setSearching(true);
       else if (k === "?") setSheet("shortcuts");
       else if (k === ",") setSheet("general");
       else if (k === "Escape") setSelectedId(null);
@@ -400,7 +549,7 @@ export function TaskApp({ user }: { user: AppUser }) {
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("keydown", onKey);
     };
-  }, [actions, selectDate, showView, setFocus]);
+  }, [actions, selectDate, showView, setFocus, nudge]);
 
   // A new view starts at the top (the sheet scrolls on desktop, the page on phones).
   useEffect(() => {
@@ -424,9 +573,11 @@ export function TaskApp({ user }: { user: AppUser }) {
   const weekOpen = Array.from({ length: 7 }, (_, i) => byDate(ymd(addDays(shownWeek, i)))).flat().filter((t) => !t.done).length;
 
   return (
+    <DragProvider ordered={sort.key === "manual"} scroller={scroller} onDrop={dropTask}>
     <div className="min-h-dvh md:flex md:h-dvh md:min-h-0 md:bg-canvas">
       <Sidebar
         user={user}
+        saving={saving}
         view={view}
         onView={showView}
         onShortcuts={() => setSheet("shortcuts")}
@@ -449,7 +600,7 @@ export function TaskApp({ user }: { user: AppUser }) {
         }
       />
       <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
-        <MobileHeader user={user} onShortcuts={() => setSheet("shortcuts")} onSettings={() => setSheet("general")} />
+        <MobileHeader user={user} saving={saving} onSearch={() => setSearching(true)} onShortcuts={() => setSheet("shortcuts")} onSettings={() => setSheet("general")} />
         {/* The content sheet. Desktop: an inset white sheet that scrolls inside (the toolbar sticks). Phone: the page scrolls. */}
         <div className="min-h-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+92px)] md:pb-0">
           <main ref={scroller} className="group/sheet md:h-full md:scroll-pt-32 md:overflow-y-auto md:rounded-[14px] md:bg-surface md:shadow-sheet">
@@ -467,17 +618,17 @@ export function TaskApp({ user }: { user: AppUser }) {
                   } catch {}
                 }}
                 byDate={byDate}
-                query={query}
-                onQuery={setQuery}
                 onSelectDate={selectDate}
                 onMoveToToday={moveAllToToday}
                 carried={carried}
                 focus={focus}
                 onFocus={() => setFocus(!focusOn)}
+                onSearch={() => setSearching(true)}
+                welcome={welcome}
               />
             )}
             {view === "week" && (
-              <WeekView selected={selected} sections={sections} state={tableState} actions={actions} query={query} onQuery={setQuery} onSelectDate={selectDate} />
+              <WeekView selected={selected} sections={sections} state={tableState} actions={actions} onSelectDate={selectDate} onSearch={() => setSearching(true)} />
             )}
             {view === "month" && (
               <MonthView
@@ -492,6 +643,7 @@ export function TaskApp({ user }: { user: AppUser }) {
                 onOpenDay={openDay}
                 onToggle={actions.toggle}
                 onCreate={(date, title) => create({ title, description: "", date, done: false })}
+                onSearch={() => setSearching(true)}
               />
             )}
             {view === "analytics" && (
@@ -506,6 +658,7 @@ export function TaskApp({ user }: { user: AppUser }) {
                 onOpenDay={openDay}
                 onToggle={actions.toggle}
                 onMove={actions.move}
+                onPlan={() => showView(stats.period === "week" ? "week" : "month")}
               />
             )}
           </main>
@@ -513,6 +666,7 @@ export function TaskApp({ user }: { user: AppUser }) {
       </div>
       <TabBar view={view} onView={showView} />
       {sheet && <SettingsSheet tab={sheet} user={user} weekStart={weekStart} onWeekStart={changeWeekStart} onClose={() => setSheet(null)} />}
+      {searching && <SearchPalette todayKey={todayKey} onOpen={openFound} onClose={() => setSearching(false)} />}
 
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+90px)] z-[120] flex justify-center px-4 md:bottom-6">
@@ -538,5 +692,6 @@ export function TaskApp({ user }: { user: AppUser }) {
         </div>
       )}
     </div>
+    </DragProvider>
   );
 }
