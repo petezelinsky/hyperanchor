@@ -1,12 +1,12 @@
 "use client";
 
-import { addDays, dayDiff, formatMedium, MONTHS_SHORT, startOfWeek, ymd } from "@/lib/dates";
+import { addDays, dayDiff, formatMedium, MONTHS_SHORT, startOfWeek, weekdayNames, ymd } from "@/lib/dates";
 import type { DayStat } from "@/lib/stats";
 
 // Sequential: one hue, more completed is darker (lighter in dark mode). Zero recedes toward the surface.
 const LEVELS = ["var(--heat-0)", "var(--heat-1)", "var(--heat-2)", "var(--heat-3)", "var(--heat-4)"];
 
-/** A year of days, one column per week (Monday on top), shaded by how many tasks were completed. */
+/** A year of days, one column per week (its first day on top), shaded by how many tasks were completed. */
 export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: string) => void }) {
   if (!days.length) return null;
   const byKey = new Map(days.map((d) => [d.key, d]));
@@ -32,9 +32,9 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
           </div>
           <div className="mt-1 flex gap-2">
             <div className="grid w-6 flex-none grid-rows-7 gap-[3px] text-[10.5px] text-ink-3">
-              {["Mon", "", "Wed", "", "Fri", "", ""].map((l, i) => (
+              {weekdayNames("short").map((l, i) => (
                 <span key={i} className="flex items-center">
-                  {l}
+                  {l === "Mon" || l === "Wed" || l === "Fri" ? l : ""}
                 </span>
               ))}
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { addDays, DOW_FULL, DOW_SHORT, dowIndex, formatLong, MONTHS, parseYmd, relativeDay, startOfWeek, ymd } from "@/lib/dates";
+import { addDays, dayName, dayShort, formatLong, MONTHS, parseYmd, relativeDay, startOfWeek, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { FocusPanel } from "./FocusPanel";
 import { ArrowRightIcon, CheckIcon, ChevronLeft, ChevronRight, FocusIcon, PlusIcon, SunIcon } from "./icons";
@@ -65,7 +65,7 @@ export function DayView({
   return (
     <>
       <Toolbar
-        title={relativeDay(selected, todayKey) ?? DOW_FULL[dowIndex(d)]}
+        title={relativeDay(selected, todayKey) ?? dayName(d)}
         subtitle={
           <>
             <span>
@@ -111,7 +111,7 @@ export function DayView({
               data-tip="Focus on one task at a time (F)"
               className="max-sm:w-8 max-sm:px-0 sm:pr-3.5 sm:pl-3"
             >
-              <FocusIcon size={15} strokeWidth={1.7} dotClassName="text-accent" />
+              <FocusIcon size={15} strokeWidth={1.7} />
               <span className="max-sm:hidden">Focus</span>
             </Button>
             <NewTaskButton onClick={() => actions.openComposer(selected)} />
@@ -255,7 +255,7 @@ function WeekPills({ selected, todayKey, byDate, onSelect }: { selected: string;
               }`}
             >
               {/* Today is the accent; another selected day is black (as in Calendar). */}
-              <span className={`text-[10.5px] leading-[13px] font-medium ${on ? "opacity-75" : isToday ? "text-accent-ink" : "text-ink-3"}`}>{DOW_SHORT[i]}</span>
+              <span className={`text-[10.5px] leading-[13px] font-medium ${on ? "opacity-75" : isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(day)}</span>
               <span className={`tabular text-[15px] leading-5 font-semibold ${on ? "" : isToday ? "text-accent-ink" : key < todayKey ? "text-ink-2" : "text-ink"}`}>
                 {day.getDate()}
               </span>

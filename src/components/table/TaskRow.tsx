@@ -7,8 +7,9 @@ import { EllipsisIcon } from "../icons";
 import { Checkbox, IconButton } from "../ui";
 import type { Field, TableActions } from "./types";
 
-// Responsive columns (container queries): check | task | notes | menu. Notes sit under the title in narrow lists.
-export const COLS = "grid grid-cols-[40px_minmax(0,1fr)_36px] @2xl:grid-cols-[40px_minmax(200px,2fr)_minmax(0,3fr)_36px]";
+// Responsive columns (container queries): check | task | notes | menu. Notes sit under the title in narrow lists;
+// in wide ones they take the right third, and a task without notes lets its title run across both.
+export const COLS = "grid grid-cols-[40px_minmax(0,1fr)_36px] @2xl:grid-cols-[40px_minmax(0,2fr)_minmax(0,1fr)_36px]";
 
 /** Moves the caret to the end once the field mounts. */
 function useFocusEnd(active: boolean) {
@@ -77,7 +78,8 @@ export function TaskRow({
   );
 
   // One notes element: under the title in narrow tables, in its own column from @2xl (grid placement below).
-  const hasNotes = !!task.description || editingField === "description";
+  // A task without notes shows none; while it's being edited, a quiet "Notes" invites one (Tab gets there too).
+  const showNotes = !!task.description || editing;
   const notes =
     editingField === "description" ? (
       <AutoTextarea
@@ -95,11 +97,8 @@ export function TaskRow({
         {task.description.replace(/\s*\n\s*/g, " · ")}
       </span>
     ) : (
-      <span
-        className={`${notesCls} text-ink-3 transition-opacity duration-150 ${selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"}`}
-        onClick={() => actions.startEdit(task.id, "description")}
-      >
-        Add note
+      <span className={`${notesCls} cursor-text text-ink-3`} onClick={() => actions.startEdit(task.id, "description")}>
+        Notes
       </span>
     );
 
@@ -129,15 +128,14 @@ export function TaskRow({
           label={task.done ? `Mark “${task.title}” as not done` : `Mark “${task.title}” as done`}
         />
       </div>
-      <div role="gridcell" className="col-start-2 row-start-1 min-w-0 py-3 pr-3">
+      <div role="gridcell" className={`col-start-2 row-start-1 min-w-0 py-3 pr-3 ${showNotes ? "" : "@2xl:col-span-2"}`}>
         {title}
       </div>
-      <div
-        role="gridcell"
-        className={`col-start-2 row-start-2 -mt-2.5 min-w-0 pr-3 pb-3 @2xl:col-start-3 @2xl:row-start-1 @2xl:mt-0 @2xl:pt-3 ${hasNotes ? "" : "@max-2xl:hidden"}`}
-      >
-        {notes}
-      </div>
+      {showNotes && (
+        <div role="gridcell" className="col-start-2 row-start-2 -mt-2.5 min-w-0 pr-3 pb-3 @2xl:col-start-3 @2xl:row-start-1 @2xl:mt-0 @2xl:pt-3">
+          {notes}
+        </div>
+      )}
       <div role="gridcell" className="col-start-3 row-start-1 flex h-11 items-center justify-end pr-0.5 @2xl:col-start-4">
         <IconButton
           label="More actions"

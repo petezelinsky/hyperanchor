@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { addDays, DOW_SHORT, formatLong, monthGrid, MONTHS, plural, ymd } from "@/lib/dates";
+import { addDays, formatLong, isWeekend, monthGrid, MONTHS, plural, weekdayNames, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { ArrowRightIcon, PlusIcon, XIcon } from "./icons";
 import { NavGroup, Toolbar } from "./Toolbar";
@@ -82,8 +82,8 @@ export function MonthView({
 
       <div className="pb-6">
         <div className="grid grid-cols-7 border-y border-line bg-surface-2">
-          {DOW_SHORT.map((d, i) => (
-            <div key={d} className={`px-2 py-2 text-right text-[12px] font-medium md:px-3 ${i >= 5 ? "text-ink-3" : "text-ink-2"}`}>
+          {weekdayNames("short").map((d, i) => (
+            <div key={d} className={`px-2 py-2 text-right text-[12px] font-medium md:px-3 ${isWeekend(cells[i]) ? "text-ink-3" : "text-ink-2"}`}>
               <span className="sm:hidden">{d[0]}</span>
               <span className="max-sm:hidden">{d}</span>
             </div>
@@ -96,7 +96,7 @@ export function MonthView({
             const out = d.getMonth() !== month;
             const isToday = key === todayKey;
             const isSel = key === selected;
-            const weekend = i % 7 >= 5;
+            const weekend = isWeekend(d);
             return (
               <button
                 key={key}

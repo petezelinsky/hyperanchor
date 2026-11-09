@@ -1,6 +1,6 @@
 "use client";
 
-import { addDays, DOW_SHORT, dowIndex, formatLong, formatMedium, MONTHS, MONTHS_SHORT, parseYmd, rangeLabel, relativeDay, ymd } from "@/lib/dates";
+import { addDays, dayShort, formatLong, formatMedium, MONTHS, MONTHS_SHORT, parseYmd, rangeLabel, relativeDay, ymd } from "@/lib/dates";
 import { currentStreak, dayStats, longestStreak, monthStats, periodBounds, summarize, type Period } from "@/lib/stats";
 import type { Task } from "@/lib/types";
 import { NavGroup, Toolbar } from "../Toolbar";
@@ -77,7 +77,7 @@ export function AnalyticsView({
   } else {
     bars = days.map((d) => ({
       key: d.key,
-      label: period === "week" ? DOW_SHORT[dowIndex(d.date)] : String(d.date.getDate()),
+      label: period === "week" ? dayShort(d.date) : String(d.date.getDate()),
       sub: period === "week" ? String(d.date.getDate()) : undefined,
       major: d.date.getDate() === 1 || d.date.getDate() % 5 === 0,
       title: formatLong(d.date),

@@ -1,9 +1,8 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — minimal: neutral grays, black for primary actions, and one accent color used
- * sparingly (today, completion, progress, data). The accent is blue by default; people can switch
- * it to orange or green (html[data-accent]). Red is reserved for destructive actions and drops,
+ * Design tokens — minimal: neutral grays, black for primary actions, and one blue accent used
+ * sparingly (today, completion, progress, data). Red is reserved for destructive actions and drops,
  * green for rises. Translucent glass only on floating chrome.
  * Theme: html[data-theme] is "light" or "dark" — set before first paint from the saved choice (until there is one,
  * the device's setting; see prefs.ts). Components use the tokens through the Tailwind theme below.
@@ -53,30 +52,6 @@
   --shadow-float: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.07), 0 18px 40px -12px rgba(0, 0, 0, 0.16);
 }
 
-:root[data-accent="orange"] {
-  --accent: #f4511e;
-  --accent-hover: #e0461a;
-  --accent-ink: #c84a16;
-  --accent-soft: #fff2ec;
-  --accent-track: #fcdccd;
-  --heat-1: #fde3d6;
-  --heat-2: #f9b291;
-  --heat-3: #f57f50;
-  --heat-4: #e4471a;
-}
-
-:root[data-accent="green"] {
-  --accent: #16a34a;
-  --accent-hover: #15803d;
-  --accent-ink: #15803d;
-  --accent-soft: #edfaf2;
-  --accent-track: #c8eed6;
-  --heat-1: #d9f4e3;
-  --heat-2: #9fdeb6;
-  --heat-3: #58bf80;
-  --heat-4: #138a40;
-}
-
 :root[data-theme="dark"] {
   color-scheme: dark;
 
@@ -119,30 +94,6 @@
   --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-sheet: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 10px 30px -10px rgba(0, 0, 0, 0.6);
   --shadow-float: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 40px -12px rgba(0, 0, 0, 0.7);
-}
-
-:root[data-theme="dark"][data-accent="orange"] {
-  --accent: #ff6a2b;
-  --accent-hover: #ff7a3d;
-  --accent-ink: #ff8a52;
-  --accent-soft: #2a1610;
-  --accent-track: #4a2416;
-  --heat-1: #3a1b10;
-  --heat-2: #6a2b16;
-  --heat-3: #b2441f;
-  --heat-4: #ff7a3d;
-}
-
-:root[data-theme="dark"][data-accent="green"] {
-  --accent: #22c55e;
-  --accent-hover: #3ad270;
-  --accent-ink: #4ade80;
-  --accent-soft: #0d2316;
-  --accent-track: #164029;
-  --heat-1: #0f2b1b;
-  --heat-2: #1a4f31;
-  --heat-3: #25854b;
-  --heat-4: #36c46c;
 }
 
 /* `dark:` utilities follow the chosen theme, not only the system setting. */
@@ -257,7 +208,7 @@
   }
 }
 
-/* A theme or accent change lands in one frame: color transitions wait (movement still animates). */
+/* A theme change lands in one frame: color transitions wait (movement still animates). */
 :root[data-switching] *,
 :root[data-switching] *::before,
 :root[data-switching] *::after {

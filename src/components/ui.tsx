@@ -296,10 +296,16 @@ function useFloating(anchor: Anchor, align: "start" | "end") {
 }
 
 /**
- * Closes on Escape, on pointer down outside `ref` (and outside `ignore`, usually the trigger that toggles it),
- * on resize and when the page scrolls under it.
+ * Closes on Escape and on pointer down outside `ref` (and outside `ignore`, usually the trigger that toggles it).
+ * Anchored panels (menus, popovers) also close on resize and when the page scrolls under them; modals don't.
  */
-export function useDismiss(ref: React.RefObject<HTMLElement | null>, onClose: () => void, enabled = true, ignore?: HTMLElement | null) {
+export function useDismiss(
+  ref: React.RefObject<HTMLElement | null>,
+  onClose: () => void,
+  enabled = true,
+  ignore?: HTMLElement | null,
+  anchored = true,
+) {
   useEffect(() => {
     if (!enabled) return;
     const opened = performance.now();
@@ -320,15 +326,17 @@ export function useDismiss(ref: React.RefObject<HTMLElement | null>, onClose: ()
     };
     window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("keydown", onKey, true);
-    window.addEventListener("resize", onClose);
-    window.addEventListener("scroll", onScroll, true);
+    if (anchored) {
+      window.addEventListener("resize", onClose);
+      window.addEventListener("scroll", onScroll, true);
+    }
     return () => {
       window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("resize", onClose);
       window.removeEventListener("scroll", onScroll, true);
     };
-  }, [ref, onClose, enabled, ignore]);
+  }, [ref, onClose, enabled, ignore, anchored]);
 }
 
 export function Popover({
@@ -476,13 +484,44 @@ export function Menu({
   );
 }
 
-/** A centered sheet over a dimmed page; closes on Escape or a click outside. */
-export function Modal({ label, onClose, className = "", children }: { label: string; onClose: () => void; className?: string; children: React.ReactNode }) {
+/**
+ * A sheet over a dimmed page; closes on Escape or a click outside, never because something scrolled. The page
+ * behind holds still while it's open, and a sheet taller than the screen scrolls inside. `top` pins it near the
+ * top of the screen, so a sheet that changes height (Settings tabs) grows downward instead of jumping.
+ */
+export function Modal({
+  label,
+  onClose,
+  top = false,
+  className = "",
+  children,
+}: {
+  label: string;
+  onClose: () => void;
+  top?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
   const ref = useRef<HTMLDivElement>(null);
-  useDismiss(ref, onClose);
+  useDismiss(ref, onClose, true, null, false);
   useEffect(() => ref.current?.focus(), []);
+  useEffect(() => {
+    // The gutter stays, so locking the page doesn't shift it sideways where scrollbars take space.
+    const s = document.documentElement.style;
+    const { overflow, scrollbarGutter } = s;
+    s.overflow = "hidden";
+    s.scrollbarGutter = "stable";
+    return () => {
+      s.overflow = overflow;
+      s.scrollbarGutter = scrollbarGutter;
+    };
+  }, []);
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex animate-[fade_0.2s_ease-out_both] items-center justify-center bg-[var(--scrim)] p-4 backdrop-blur-[2px]">
+    <div
+      className={`fixed inset-0 z-[110] flex animate-[fade_0.2s_ease-out_both] justify-center bg-[var(--scrim)] p-4 backdrop-blur-[2px] ${
+        top ? "items-start pt-[max(1rem,10vh)]" : "items-center"
+      }`}
+    >
       <div
         ref={ref}
         role="dialog"
@@ -490,7 +529,7 @@ export function Modal({ label, onClose, className = "", children }: { label: str
         aria-label={label}
         tabIndex={-1}
         data-floating=""
-        className={`w-full animate-pop-in rounded-[18px] bg-elevated shadow-float outline-none ${className}`}
+        className={`max-h-full w-full animate-pop-in overflow-y-auto overscroll-contain rounded-[18px] bg-elevated shadow-float outline-none ${className}`}
       >
         {children}
       </div>

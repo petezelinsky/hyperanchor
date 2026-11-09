@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { addDays, DOW_FULL, dowIndex, formatShort, parseYmd, startOfWeek, ymd } from "@/lib/dates";
+import { addDays, dayName, formatShort, parseYmd, startOfWeek, ymd } from "@/lib/dates";
 import { DEFAULT_SORT, type Sort } from "@/lib/tasks";
 import type { Task } from "@/lib/types";
 import { ChevronDown, PlusIcon, SortIcon } from "../icons";
@@ -18,6 +18,7 @@ export function taskMenu(task: Task, todayKey: string, actions: TableActions): M
   return [
     { label: task.done ? "Mark as Not Done" : "Mark as Done", shortcut: "Space", onSelect: () => actions.toggle(task) },
     { label: "Edit", shortcut: "↩", onSelect: () => actions.startEdit(task.id, "title") },
+    { label: task.description ? "Edit Note" : "Add Note", onSelect: () => actions.startEdit(task.id, "description") },
     { separator: true },
     { label: "Move to Today", disabled: task.date === todayKey, onSelect: () => actions.move(task, todayKey) },
     { label: "Move to Tomorrow", disabled: task.date === tomorrow, onSelect: () => actions.move(task, tomorrow) },
@@ -228,14 +229,14 @@ export function TaskTable({
           const all = s.tasks.length + (s.completed?.length ?? 0);
           const doneN = s.tasks.filter((t) => t.done).length + (s.completed?.length ?? 0);
           return (
-            <div key={s.date} role="rowgroup" aria-label={grouped ? `${DOW_FULL[dowIndex(d)]}, ${formatShort(d)}` : undefined}>
+            <div key={s.date} role="rowgroup" aria-label={grouped ? `${dayName(d)}, ${formatShort(d)}` : undefined}>
               {grouped ? (
                 <div className={`flex items-center gap-2.5 border-b border-line pr-1 pb-2 pl-3 ${i === 0 ? "pt-2" : "pt-7"}`}>
-                  <span className="text-[15px] font-semibold tracking-[-0.015em] text-ink">{DOW_FULL[dowIndex(d)]}</span>
+                  <span className="text-[15px] font-semibold tracking-[-0.015em] text-ink">{dayName(d)}</span>
                   <span className="text-[13px] text-ink-3">{formatShort(d)}</span>
                   {isToday && <span className="rounded-full bg-accent-soft px-2 py-px text-[11px] font-semibold text-accent-ink">Today</span>}
                   <span className="tabular ml-auto text-[12px] text-ink-3">{all ? `${doneN} of ${all}` : ""}</span>
-                  <IconButton label={`Add task to ${DOW_FULL[dowIndex(d)]}`} size="sm" onClick={() => actions.openComposer(s.date)}>
+                  <IconButton label={`Add task to ${dayName(d)}`} size="sm" onClick={() => actions.openComposer(s.date)}>
                     <PlusIcon size={14} strokeWidth={2} />
                   </IconButton>
                 </div>

@@ -1,15 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addDays, formatMedium, monthGrid, parseYmd, relativeDay, startOfWeek, ymd } from "@/lib/dates";
+import { addDays, formatMedium, monthGrid, parseYmd, relativeDay, setWeekStart, startOfWeek, ymd, type WeekStart } from "@/lib/dates";
 import { statsRange, type Period } from "@/lib/stats";
 import { DEFAULT_SORT, matchesQuery, sortTasks, type Sort } from "@/lib/tasks";
 import type { AppUser, Task } from "@/lib/types";
 import { AnalyticsView } from "./analytics/AnalyticsView";
 import { DayView, type Focus } from "./DayView";
 import { MonthView } from "./MonthView";
-import { SettingsSheet } from "./SettingsSheet";
-import { ShortcutsSheet } from "./ShortcutsSheet";
+import { readWeekStart, saveWeekStart } from "./prefs";
+import { SettingsSheet, type SettingsTab } from "./SettingsSheet";
 import { MiniMonth, MobileHeader, Sidebar, TabBar, type View } from "./Sidebar";
 import type { Composer, Editing, Section, TableActions } from "./table/types";
 import { useTasks } from "./useTasks";
@@ -61,8 +61,18 @@ export function TaskApp({ user }: { user: AppUser }) {
       return true;
     }
   });
-  const [help, setHelp] = useState(false);
-  const [settings, setSettings] = useState(false);
+  const [sheet, setSheet] = useState<SettingsTab | null>(null);
+  // The first day of the week lives in lib/dates (every date helper reads it); this state re-renders on a change.
+  const [weekStart, setWeekStartState] = useState<WeekStart>(() => {
+    const w = readWeekStart();
+    setWeekStart(w);
+    return w;
+  });
+  const changeWeekStart = useCallback((w: WeekStart) => {
+    setWeekStart(w);
+    saveWeekStart(w);
+    setWeekStartState(w);
+  }, []);
   // Focus mode (Day view): one task at a time. "Not now" sends a task to the back of the queue for this session.
   const [focusOn, setFocusOn] = useState(false);
   const [later, setLater] = useState<string[]>([]);
@@ -88,11 +98,11 @@ export function TaskApp({ user }: { user: AppUser }) {
     }
     const ws = startOfWeek(parseYmd(selected));
     return [ymd(ws), ymd(addDays(ws, 6))];
-  }, [view, stats, cal, selected, todayKey]);
+  }, [view, stats, cal, selected, todayKey, weekStart]); // weekStart: the date helpers read it
   const miniRange = useMemo((): [string, string] => {
     const g = monthGrid(mini.y, mini.m);
     return [ymd(g.start), ymd(g.end)];
-  }, [mini]);
+  }, [mini, weekStart]);
   useEffect(() => {
     load(...mainRange);
   }, [load, mainRange]);
@@ -137,7 +147,7 @@ export function TaskApp({ user }: { user: AppUser }) {
       return { date, tasks: tasks.filter((t) => !completed.includes(t)), completed };
     });
     return query ? all.filter((s) => s.tasks.length || s.completed.length) : all;
-  }, [view, selected, byDate, query, sort, settling]);
+  }, [view, selected, byDate, query, sort, settling, weekStart]);
   // In screen order. Week view always shows finished tasks; Day view folds them into a collapsible group.
   const visibleIds = useMemo(
     () => sections.flatMap((s) => [...s.tasks, ...(view === "week" || completedOpen ? (s.completed ?? []) : [])].map((t) => t.id)),
@@ -378,8 +388,8 @@ export function TaskApp({ user }: { user: AppUser }) {
       } else if (table && sel && k === "Enter") actions.startEdit(sel.id, "title");
       else if (table && sel && k === " ") actions.toggle(sel);
       else if (table && sel && (k === "Backspace" || k === "Delete")) actions.remove(sel);
-      else if (k === "?") setHelp(true);
-      else if (k === ",") setSettings(true);
+      else if (k === "?") setSheet("shortcuts");
+      else if (k === ",") setSheet("general");
       else if (k === "Escape") setSelectedId(null);
       else return;
       e.preventDefault();
@@ -410,8 +420,8 @@ export function TaskApp({ user }: { user: AppUser }) {
 
   // ── Layout ──────────────────────────────────────────────────────────────────
   const tableState = { todayKey, selectedId, editing, composer, sort };
-  const weekStart = startOfWeek(parseYmd(selected));
-  const weekOpen = Array.from({ length: 7 }, (_, i) => byDate(ymd(addDays(weekStart, i)))).flat().filter((t) => !t.done).length;
+  const shownWeek = startOfWeek(parseYmd(selected));
+  const weekOpen = Array.from({ length: 7 }, (_, i) => byDate(ymd(addDays(shownWeek, i)))).flat().filter((t) => !t.done).length;
 
   return (
     <div className="min-h-dvh md:flex md:h-dvh md:min-h-0 md:bg-canvas">
@@ -419,8 +429,8 @@ export function TaskApp({ user }: { user: AppUser }) {
         user={user}
         view={view}
         onView={showView}
-        onShortcuts={() => setHelp(true)}
-        onSettings={() => setSettings(true)}
+        onShortcuts={() => setSheet("shortcuts")}
+        onSettings={() => setSheet("general")}
         badges={{ day: byDate(selected).filter((t) => !t.done).length, week: weekOpen }}
         mini={
           <MiniMonth
@@ -439,7 +449,7 @@ export function TaskApp({ user }: { user: AppUser }) {
         }
       />
       <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
-        <MobileHeader user={user} onShortcuts={() => setHelp(true)} onSettings={() => setSettings(true)} />
+        <MobileHeader user={user} onShortcuts={() => setSheet("shortcuts")} onSettings={() => setSheet("general")} />
         {/* The content sheet. Desktop: an inset white sheet that scrolls inside (the toolbar sticks). Phone: the page scrolls. */}
         <div className="min-h-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+92px)] md:pb-0">
           <main ref={scroller} className="group/sheet md:h-full md:scroll-pt-32 md:overflow-y-auto md:rounded-[14px] md:bg-surface md:shadow-sheet">
@@ -502,8 +512,7 @@ export function TaskApp({ user }: { user: AppUser }) {
         </div>
       </div>
       <TabBar view={view} onView={showView} />
-      {help && <ShortcutsSheet onClose={() => setHelp(false)} />}
-      {settings && <SettingsSheet onClose={() => setSettings(false)} />}
+      {sheet && <SettingsSheet tab={sheet} user={user} weekStart={weekStart} onWeekStart={changeWeekStart} onClose={() => setSheet(null)} />}
 
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+90px)] z-[120] flex justify-center px-4 md:bottom-6">

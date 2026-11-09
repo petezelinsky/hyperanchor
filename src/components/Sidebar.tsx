@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
-import { addDays, formatLong, monthGrid, MONTHS, ymd } from "@/lib/dates";
+import { addDays, formatLong, monthGrid, MONTHS, weekdayNames, ymd } from "@/lib/dates";
 import type { AppUser, Task } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
@@ -115,7 +115,7 @@ export function MiniMonth({
         </span>
       </div>
       <div className="mt-1.5 grid grid-cols-7 text-center text-[10.5px] font-medium text-ink-3">
-        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+        {weekdayNames("letter").map((d, i) => (
           <span key={i} className="py-1">
             {d}
           </span>
