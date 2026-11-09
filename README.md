@@ -10,13 +10,15 @@
 - **Week** — те же задачи за неделю, по дням; выполненные опускаются под невыполненные
 - **Month** — календарная сетка; клик по дню открывает поповер: отметить задачи, добавить новую на эту дату, открыть день
 - **Analytics** — неделя / месяц / год: плитки «выполнено», «процент выполнения», «среднее в день» с изменением к прошлому периоду, мини-графиком и шкалой, плюс серия дней подряд; график по дням или месяцам (выполнено / не выполнено) со средней линией и подсказками, тепловая карта года, разбивка по дням недели, список невыполненного с переносом на сегодня, сортируемая история — табличное представление всех цифр
-- Вход через Google (Auth.js). Главная для гостей — экран входа из двух половин: слева логотип, чёрный заголовок со сменяющимся словом (day / week / month), кнопка «Continue with Google», юридическая строка и подвал (© · Privacy · Terms · переключатель темы Light / Dark); справа серая панель-карусель из пяти анимированных сцен с подписями — список, который сам себя отмечает, быстрое добавление, фокус-режим, неделя, прогресс. Карусель листается сама, замирает, пока в ней фокус, а кнопка паузы останавливает всё движение на странице; при «уменьшении движения» сцены показаны готовыми и сами не листаются. На телефоне и планшете вход занимает первый экран, а карусель выглядывает снизу. Страницы `/privacy` и `/terms` — строгие документы: заголовок, дата вступления в силу, нумерованное оглавление со ссылками на разделы, текст; переключатель темы — в подвале
+- Вход через Google или Apple (Auth.js; разные способы входа — разные аккаунты, по email не склеиваются); удаление аккаунта в настройках. Главная для гостей — экран входа из двух половин: слева логотип, чёрный заголовок со сменяющимся словом (day / week / month), кнопки «Continue with Apple» (когда Apple настроен) и «Continue with Google», юридическая строка и подвал (© · Privacy · Terms · переключатель темы Light / Dark); справа серая панель-карусель из пяти анимированных сцен с подписями — список, который сам себя отмечает, быстрое добавление, фокус-режим, неделя, прогресс. Карусель листается сама, замирает, пока в ней фокус, а кнопка паузы останавливает всё движение на странице; при «уменьшении движения» сцены показаны готовыми и сами не листаются. На телефоне и планшете вход занимает первый экран, а карусель выглядывает снизу. Страницы `/privacy` и `/terms` — строгие документы: заголовок, дата вступления в силу, нумерованное оглавление со ссылками на разделы, текст; переключатель темы — в подвале
 
 Подсказки к кнопкам — свои, а не системные: появляются рядом с элементом (у бокового меню — справа) и никогда его не закрывают. Смена темы и акцента происходит в один кадр, без «волны» перекрашивания.
 
 Клавиатура: `N` — новая задача, `↑ ↓` — выбор строки, `Space` — готово, `Enter` — правка, `⌫` — удалить, `Esc` — отмена, `← →` — предыдущий/следующий день, неделя, месяц или период, `T` — сегодня, `D` `W` `M` `A` — разделы, `F` — фокус, `,` — настройки, `?` — шпаргалка по сочетаниям клавиш. На телефоне подсказки про клавиши скрыты.
 
-Стек: Next.js 16 (App Router) · TypeScript · Tailwind CSS v4 · Auth.js v5 (Google, JWT-сессии) · Postgres (`postgres.js`).
+Стек: Next.js 16 (App Router) · TypeScript · Tailwind CSS v4 · Auth.js v5 (Google, Apple, JWT-сессии) · Postgres (`postgres.js`) · `jose` (проверка токенов входа iOS-приложения).
+
+Нативное приложение для iPhone и iPad — в `ios/` (см. `ios/README.md`); оно работает с тем же API и теми же задачами.
 
 ## Локальный запуск
 
@@ -33,8 +35,13 @@ npm run dev                  # http://localhost:3000
 
 | Переменная | Что это |
 |---|---|
-| `AUTH_SECRET` | случайная строка: `openssl rand -base64 32` |
+| `AUTH_SECRET` | случайная строка: `openssl rand -base64 32`; ею же подписываются токены iOS-приложения (ключ выводится через HKDF) |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | OAuth-клиент Google (тип «Web application») |
+| `GOOGLE_IOS_CLIENT_ID` | OAuth-клиент Google типа «iOS» (Bundle ID `app.hyperanchor`): допустимый `aud` Google-токенов из приложения |
+| `APPLE_BUNDLE_ID` | Bundle ID приложения, `aud` Apple-токенов из приложения (по умолчанию `app.hyperanchor`) |
+| `AUTH_APPLE_ID` | *необязательно:* Services ID для Sign in with Apple на сайте; без него на сайте только Google |
+| `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` | *необязательно:* ключ Sign in with Apple (`.p8`, можно одной строкой с `\n`): из него сервер сам подписывает client secret для сайта и для отзыва токенов при удалении аккаунта |
+| `AUTH_APPLE_SECRET` | *необязательно, вместо ключа:* готовый client secret для сайта (`npx auth add apple`, действует до 6 месяцев) |
 | `DATABASE_URL` | Supabase → Connect → Transaction pooler (порт `6543`), с паролем БД и `?sslmode=require` в конце |
 
 ## Деплой на hyperanchor.app (Vercel)
@@ -51,15 +58,24 @@ npm run dev                  # http://localhost:3000
    - *Credentials* → OAuth client ID (Web application):
      Authorized JavaScript origin `https://hyperanchor.app`,
      Authorized redirect URI `https://hyperanchor.app/api/auth/callback/google`.
-3. **Vercel**: импортируйте репозиторий, добавьте переменные окружения из таблицы выше, задеплойте.
-4. **Домен**: Vercel → Project → Settings → Domains → `hyperanchor.app`, затем пропишите у регистратора
+   - Для iOS-приложения — ещё один OAuth client ID типа **iOS** с Bundle ID `app.hyperanchor`: его ID — в `GOOGLE_IOS_CLIENT_ID`
+     на сервере и в `ios/Config/Local.xcconfig` в приложении (см. `ios/Config/App.xcconfig`).
+3. **Apple Developer** → Certificates, Identifiers & Profiles:
+   - App ID `app.hyperanchor` с возможностью *Sign in with Apple* (основной, Primary App ID).
+   - Для сайта: Services ID (например, `app.hyperanchor.web`) с *Sign in with Apple*, сгруппированный с этим App ID;
+     домен `hyperanchor.app`, Return URL `https://hyperanchor.app/api/auth/callback/apple`. Его ID — в `AUTH_APPLE_ID`.
+     Благодаря группировке Apple выдаёт сайту и приложению один и тот же `sub`, и задачи у них общие.
+   - Keys → новый ключ с *Sign in with Apple* для этого App ID: `APPLE_KEY_ID`, содержимое `.p8` — в `APPLE_PRIVATE_KEY`,
+     Team ID — в `APPLE_TEAM_ID`.
+4. **Vercel**: импортируйте репозиторий, добавьте переменные окружения из таблицы выше, задеплойте.
+5. **Домен**: Vercel → Project → Settings → Domains → `hyperanchor.app`, затем пропишите у регистратора
    DNS-записи, которые покажет Vercel (A-запись на apex-домен и/или CNAME для `www`).
 
 Подойдёт и любой другой Node-хостинг: `npm run build && npm start` (Node ≥ 20.9).
 
 ## API
 
-Все запросы требуют сессии; задачи доступны только их владельцу.
+Все запросы к задачам требуют входа: cookie-сессии сайта или заголовка `Authorization: Bearer <token>` (iOS-приложение). Задачи доступны только их владельцу; идентификатор пользователя — `google:<sub>` или `apple:<sub>`, одинаковый на сайте и в приложении.
 
 | Метод | Путь | Тело / параметры |
 |---|---|---|
@@ -67,16 +83,24 @@ npm run dev                  # http://localhost:3000
 | `POST` | `/api/tasks` | `{ id (uuid), title, description?, date, done? }` |
 | `PATCH` | `/api/tasks/:id` | любые из `title`, `description`, `date`, `done` |
 | `DELETE` | `/api/tasks/:id` | — |
+| `POST` | `/api/auth/mobile` | `{ provider: "google" \| "apple", idToken, nonce?, name? }` → `{ token, user: { name, email, image } }`: проверяет ID-токен провайдера по его JWKS (Google: `aud` — iOS- или веб-клиент; Apple: `aud` — Bundle ID; `nonce` — сырой, у Apple сверяется его SHA-256) и выдаёт собственный JWT сервера на 90 дней |
+| `DELETE` | `/api/account` | `{ authorizationCode? }` → `{ deleted, revoked }`: удаляет все задачи пользователя; для Apple ещё и отзывает токен (приложение присылает свежий `authorizationCode`, сайт хранит refresh-токен Apple в зашифрованной сессии) |
 
 Даты хранятся как локальные `YYYY-MM-DD` пользователя, неделя начинается с понедельника. Клиент обновляет данные оптимистично, ввод сохраняется с задержкой 600 мс, запросы по одной задаче идут строго по порядку; при ошибке видимый диапазон перезагружается с сервера.
 
 ## Структура
 
 ```
+design/tokens.json       дизайн-токены (цвета светлой/тёмной темы, три акцента, радиусы, тени) — общие для веба и iOS;
+                         `npm run tokens` пишет из них блок переменных в src/app/globals.css и ios/…/Design/Tokens.swift
 db/schema.sql            схема Postgres
 scripts/migrate.mjs      применяет схему
-src/auth.ts              Auth.js (Google)
+src/auth.ts              Auth.js (Google, Apple)
 src/app/api/tasks        REST API задач
+src/app/api/auth/mobile  вход iOS-приложения (ID-токен Google/Apple → bearer-токен)
+src/app/api/account      удаление аккаунта
+src/lib/identity.ts      проверка токенов Google/Apple, client secret и отзыв токенов Apple
+src/lib/mobileToken.ts   bearer-токены iOS-приложения
 src/app/page.tsx         экран входа или приложение
 src/components/          UI: TaskApp (состояние, клавиатура), Sidebar, DayView, FocusPanel, WeekView, MonthView, SettingsSheet, ui.tsx (примитивы)
 src/components/prefs.ts  тема и акцент: сохранение и скрипт, применяющий их до первой отрисовки
@@ -84,4 +108,7 @@ src/components/table     список задач: To do / Completed, строк�
 src/components/analytics аналитика: KPI, графики, тепловая карта, история
 src/lib/stats.ts         расчёты аналитики
 src/app/privacy, terms   юридические страницы
+scripts/tokens.mjs       генератор токенов (CSS + Swift)
+scripts/ios-fixtures.mjs эталоны для iOS-тестов: прогоняет src/lib/*.ts на тестовых данных
+ios/                     приложение для iPhone и iPad (SwiftUI) — см. ios/README.md
 ```
