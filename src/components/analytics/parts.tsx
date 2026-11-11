@@ -21,7 +21,7 @@ export function Card({
   return (
     <section className={`min-w-0 pt-5 ${className}`}>
       <header className="mb-4 flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line pb-2">
-        <h2 className="text-[13px] leading-[18px] font-semibold text-ink">
+        <h2 className="text-footnote font-semibold text-ink">
           {title}
           {!!count && <span className="tabular ml-1.5 font-normal text-ink-3">{count}</span>}
         </h2>
@@ -62,7 +62,7 @@ function Delta({ value, digits, suffix = "", vs }: { value: number; digits: numb
   const tone = r > 0 ? "text-green-ink" : r < 0 ? "text-red-ink" : "text-ink-2";
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={`tabular inline-flex items-center gap-0.5 text-[12px] font-semibold ${tone}`}>
+      <span className={`tabular inline-flex items-center gap-0.5 text-caption font-semibold ${tone}`}>
         {r > 0 ? "▲" : r < 0 ? "▼" : "="} {r === 0 ? "0" : Math.abs(r).toFixed(digits).replace(/\.0$/, "")}
         {r !== 0 && suffix}
       </span>
@@ -78,12 +78,12 @@ function Delta({ value, digits, suffix = "", vs }: { value: number; digits: numb
 function Figure({ label, value, unit, foot, tip }: { label: string; value: React.ReactNode; unit?: string; foot?: React.ReactNode; tip?: string }) {
   return (
     <div data-tip={tip} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-4 py-3 sm:grid-cols-1 sm:px-5 sm:py-1 sm:first:pl-0 sm:last:pr-0">
-      <div className="col-start-1 row-start-1 text-[12px] leading-4 text-ink-3">{label}</div>
+      <div className="col-start-1 row-start-1 text-caption text-ink-3">{label}</div>
       <div className="col-start-2 row-span-2 row-start-1 flex items-baseline gap-1.5 self-center sm:col-start-1 sm:row-span-1 sm:row-start-2 sm:mt-1">
-        <span className="tabular font-display text-[26px] leading-8 font-semibold tracking-[-0.02em]">{value}</span>
-        {unit && <span className="text-[13px] leading-[18px] text-ink-3">{unit}</span>}
+        <span className="tabular font-display text-title font-semibold">{value}</span>
+        {unit && <span className="text-footnote text-ink-3">{unit}</span>}
       </div>
-      <div className="col-start-1 row-start-2 mt-0.5 min-h-4 text-[12px] leading-4 text-ink-3 sm:row-start-3 sm:mt-1">{foot}</div>
+      <div className="col-start-1 row-start-2 mt-0.5 min-h-4 text-caption text-ink-3 sm:row-start-3 sm:mt-1">{foot}</div>
     </div>
   );
 }

@@ -33,6 +33,19 @@ struct ShadowLayer: Sendable, Hashable {
     let color: RGBA
 }
 
+/// Dynamic Type styles by name; the app maps each to `Font.TextStyle` where it makes the font.
+enum TextStyleName: String, Sendable {
+    case caption2, caption, footnote, subheadline, callout, body, title3, title
+}
+
+/// A step of the type scale: size and line height in points, tracking in em, and the Dynamic Type style it scales with.
+struct TypeStep: Sendable, Hashable {
+    let size: CGFloat
+    let lineHeight: CGFloat
+    let tracking: CGFloat
+    let style: TextStyleName
+}
+
 struct ThemeShadow: Sendable, Hashable {
     let light: [ShadowLayer]
     let dark: [ShadowLayer]
@@ -179,17 +192,37 @@ enum Tokens {
 
     // MARK: Radii (points)
 
+    /// Four steps and a circle (rounded-full). A box inside a rounded box takes the outer radius minus the padding between them.
     enum Radius {
+        /// Chart bars, key caps, small marks.
+        static let xs: CGFloat = 4
+        /// Buttons, fields, rows.
         static let sm: CGFloat = 8
-        static let md: CGFloat = 9
-        static let row: CGFloat = 10
-        static let pill: CGFloat = 11
+        /// Menus, popovers, toasts.
         static let lg: CGFloat = 12
-        static let sheet: CGFloat = 14
+        /// The sheet, dialogs, the focus card.
         static let card: CGFloat = 16
-        static let dialog: CGFloat = 18
-        static let focus: CGFloat = 20
-        static let tabBar: CGFloat = 22
+    }
+
+    // MARK: Type scale
+
+    /// The type scale: size and line height in px, tracking in em; the iOS app scales each with the Dynamic Type style beside it.
+    enum Typography {
+        static let caption2 = TypeStep(size: 11, lineHeight: 14, tracking: 0, style: .caption2)
+        static let caption = TypeStep(size: 12, lineHeight: 16, tracking: 0, style: .caption)
+        static let footnote = TypeStep(size: 13, lineHeight: 18, tracking: 0, style: .footnote)
+        static let body = TypeStep(size: 14, lineHeight: 20, tracking: 0, style: .subheadline)
+        static let callout = TypeStep(size: 15, lineHeight: 22, tracking: 0, style: .callout)
+        static let headline = TypeStep(size: 17, lineHeight: 24, tracking: -0.01, style: .body)
+        static let title2 = TypeStep(size: 20, lineHeight: 28, tracking: -0.01, style: .title3)
+        static let title = TypeStep(size: 26, lineHeight: 32, tracking: -0.02, style: .title)
+    }
+
+    // MARK: Rings
+
+    /// A 1px outline drawn as a shadow, so it takes no room: a hovered or picked row, a drop target, a focused field.
+    enum Ring {
+        static let width: CGFloat = 1
     }
 
     // MARK: Shadows

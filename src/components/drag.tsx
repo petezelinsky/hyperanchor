@@ -198,9 +198,9 @@ export function DragProvider({
         createPortal(
           <>
             <div ref={ghost} aria-hidden="true" className="pointer-events-none fixed top-0 left-0 z-[200]" style={{ width: Math.min(press.current?.width ?? 320, 360) }}>
-              <div className="flex animate-[lift_0.18s_var(--ease-out)_both] items-center gap-3 rounded-[12px] bg-elevated px-3 py-2.5 shadow-float">
-                <span className={`size-[18px] flex-none rounded-full ${dragging.done ? "bg-accent" : "shadow-[inset_0_0_0_1.5px_var(--check-ring)]"}`} />
-                <span className={`truncate text-[14px] ${dragging.done ? "text-ink-3" : "text-ink"}`}>{dragging.title}</span>
+              <div className="flex animate-[lift_0.18s_var(--ease-out)_both] items-center gap-3 rounded-lg bg-elevated px-3 py-2.5 shadow-float">
+                <span className={`size-[18px] flex-none rounded-full ${dragging.done ? "bg-accent" : "border-[1.5px] border-check-ring"}`} />
+                <span className={`truncate text-body ${dragging.done ? "text-ink-3" : "text-ink"}`}>{dragging.title}</span>
               </div>
             </div>
             <div

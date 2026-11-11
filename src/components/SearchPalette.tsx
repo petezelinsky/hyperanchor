@@ -16,7 +16,7 @@ function Highlight({ text, q }: { text: string; q: string }) {
   for (let i = lower.indexOf(needle); i >= 0; i = lower.indexOf(needle, i + needle.length)) {
     if (i > at) parts.push(text.slice(at, i));
     parts.push(
-      <mark key={i} className="rounded-[3px] bg-surface-3 px-px font-semibold text-ink">
+      <mark key={i} className="rounded-xs bg-surface-3 px-px font-semibold text-ink">
         {text.slice(i, i + needle.length)}
       </mark>,
     );
@@ -124,7 +124,7 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
           aria-controls="search-results"
           aria-activedescendant={flat.length ? `search-result-${active}` : undefined}
           maxLength={200}
-          className="h-14 min-w-0 flex-1 bg-transparent text-[16px] text-ink outline-none placeholder:text-ink-3"
+          className="h-14 min-w-0 flex-1 bg-transparent text-headline text-ink outline-none placeholder:text-ink-3"
         />
         {loading ? (
           <span aria-label="Searching" className="size-4 flex-none animate-spin rounded-full border-2 border-line-2 border-t-accent" />
@@ -136,17 +136,17 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
       </div>
       <div ref={list} id="search-results" role="listbox" aria-label="Results" className="max-h-[min(60vh,480px)] overflow-y-auto overscroll-contain p-2">
         {results === null ? (
-          <p className="px-3 py-6 text-center text-[13.5px] text-ink-3">Find any task by its title or notes, on any day.</p>
+          <p className="px-3 py-6 text-center text-footnote text-ink-3">Find any task by its title or notes, on any day.</p>
         ) : !flat.length ? (
           !loading && (
-            <p className="px-3 py-6 text-center text-[13.5px] text-ink-3">
+            <p className="px-3 py-6 text-center text-footnote text-ink-3">
               {failed ? (navigator.onLine ? "Couldn’t search just now. Try again in a moment." : "You’re offline. Search works when you’re back.") : `No tasks match “${query}”.`}
             </p>
           )
         ) : (
           groups.map((g) => (
             <div key={g.date} role="group" aria-label={label(g.date)}>
-              <div className="px-3 pt-2.5 pb-1 text-[11.5px] font-medium text-ink-3">{label(g.date)}</div>
+              <div className="px-3 pt-2.5 pb-1 text-caption font-medium text-ink-3">{label(g.date)}</div>
               {g.tasks.map((t) => {
                 index++;
                 const i = index;
@@ -159,21 +159,21 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
                     aria-selected={i === active}
                     onMouseMove={() => setActive(i)}
                     onClick={() => open(t)}
-                    className={`flex cursor-pointer items-start gap-3 rounded-[10px] px-3 py-2 ${i === active ? "bg-surface-3" : ""}`}
+                    className={`flex cursor-pointer items-start gap-3 rounded-sm px-3 py-2 ${i === active ? "bg-surface-3" : ""}`}
                   >
                     <span
                       className={`mt-0.5 flex size-[18px] flex-none items-center justify-center rounded-full ${
-                        t.done ? "bg-accent text-on-accent" : "shadow-[inset_0_0_0_1.5px_var(--check-ring)]"
+                        t.done ? "bg-accent text-on-accent" : "border-[1.5px] border-check-ring"
                       }`}
                     >
                       {t.done && <CheckIcon size={9} strokeWidth={2.6} />}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className={`block truncate text-[14px] leading-5 ${t.done ? "text-ink-3" : "text-ink"}`}>
+                      <span className={`block truncate text-body ${t.done ? "text-ink-3" : "text-ink"}`}>
                         <Highlight text={t.title} q={query} />
                       </span>
                       {t.description && (
-                        <span className="block truncate text-[12.5px] leading-[18px] text-ink-3">
+                        <span className="block truncate text-caption text-ink-3">
                           <Highlight text={t.description.replace(/\s*\n\s*/g, " · ")} q={query} />
                         </span>
                       )}

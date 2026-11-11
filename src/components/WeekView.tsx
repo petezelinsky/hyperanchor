@@ -26,7 +26,7 @@ export function WeekView({
   const { todayKey } = state;
   const start = startOfWeek(parseYmd(selected));
   const weeks = Math.round(dayDiff(start, startOfWeek(parseYmd(todayKey))) / 7);
-  const title = weeks === 0 ? "This Week" : weeks === -1 ? "Last Week" : weeks === 1 ? "Next Week" : `Week of ${formatShort(start)}`;
+  const title = weeks === 0 ? "This week" : weeks === -1 ? "Last week" : weeks === 1 ? "Next week" : `Week of ${formatShort(start)}`;
   const tasks = sections.flatMap((s) => [...s.tasks, ...(s.completed ?? [])]);
   const done = tasks.filter((t) => t.done).length;
 
@@ -62,7 +62,7 @@ export function WeekView({
         <NavGroup
           prevLabel="Previous week"
           nextLabel="Next week"
-          todayLabel="This Week"
+          todayLabel="This week"
           onPrev={() => onSelectDate(ymd(addDays(parseYmd(selected), -7)))}
           onNext={() => onSelectDate(ymd(addDays(parseYmd(selected), 7)))}
           onToday={() => onSelectDate(todayKey)}

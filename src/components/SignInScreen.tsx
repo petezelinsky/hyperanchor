@@ -23,13 +23,13 @@ export function SignInScreen({ error }: { error?: boolean }) {
           </header>
 
           <main className="flex flex-1 flex-col justify-center py-10 lg:py-14">
-            <h1 className={`font-display text-[clamp(32px,9.4vw,40px)] leading-[1.2] font-semibold tracking-[-0.032em] ${enter}`}>
+            <h1 className={`font-display text-title font-semibold ${enter}`}>
               <span className="sr-only">Own your day, week and month.</span>
               <span aria-hidden="true">
                 Own your <RotatingWord words={["day.", "week.", "month."]} />
               </span>
             </h1>
-            <p className={`mt-3 text-[16px] leading-[1.55] text-ink-2 [animation-delay:70ms] ${enter}`}>
+            <p className={`mt-3 text-callout text-ink-2 [animation-delay:70ms] ${enter}`}>
               Hyperanchor is a calm, fast planner.
               <br />
               Sign in to get started.
@@ -46,12 +46,12 @@ export function SignInScreen({ error }: { error?: boolean }) {
               </form>
             </div>
             {error && (
-              <p role="alert" className="mt-4 rounded-[10px] bg-red-soft px-3 py-2 text-[13px] font-medium text-red-ink">
+              <p role="alert" className="mt-4 rounded-sm bg-red-soft px-3 py-2 text-footnote font-medium text-red-ink">
                 Sign-in didn’t work. Please try again.
               </p>
             )}
             {/* Two set lines: the documents always sit together on the second, and neither name ever breaks. */}
-            <p className={`mt-5 text-[12.5px] leading-[1.6] text-ink-2 [animation-delay:210ms] ${enter}`}>
+            <p className={`mt-5 text-caption text-ink-2 [animation-delay:210ms] ${enter}`}>
               <span className="block text-balance">Free forever. By continuing, you agree to the</span>
               <span className="block">
                 <Link href="/terms" className="whitespace-nowrap">
@@ -74,17 +74,17 @@ export function SignInScreen({ error }: { error?: boolean }) {
 
       <footer className="flex min-w-0 justify-center px-5 pt-7 pb-9 sm:px-8 lg:col-start-1 lg:row-start-2 lg:pt-0 lg:pb-11">
         {/* One line on computers, level with the carousel dots (it may run a little past the column); it wraps on phones. */}
-        <div className="flex w-full max-w-[380px] flex-wrap items-center justify-between gap-x-5 gap-y-3 text-[12.5px] leading-5 whitespace-nowrap text-ink-2 lg:flex-nowrap">
+        <div className="flex w-full max-w-[380px] flex-wrap items-center justify-between gap-x-5 gap-y-3 text-caption whitespace-nowrap text-ink-2 lg:flex-nowrap">
           <span>© 2026 Hyperanchor</span>
           <div className="flex items-center gap-4">
             <nav aria-label="Help and legal" className="flex gap-5">
-              <Link href="/privacy" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
+              <Link href="/privacy" className="no-underline hover:underline tap relative">
                 Privacy
               </Link>
-              <Link href="/terms" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
+              <Link href="/terms" className="no-underline hover:underline tap relative">
                 Terms
               </Link>
-              <Link href="/support" className="no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
+              <Link href="/support" className="no-underline hover:underline tap relative">
                 Support
               </Link>
             </nav>

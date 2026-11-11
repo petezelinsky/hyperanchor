@@ -227,8 +227,8 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
   const latest = useRef({ tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen, sort });
   latest.current = { tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen, sort };
 
-  /** "Today", "Tomorrow", or "Wed, Nov 18": a day as messages name it. */
-  const dayLabel = useCallback((key: string) => relativeDay(key, latest.current.todayKey) ?? formatMedium(parseYmd(key)), []);
+  /** "today", "tomorrow", or "Wed, Nov 18": a day as a message names it mid-sentence. */
+  const dayLabel = useCallback((key: string) => relativeDay(key, latest.current.todayKey)?.toLowerCase() ?? formatMedium(parseYmd(key)), []);
   // A new task's text while it's typed (the composer shows it; the app reads it on Enter).
   const draft = useRef({ title: "", description: "" });
 
@@ -417,7 +417,7 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
       back.forEach((t) => edit(t.id, { date: t.date }));
       return back.length > 0;
     }, list.length === 1 ? "Moved back" : `Moved ${list.length} tasks back`);
-    notify(list.length === 1 ? "Moved 1 task to Today" : `Moved ${list.length} tasks to Today`, { label: "Undo", run: () => undoThis(u) });
+    notify(list.length === 1 ? "Moved 1 task to today" : `Moved ${list.length} tasks to today`, { label: "Undo", run: () => undoThis(u) });
   };
 
   // ── Order and drag and drop ─────────────────────────────────────────────────
@@ -723,7 +723,7 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
         <MobileHeader user={user} sync={sync} onSettings={() => setSheet("general")} />
         {/* The content sheet. Desktop: an inset white sheet that scrolls inside (the toolbar sticks). Phone: the page scrolls. */}
         <div className="min-h-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+92px)] md:pb-0">
-          <main ref={scroller} className="group/sheet md:h-full md:scroll-pt-32 md:overflow-y-auto md:rounded-[14px] md:bg-surface md:shadow-sheet">
+          <main ref={scroller} className="group/sheet md:h-full md:scroll-pt-32 md:overflow-y-auto md:rounded-card md:bg-surface md:shadow-sheet">
             {view === "day" && (
               <DayView
                 selected={selected}
@@ -792,7 +792,7 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
           <div
             role="status"
             key={toast.id}
-            className="pointer-events-auto flex animate-rise items-center gap-3 rounded-[12px] bg-ink py-1.5 pr-1.5 pl-4 text-[13px] text-surface shadow-float"
+            className="pointer-events-auto flex animate-rise items-center gap-3 rounded-lg bg-ink py-1.5 pr-1.5 pl-4 text-footnote text-surface shadow-float"
           >
             <span className="line-clamp-2 max-w-[min(60vw,420px)]">{toast.message}</span>
             {toast.action && (
@@ -802,7 +802,7 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
                   toast.action?.run();
                   setToast(null);
                 }}
-                className="rounded-[8px] bg-surface/12 px-2.5 py-1 font-semibold transition-colors hover:bg-surface/20"
+                className="tap relative rounded-sm bg-surface/12 px-2.5 py-1 font-semibold transition-colors hover:bg-surface/20"
               >
                 {toast.action.label}
               </button>

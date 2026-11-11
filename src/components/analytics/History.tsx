@@ -39,7 +39,7 @@ export function HistoryCard({ rows, unit }: { rows: HistoryRow[]; unit: "days" |
         <button
           type="button"
           onClick={() => setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: -1 }))}
-          className={`inline-flex items-center gap-1 hover:text-ink ${on ? "text-ink" : ""}`}
+          className={`tap relative inline-flex items-center gap-1 hover:text-ink ${on ? "text-ink" : ""}`}
         >
           {label}
           {on && (sort.dir === 1 ? <ChevronUp size={11} strokeWidth={2} /> : <ChevronDown size={11} strokeWidth={2} />)}
@@ -49,17 +49,17 @@ export function HistoryCard({ rows, unit }: { rows: HistoryRow[]; unit: "days" |
   };
 
   return (
-    <Card title="History" aside={<span className="tabular text-[12px] text-ink-3">{rows.length ? `${rows.length} ${unit} with tasks` : ""}</span>}>
+    <Card title="History" aside={<span className="tabular text-caption text-ink-3">{rows.length ? `${rows.length} ${unit} with tasks` : ""}</span>}>
       {rows.length === 0 ? (
-        <p className="py-6 text-center text-[13px] text-ink-2">No tasks in this period yet.</p>
+        <p className="py-6 text-center text-footnote text-ink-2">No tasks in this period yet.</p>
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[13px] sm:min-w-[560px]">
+            <table className="w-full border-collapse text-footnote sm:min-w-[560px]">
               <thead>
-                <tr className="border-b border-line text-[12px] text-ink-3">
+                <tr className="border-b border-line text-caption text-ink-3">
                   {th("date", unit === "days" ? "Date" : "Month")}
-                  {th("done", "Completed", true)}
+                  {th("done", "Done", true)}
                   <th className="py-2 pl-4 text-right font-medium max-sm:hidden">Planned</th>
                   {th("rate", "Rate", true, "pl-5")}
                   <th className="py-2 pl-6 text-left font-medium max-sm:hidden">{unit === "days" ? "Tasks" : "Active days"}</th>
@@ -102,7 +102,7 @@ export function HistoryCard({ rows, unit }: { rows: HistoryRow[]; unit: "days" |
             </table>
           </div>
           {rows.length > LIMIT && (
-            <button type="button" onClick={() => setAll((a) => !a)} className="mt-3 text-[12px] leading-4 font-medium text-ink-2 underline decoration-ink-4 underline-offset-[3px] hover:text-ink hover:decoration-current">
+            <button type="button" onClick={() => setAll((a) => !a)} className="tap relative mt-3 text-caption font-medium text-ink-2 underline decoration-ink-4 underline-offset-[3px] hover:text-ink hover:decoration-current">
               {all ? "Show less" : `Show all ${rows.length}`}
             </button>
           )}

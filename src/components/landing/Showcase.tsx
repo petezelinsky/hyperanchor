@@ -22,11 +22,11 @@ function TodayScene({ t }: { t: number }) {
   const done = TICK_AT.filter((at) => t >= at).length;
   const all = done === TASKS.length;
   return (
-    <div className="rounded-[22px] bg-surface p-5 shadow-float">
+    <div className="rounded-card bg-surface p-5 shadow-float">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="font-display text-[20px] leading-7 font-bold tracking-[-0.02em]">Today</div>
-          <div className={`tabular mt-0.5 text-[13px] transition-colors duration-300 ${all ? "font-medium text-ink" : "text-ink-3"}`}>
+          <div className="font-display text-title-2 font-bold">Today</div>
+          <div className={`tabular mt-0.5 text-footnote transition-colors duration-300 ${all ? "font-medium text-ink" : "text-ink-3"}`}>
             {all ? "All done." : `${done} of ${TASKS.length} done`}
           </div>
         </div>
@@ -39,17 +39,17 @@ function TodayScene({ t }: { t: number }) {
           <li key={task.title} className="flex items-start gap-3 border-t border-line py-2.5">
             <Checkbox checked={i < done} onToggle={() => {}} label={task.title} className="mt-px" />
             <div className="min-w-0">
-              <div className={`truncate text-[14px] leading-5 transition-colors duration-300 ${i < done ? "text-ink-3" : "text-ink"}`}>{task.title}</div>
-              {task.note && <div className="truncate text-[12.5px] text-ink-3">{task.note}</div>}
+              <div className={`truncate text-body transition-colors duration-300 ${i < done ? "text-ink-3" : "text-ink"}`}>{task.title}</div>
+              {task.note && <div className="truncate text-caption text-ink-3">{task.note}</div>}
             </div>
           </li>
         ))}
       </ul>
-      <div className="flex items-center gap-3 border-t border-line pt-2.5 text-[14px] text-ink-3">
+      <div className="flex items-center gap-3 border-t border-line pt-2.5 text-body text-ink-3">
         <span className="flex size-5 items-center justify-center">
           <PlusIcon size={15} />
         </span>
-        Add a task
+        New task
       </div>
     </div>
   );
@@ -65,7 +65,7 @@ const ADDED_AT = ENTER_AT + 320;
 
 function Tick({ done = false }: { done?: boolean }) {
   return (
-    <span className={`flex size-[18px] flex-none items-center justify-center rounded-full ${done ? "bg-accent text-on-accent" : "shadow-[inset_0_0_0_1.5px_var(--check-ring)]"}`}>
+    <span className={`flex size-[18px] flex-none items-center justify-center rounded-full ${done ? "bg-accent text-on-accent" : "border-[1.5px] border-check-ring"}`}>
       {done && <CheckIcon size={9} strokeWidth={2.6} />}
     </span>
   );
@@ -74,12 +74,12 @@ function Tick({ done = false }: { done?: boolean }) {
 function CaptureScene({ t }: { t: number }) {
   const typed = CHAR_AT.filter((at) => t >= at).length;
   const added = t >= ADDED_AT;
-  const row = "flex h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-[13.5px]";
+  const row = "flex h-9 items-center gap-2.5 rounded-sm px-2.5 text-body";
   return (
-    <div className="rounded-[22px] bg-surface p-3.5 shadow-float">
-      <div className="flex h-12 items-center gap-2.5 rounded-[12px] bg-surface-2 pr-2.5 pl-3.5 shadow-[inset_0_0_0_1px_var(--line-2)]">
+    <div className="rounded-card bg-surface p-3.5 shadow-float">
+      <div className="flex h-12 items-center gap-2.5 rounded-sm bg-surface-2 pr-2.5 pl-3.5 shadow-ring-line-2">
         <PlusIcon size={15} className="flex-none text-ink-3" />
-        <span className="min-w-0 flex-1 truncate text-[14px] leading-5">
+        <span className="min-w-0 flex-1 truncate text-body">
           {added ? (
             <span className="text-ink-3">New task</span>
           ) : (
@@ -90,7 +90,7 @@ function CaptureScene({ t }: { t: number }) {
           )}
         </span>
         <kbd
-          className={`flex h-[26px] min-w-[26px] items-center justify-center rounded-[7px] px-1.5 font-sans text-[12px] font-medium transition-[background-color,color,transform] duration-150 ${
+          className={`flex h-[26px] min-w-[26px] items-center justify-center rounded-xs px-1.5 font-sans text-caption font-medium transition-[background-color,color,transform] duration-150 ${
             t >= ENTER_AT && !added ? "translate-y-px bg-accent text-on-accent" : "bg-surface-3 text-ink-2"
           }`}
         >
@@ -137,10 +137,10 @@ function FocusScene({ t }: { t: number }) {
   const done = local >= FOCUS_DONE;
   const pressed = local >= FOCUS_DONE - 220 && !done;
   const finished = i + (done ? 1 : 0);
-  const key = "ml-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[5px] px-1 text-[10.5px] font-medium pointer-coarse:hidden";
+  const key = "ml-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-xs px-1 text-caption-2 font-medium pointer-coarse:hidden";
   return (
     <div className="flex flex-col items-center">
-      <div className="flex items-center gap-3 text-[12px] text-ink-3">
+      <div className="flex items-center gap-3 text-caption text-ink-3">
         <span className="flex gap-1">
           {QUEUE.map((_, n) => (
             <span key={n} className={`h-1.5 w-5 rounded-full transition-colors duration-500 ${n < finished ? "bg-accent" : n === finished ? "bg-accent/45" : "bg-accent-track"}`} />
@@ -152,16 +152,16 @@ function FocusScene({ t }: { t: number }) {
       </div>
       {/* The edges below the card are the tasks still waiting, as in the real focus mode. */}
       <div className="relative mt-4 w-full pb-[18px]">
-        <span className="absolute inset-x-[9%] bottom-0 h-16 rounded-[18px] bg-surface-2 shadow-lift" />
-        <span className="absolute inset-x-[4.5%] bottom-[9px] h-16 rounded-[20px] bg-surface shadow-lift" />
-        <div key={i} className="relative animate-[focus-in_0.45s_var(--ease-out)_both] rounded-[22px] bg-surface p-6 shadow-float">
+        <span className="absolute inset-x-[9%] bottom-0 h-16 rounded-card bg-surface-2 shadow-lift" />
+        <span className="absolute inset-x-[4.5%] bottom-[9px] h-16 rounded-card bg-surface shadow-lift" />
+        <div key={i} className="relative animate-[focus-in_0.45s_var(--ease-out)_both] rounded-card bg-surface p-6 shadow-float">
           <div className="flex items-start gap-3.5">
             <Checkbox checked={done} onToggle={() => {}} label={QUEUE[i]} size={24} className="mt-px" />
-            <div className={`text-[20px] leading-[1.3] font-semibold tracking-[-0.02em] transition-colors duration-300 ${done ? "text-ink-3" : "text-ink"}`}>{QUEUE[i]}</div>
+            <div className={`text-title-2 font-semibold transition-colors duration-300 ${done ? "text-ink-3" : "text-ink"}`}>{QUEUE[i]}</div>
           </div>
           <div className="mt-5 flex gap-2 pl-[38px]">
             <span
-              className={`inline-flex h-9 items-center gap-1.5 rounded-[10px] pr-2 pl-3 text-[13.5px] font-medium text-on-primary transition-[transform,background-color] duration-150 pointer-coarse:pr-3.5 ${
+              className={`inline-flex h-9 items-center gap-1.5 rounded-sm pr-2 pl-3 text-footnote font-medium text-on-primary transition-[transform,background-color] duration-150 pointer-coarse:pr-3.5 ${
                 pressed ? "scale-95 bg-primary-hover" : "bg-primary"
               }`}
             >
@@ -169,7 +169,7 @@ function FocusScene({ t }: { t: number }) {
               Done
               <span className={`${key} bg-on-primary/15 text-on-primary/75`}>Space</span>
             </span>
-            <span className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-surface pr-2 pl-3.5 text-[13.5px] font-medium shadow-lift pointer-coarse:pr-3.5">
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-sm bg-surface pr-2 pl-3.5 text-footnote font-medium shadow-lift pointer-coarse:pr-3.5">
               Not now
               <span className={`${key} bg-surface-3 text-ink-3`}>→</span>
             </span>
@@ -191,12 +191,12 @@ function WeekScene({ t }: { t: number }) {
   const shown = t < 500 ? 0 : Math.floor((t - 500) / 140) + 1;
   let k = 0;
   return (
-    <div className="grid grid-cols-7 gap-1 rounded-[22px] bg-surface p-3.5 shadow-float">
+    <div className="grid grid-cols-7 gap-1 rounded-card bg-surface p-3.5 shadow-float">
       {WEEK.map((tasks, d) => (
-        <div key={d} className={`flex h-[152px] flex-col items-center gap-1.5 rounded-[12px] px-1 pt-3 sm:px-1.5 ${d === TODAY ? "bg-surface-3" : ""}`}>
-          <span className={`text-[11px] leading-[14px] font-medium ${d === TODAY ? "text-accent-ink" : "text-ink-3"}`}>{DAYS[d]}</span>
+        <div key={d} className={`flex h-[152px] flex-col items-center gap-1.5 rounded-xs px-1 pt-3 sm:px-1.5 ${d === TODAY ? "bg-surface-3" : ""}`}>
+          <span className={`text-caption-2 font-medium ${d === TODAY ? "text-accent-ink" : "text-ink-3"}`}>{DAYS[d]}</span>
           <span
-            className={`flex h-7 items-center font-semibold ${d === TODAY ? "w-7 justify-center rounded-full bg-accent-solid text-[14px] text-on-accent" : "text-[15px] text-ink-2"}`}
+            className={`flex h-7 items-center font-semibold ${d === TODAY ? "w-7 justify-center rounded-full bg-accent-solid text-body text-on-accent" : "text-callout text-ink-2"}`}
           >
             {19 + d}
           </span>
@@ -320,7 +320,7 @@ export function Showcase() {
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) setHeld(false);
       }}
-      className="@container relative isolate flex min-h-[640px] min-w-0 flex-1 flex-col overflow-hidden rounded-[24px] bg-canvas px-5 pt-12 pb-20 sm:px-8 lg:min-h-[620px] lg:pt-16 lg:pb-24"
+      className="@container relative isolate flex min-h-[640px] min-w-0 flex-1 flex-col overflow-hidden rounded-card bg-canvas px-5 pt-12 pb-20 sm:px-8 lg:min-h-[620px] lg:pt-16 lg:pb-24"
     >
       {/* On big screens the scenes grow with the panel instead of floating small in it. */}
       <div
@@ -344,8 +344,8 @@ export function Showcase() {
               <div inert className="w-full text-left">
                 <Scene t={leaving ? prevAt : t} />
               </div>
-              <h2 className="mt-9 font-display text-[20px] leading-[1.3] font-semibold tracking-[-0.02em]">{title}</h2>
-              <p className="mt-2 max-w-[340px] text-[14.5px] leading-[1.55] text-balance text-ink-2">{text}</p>
+              <h2 className="mt-9 font-display text-title-2 font-semibold">{title}</h2>
+              <p className="mt-2 max-w-[340px] text-callout text-balance text-ink-2">{text}</p>
             </div>
           );
         })}
@@ -359,7 +359,7 @@ export function Showcase() {
             onClick={() => pick(i)}
             aria-label={`Show slide ${i + 1} of ${SLIDES.length}: ${s.name}`}
             aria-current={i === slide || undefined}
-            className="flex h-6 items-center rounded-full px-1"
+            className="tap relative flex h-6 items-center rounded-full px-1"
           >
             <span className={`relative block h-1.5 overflow-hidden rounded-full bg-ink-3 transition-[width] duration-[350ms] ease-out ${i === slide ? "w-7" : "w-1.5"}`}>
               {i === slide && (
@@ -377,7 +377,7 @@ export function Showcase() {
           type="button"
           onClick={togglePause}
           aria-label={paused ? "Play the slideshow" : "Pause the slideshow"}
-          className="absolute right-4 bottom-7 flex size-6 items-center justify-center rounded-full text-ink-3 transition-colors hover:text-ink sm:right-6 lg:bottom-8"
+          className="tap absolute right-4 bottom-7 flex size-6 items-center justify-center rounded-full text-ink-3 transition-colors hover:text-ink sm:right-6 lg:bottom-8"
         >
           {paused ? <PlayIcon size={11} /> : <PauseIcon size={11} />}
         </button>

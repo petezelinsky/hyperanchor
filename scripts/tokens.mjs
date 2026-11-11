@@ -55,15 +55,26 @@ function themeLines(theme) {
     }
     out.push("");
   }
-  if (theme === "light") {
-    for (const [k, v] of Object.entries(tokens.radius)) out.push(`--radius-${k}: ${v}px;`);
-    out.push("");
-  }
   for (const [k, s] of Object.entries(tokens.shadow)) out.push(`--shadow-${k}: ${cssShadow(s[theme])};`);
   return out;
 }
 
 const accentLines = (name, theme) => accentKeys.map((k) => `--${k}: ${accents[name][theme][k]};`);
+
+const radii = Object.entries(tokens.radius).filter(([k]) => k !== "note");
+const steps = Object.entries(tokens.type.steps);
+const em = (n) => (n === 0 ? "0" : `${n}em`);
+
+/** The scales, as Tailwind theme values: rounded-xs…card, text-caption-2…title (size, line height, tracking), shadow-ring-*. */
+function themeScale() {
+  const out = [`/* Radii. ${tokens.radius.note} */`];
+  for (const [k, v] of radii) out.push(`--radius-${k}: ${v}px;${tokens["radius-notes"][k] ? ` /* ${tokens["radius-notes"][k]} */` : ""}`);
+  out.push("", `/* Type. ${tokens.type.note} */`);
+  for (const [k, t] of steps) out.push(`--text-${k}: ${t.size}px;`, `--text-${k}--line-height: ${t.line}px;`, `--text-${k}--letter-spacing: ${em(t.tracking)};`);
+  out.push("", `/* Rings. ${tokens.ring.note} */`);
+  for (const c of tokens.ring.colors) out.push(`--shadow-ring-${c}: 0 0 0 ${px(tokens.ring.width)} var(--${c});`);
+  return out;
+}
 
 function css() {
   const blocks = [cssBlock(":root", themeLines("light"))];
@@ -71,6 +82,7 @@ function css() {
   blocks.push(cssBlock(':root[data-theme="dark"]', themeLines("dark")));
   for (const name of Object.keys(accents))
     if (name !== tokens.accent.default) blocks.push(cssBlock(`:root[data-theme="dark"][data-accent="${name}"]`, accentLines(name, "dark")));
+  blocks.push(cssBlock("@theme", themeScale()));
   return `${START}\n${blocks.join("\n\n")}\n${END}`;
 }
 
@@ -134,6 +146,19 @@ function swift() {
   p("    let color: RGBA");
   p("}");
   p();
+  p("/// Dynamic Type styles by name; the app maps each to `Font.TextStyle` where it makes the font.");
+  p("enum TextStyleName: String, Sendable {");
+  p(`    case ${[...new Set(steps.map(([, t]) => t.ios))].join(", ")}`);
+  p("}");
+  p();
+  p("/// A step of the type scale: size and line height in points, tracking in em, and the Dynamic Type style it scales with.");
+  p("struct TypeStep: Sendable, Hashable {");
+  p("    let size: CGFloat");
+  p("    let lineHeight: CGFloat");
+  p("    let tracking: CGFloat");
+  p("    let style: TextStyleName");
+  p("}");
+  p();
   p("struct ThemeShadow: Sendable, Hashable {");
   p("    let light: [ShadowLayer]");
   p("    let dark: [ShadowLayer]");
@@ -189,8 +214,20 @@ function swift() {
   }
   p("    // MARK: Radii (points)");
   p();
-  p("    enum Radius {");
-  for (const [k, v] of Object.entries(tokens.radius)) p(`        static let ${camel(k)}: CGFloat = ${v}`);
+  p(`${doc(tokens.radius.note.replace(/\.$/, ""), "    ")}    enum Radius {`);
+  for (const [k, v] of radii) p(`${doc(tokens["radius-notes"][k], "        ")}        static let ${camel(k)}: CGFloat = ${v}`);
+  p("    }");
+  p();
+  p("    // MARK: Type scale");
+  p();
+  p(`${doc(tokens.type.note.replace(/\.$/, ""), "    ")}    enum Typography {`);
+  for (const [k, t] of steps) p(`        static let ${camel(k)} = TypeStep(size: ${num(t.size)}, lineHeight: ${num(t.line)}, tracking: ${num(t.tracking)}, style: .${t.ios})`);
+  p("    }");
+  p();
+  p("    // MARK: Rings");
+  p();
+  p(`${doc(tokens.ring.note.replace(/\.$/, ""), "    ")}    enum Ring {`);
+  p(`        static let width: CGFloat = ${num(tokens.ring.width)}`);
   p("    }");
   p();
   p("    // MARK: Shadows");

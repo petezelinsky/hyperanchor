@@ -26,13 +26,13 @@ export function LegalPage({
       <SiteHeader />
 
       <main className="mx-auto max-w-[760px] px-5 pt-12 pb-20 md:pt-16">
-        <h1 className="text-[30px] leading-[1.2] font-semibold tracking-[-0.02em] md:text-[34px]">{title}</h1>
-        {effective && <p className="mt-2 text-[14px] text-ink-2">Effective {effective}</p>}
-        {intro && <p className="mt-3 text-[15.5px] leading-[1.7] text-ink-2">{intro}</p>}
+        <h1 className="text-title font-semibold">{title}</h1>
+        {effective && <p className="mt-2 text-body text-ink-2">Effective {effective}</p>}
+        {intro && <p className="mt-3 text-callout text-ink-2">{intro}</p>}
 
         <nav aria-label="Contents" className="mt-8 border-y border-line py-5">
-          <h2 className="text-[13px] font-semibold">Contents</h2>
-          <ol className="mt-3 gap-x-8 text-[14px] sm:columns-2">
+          <h2 className="text-footnote font-semibold">Contents</h2>
+          <ol className="mt-3 gap-x-8 text-body sm:columns-2">
             {sections.map((s) => (
               <li key={s.n} className="mb-1.5 break-inside-avoid pointer-coarse:mb-0.5">
                 <a href={`#section-${s.n}`} className="text-ink-2 no-underline hover:text-ink hover:underline pointer-coarse:inline-block pointer-coarse:py-1">
@@ -43,7 +43,7 @@ export function LegalPage({
           </ol>
         </nav>
 
-        <article className="mt-10 text-[15.5px] leading-[1.7] text-ink">{children}</article>
+        <article className="mt-10 text-callout text-ink">{children}</article>
       </main>
 
       <SiteFooter />
@@ -54,7 +54,7 @@ export function LegalPage({
 export function LegalSection({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <section id={`section-${n}`} className="scroll-mt-6 pt-9 first:pt-0">
-      <h2 className="text-[17px] leading-7 font-semibold">
+      <h2 className="text-headline font-semibold">
         <span className="tabular">{n}.</span> {title}
       </h2>
       <div className="mt-2 flex flex-col gap-3 text-pretty">{children}</div>

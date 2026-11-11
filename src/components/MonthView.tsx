@@ -57,7 +57,7 @@ export function MonthView({
             <>
               <ProgressRing value={done / inMonth.length} size={14} stroke={2.4} />
               <span>
-                {plural(inMonth.length, "task")} · {done} done
+                {done} of {inMonth.length} done
               </span>
             </>
           ) : (
@@ -69,6 +69,7 @@ export function MonthView({
         <NavGroup
           prevLabel="Previous month"
           nextLabel="Next month"
+          todayLabel="This month"
           onPrev={() => {
             setPop(null);
             onShift(-1);
@@ -88,7 +89,7 @@ export function MonthView({
       <div className="pb-6">
         <div className="grid grid-cols-7 border-y border-line bg-surface-2">
           {weekdayNames("short").map((d, i) => (
-            <div key={d} className={`px-2 py-2 text-right text-[12px] font-medium md:px-3 ${isWeekend(cells[i]) ? "text-ink-3" : "text-ink-2"}`}>
+            <div key={d} className={`px-2 py-2 text-right text-caption font-medium md:px-3 ${isWeekend(cells[i]) ? "text-ink-3" : "text-ink-2"}`}>
               <span className="sm:hidden">{d[0]}</span>
               <span className="max-sm:hidden">{d}</span>
             </div>
@@ -122,12 +123,12 @@ export function MonthView({
                 aria-label={`${formatLong(d)}${tasks.length ? `, ${plural(tasks.length, "task")}` : ""}`}
                 className={`flex min-w-0 flex-col gap-1 border-line p-1.5 text-left transition-[background-color,box-shadow] duration-150 md:p-2 ${i % 7 < 6 ? "border-r" : ""} ${
                   i < cells.length - 7 ? "border-b" : ""
-                } ${hot ? "bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--accent)]" : isSel ? "bg-surface-3" : weekend ? "bg-surface-2 hover:bg-surface-3" : "hover:bg-surface-2"}`}
+                } ${hot ? "bg-accent-soft outline -outline-offset-1 outline-accent" : isSel ? "bg-surface-3" : weekend ? "bg-surface-2 hover:bg-surface-3" : "hover:bg-surface-2"}`}
               >
                 <span className="flex justify-end">
                   {/* Today is the accent; another selected day is black (as in Calendar). */}
                   <span
-                    className={`tabular flex size-[26px] items-center justify-center rounded-full text-[13px] transition-colors duration-150 ${
+                    className={`tabular flex size-[26px] items-center justify-center rounded-full text-footnote transition-colors duration-150 ${
                       isToday ? "bg-accent-solid font-semibold text-on-accent" : isSel ? "bg-primary font-semibold text-on-primary" : out ? "text-ink-4" : "text-ink"
                     }`}
                   >
@@ -140,16 +141,16 @@ export function MonthView({
                     <span
                       key={t.id}
                       onPointerDown={(e) => drag.start(e, t)}
-                      className={`flex min-w-0 cursor-grab items-center gap-1.5 rounded-[4px] text-[12px] leading-4 ${drag.dragging?.id === t.id ? "opacity-35" : ""} ${
+                      className={`flex min-w-0 cursor-grab items-center gap-1.5 rounded-xs text-caption ${drag.dragging?.id === t.id ? "opacity-35" : ""} ${
                         t.done ? "text-ink-3" : out ? "text-ink-3" : "text-ink"
                       }`}
                     >
-                      <span className={`size-[7px] flex-none rounded-full ${t.done ? "bg-accent" : "shadow-[inset_0_0_0_1.5px_var(--check-ring)]"}`} />
+                      <span className={`size-[7px] flex-none rounded-full ${t.done ? "bg-accent" : "border-[1.5px] border-check-ring"}`} />
                       <span className="truncate">{t.title}</span>
                     </span>
                   ))}
                   {tasks.length > shown(tasks.length) && (
-                    <span className="pl-3 text-[11.5px] font-medium text-ink-3">+{tasks.length - shown(tasks.length)} more</span>
+                    <span className="pl-3 text-caption font-medium text-ink-3">+{tasks.length - shown(tasks.length)} more</span>
                   )}
                 </span>
                 {tasks.length > 0 && (
@@ -164,14 +165,14 @@ export function MonthView({
           })}
         </div>
         {/* Phones and tablets show dots, not titles: say what they mean. */}
-        <div className="mt-3 flex items-center justify-center gap-4 text-[12px] text-ink-3 lg:hidden">
+        <div className="mt-3 flex items-center justify-center gap-4 text-caption text-ink-3 lg:hidden">
           <span className="flex items-center gap-1.5">
             <span className="size-[6px] rounded-full bg-accent" />
             Done
           </span>
           <span className="flex items-center gap-1.5">
             <span className="size-[6px] rounded-full bg-ink-4" />
-            Still open
+            Open
           </span>
         </div>
       </div>
@@ -221,8 +222,8 @@ function DayPopover({
     <Popover anchor={rect} onClose={onClose} label={formatLong(d)} className="w-[320px] max-w-[calc(100vw-16px)] p-3.5">
       <div className="flex items-start justify-between gap-3 px-1">
         <div>
-          <div className="text-[16px] font-semibold tracking-[-0.015em]">{formatLong(d)}</div>
-          <div className="tabular text-[12px] text-ink-3">{tasks.length ? `${done} of ${tasks.length} done` : "No tasks"}</div>
+          <div className="text-headline font-semibold">{formatLong(d)}</div>
+          <div className="tabular text-caption text-ink-3">{tasks.length ? `${done} of ${tasks.length} done` : "No tasks"}</div>
         </div>
         <IconButton label="Close" size="sm" onClick={onClose} className="-mt-0.5 -mr-1">
           <XIcon size={13} />
@@ -231,18 +232,18 @@ function DayPopover({
       {tasks.length > 0 && (
         <ul className="mt-2 max-h-72 overflow-y-auto">
           {tasks.map((t) => (
-            <li key={t.id} className="flex items-start gap-2.5 rounded-[10px] px-1 py-1.5">
-              <Checkbox size={18} checked={t.done} onToggle={() => onToggle(t)} label={t.done ? `Mark “${t.title}” as not done` : `Mark “${t.title}” as done`} className="mt-0.5" />
+            <li key={t.id} className="flex items-start gap-2.5 rounded-sm px-1 py-1.5">
+              <Checkbox size={18} checked={t.done} onToggle={() => onToggle(t)} label={t.done ? `Mark “${t.title}” as open` : `Mark “${t.title}” as done`} className="mt-0.5" />
               <div className="min-w-0">
-                <div className={`text-[13.5px] leading-5 break-words transition-colors duration-300 ${t.done ? "text-ink-3" : "text-ink"}`}>{t.title}</div>
-                {t.description && <div className="truncate text-[12px] text-ink-3">{t.description}</div>}
+                <div className={`text-body break-words transition-colors duration-300 ${t.done ? "text-ink-3" : "text-ink"}`}>{t.title}</div>
+                {t.description && <div className="truncate text-caption text-ink-3">{t.description}</div>}
               </div>
             </li>
           ))}
         </ul>
       )}
       <form
-        className="mt-2 flex h-9 items-center gap-2 rounded-[10px] bg-surface-2 px-3 transition-shadow focus-within:bg-surface focus-within:shadow-[0_0_0_1px_var(--accent),0_0_0_4px_var(--accent-soft)]"
+        className="mt-2 flex h-9 items-center gap-2 rounded-sm bg-surface-2 px-3 transition-shadow focus-within:bg-surface focus-within:shadow-ring-accent"
         onSubmit={(e) => {
           e.preventDefault();
           if (!title.trim()) return;
@@ -254,11 +255,11 @@ function DayPopover({
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="New Task"
+          placeholder="New task"
           aria-label="New task title"
           maxLength={500}
           data-autofocus={tasks.length === 0 ? "" : undefined}
-          className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none"
+          className="min-w-0 flex-1 bg-transparent text-body outline-none"
         />
       </form>
       <div className="mt-2 -mr-2 flex justify-end">

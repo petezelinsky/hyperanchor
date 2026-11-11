@@ -92,7 +92,7 @@ export function Tooltips() {
       ref={ref}
       role="tooltip"
       style={place}
-      className="pointer-events-none fixed z-[200] animate-[fade_0.12s_ease-out_both] rounded-[7px] bg-ink px-2 py-1 text-[12px] leading-4 font-medium whitespace-nowrap text-surface shadow-float"
+      className="pointer-events-none fixed z-[200] animate-[fade_0.12s_ease-out_both] rounded-sm bg-ink px-2 py-1 text-caption font-medium whitespace-nowrap text-surface shadow-float"
     >
       {tip.text}
     </span>,

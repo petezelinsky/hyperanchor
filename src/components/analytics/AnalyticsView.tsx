@@ -11,7 +11,7 @@ import { Heatmap } from "./Heatmap";
 import { HistoryCard, type HistoryRow } from "./History";
 import { Card, Kpis } from "./parts";
 
-const NOW: Record<Period, string> = { week: "This Week", month: "This Month", year: "This Year" };
+const NOW: Record<Period, string> = { week: "This week", month: "This month", year: "This year" };
 
 export function AnalyticsView({
   period,
@@ -121,7 +121,7 @@ export function AnalyticsView({
   // the current week or month; for the current year it is the figure itself.
   let thisYear = 0;
   if (current && period !== "year") for (let d = new Date(today.getFullYear(), 0, 1); d <= today; d = addDays(d, 1)) if (byDate(ymd(d)).some((t) => t.done)) thisYear++;
-  const quiet = "font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-current";
+  const quiet = "tap relative font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-current";
 
   return (
     <>
@@ -151,7 +151,7 @@ export function AnalyticsView({
       <div className="mx-auto max-w-[1240px] space-y-4 px-4 pb-10 md:px-8">
         {!sum.planned && !sum.upcoming && !prevDays.some((d) => d.total) ? (
           // Nothing to measure yet: a sentence where the summary goes, instead of empty charts.
-          <p className="text-[15px] leading-[22px] text-ink-2">
+          <p className="text-callout text-ink-2">
             {current ? `Nothing planned this ${period} yet. ` : `Nothing was planned in ${label}. `}
             <button type="button" onClick={current ? onPlan : () => onOffset(0)} className={quiet}>
               {current ? (period === "week" ? "Plan your week" : "Plan your month") : `Back to ${NOW[period].toLowerCase()}`}
@@ -159,7 +159,7 @@ export function AnalyticsView({
           </p>
         ) : (
           <>
-            <p className="text-[15px] leading-[22px] text-ink-2">
+            <p className="text-callout text-ink-2">
               <span className="text-ink">
                 {sum.completed} of {sum.planned} done{current ? " so far" : ""}.
               </span>
@@ -175,16 +175,16 @@ export function AnalyticsView({
             />
 
         <Card
-          title={period === "year" ? "Completed per month" : "Completed per day"}
+          title={period === "year" ? "Done per month" : "Done per day"}
           aside={
-            <span className="flex items-center gap-4 text-[12px] text-ink-2">
+            <span className="flex items-center gap-4 text-caption text-ink-2">
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-[3px] bg-accent" />
+                <span className="size-2.5 rounded-xs bg-accent" />
                 Done
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-[3px] bg-accent-track" />
-                Not done
+                <span className="size-2.5 rounded-xs bg-accent-track" />
+                Open
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-3.5 border-t border-dashed border-ink-3" />
@@ -202,7 +202,7 @@ export function AnalyticsView({
         </Card>
 
         {period === "year" && (
-          <Card title="Activity" aside={<span className="text-[12px] text-ink-3">Completed tasks per day</span>}>
+          <Card title="Activity" aside={<span className="text-caption text-ink-3">Tasks done per day</span>}>
             <Heatmap days={days} onPick={onOpenDay} />
           </Card>
         )}

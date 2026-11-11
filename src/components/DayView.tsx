@@ -110,7 +110,7 @@ export function DayView({
         {focus ? (
           // In focus the header keeps one way out; new thoughts go into the capture field below.
           <Button onClick={onFocus} data-tip="Leave focus (Esc)" className="gap-2">
-            Exit focus
+            Leave focus
             <span className="pointer-coarse:hidden">
               <Kbd>Esc</Kbd>
             </span>
@@ -182,7 +182,7 @@ export function DayView({
                 completedOpen={completedOpen}
                 onCompletedOpen={onCompletedOpen}
                 cleared={
-                  <p className="flex h-11 items-center pl-[15px] text-[14px] text-ink-3">
+                  <p className="flex h-11 items-center pl-[15px] text-body text-ink-3">
                     {all.length
                       ? isToday
                         ? "All done for today."
@@ -208,7 +208,7 @@ const CHUNK = 50;
 /** A quiet line above the list, with its actions after the words; what it opens appears below it. */
 function Notice({ children, action, more }: { children: React.ReactNode; action: React.ReactNode; more?: React.ReactNode }) {
   return (
-    <div className="mt-1 mb-3 text-[13px] text-ink-2">
+    <div className="mt-1 mb-3 text-footnote text-ink-2">
       <div className="flex min-h-8 flex-wrap items-center gap-x-1 gap-y-1">
         <span className="min-w-0">{children}</span>
         {action}
@@ -291,13 +291,13 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
         >
           <div className="min-h-0 overflow-hidden" inert={!open}>
             {(open || mounted) && (
-              <ul className="mt-1.5 max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain rounded-[12px] shadow-[inset_0_0_0_1px_var(--line)]">
+              <ul className="mt-1.5 max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain rounded-lg border border-line">
                 {tasks.slice(0, limit).map((t, i) => (
                   <li key={t.id} className={`flex items-center gap-3 py-1.5 pr-2 pl-3.5 ${i ? "border-t border-line" : ""}`}>
                     <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13.5px] text-ink">{t.title}</span>
-                      <span className="block text-[11.5px] text-ink-3">{when(t.date)}</span>
+                      <span className="block truncate text-body text-ink">{t.title}</span>
+                      <span className="block text-caption text-ink-3">{when(t.date)}</span>
                     </span>
                     <Button size="sm" variant="plain" onClick={() => actions.move(t, todayKey)} className="gap-1 text-ink!">
                       Today
@@ -331,16 +331,16 @@ function WelcomeCard({ welcome, onAdd }: { welcome: NonNullable<Welcome>; onAdd:
   return (
     // A note on the page, not a card over it: the same left edge as the list it stands in for.
     <div className="mt-4 max-w-[520px]">
-      <h2 className="font-display text-[20px] leading-7 font-semibold tracking-[-0.01em]">Welcome, {welcome.name}.</h2>
-      <p className="mt-1 text-[14px] leading-[22px] text-ink-2">Hyperanchor keeps your day calm: one list, one clear next step. Four things are enough to start.</p>
+      <h2 className="font-display text-title-2 font-semibold">Welcome, {welcome.name}.</h2>
+      <p className="mt-1 text-body text-ink-2">Hyperanchor keeps your day calm: one list, one clear next step. Four things are enough to start.</p>
       <dl className="mt-5 border-t border-line">
         {steps.map((s) => (
           <div key={s.title} className="flex min-h-11 items-center gap-4 border-b border-line py-2">
-            <dt className="w-14 flex-none pointer-coarse:hidden">{s.key === "Drag it" ? <span className="text-[12px] text-ink-3">Drag</span> : <Kbd>{s.key}</Kbd>}</dt>
+            <dt className="w-14 flex-none pointer-coarse:hidden">{s.key === "Drag it" ? <span className="text-caption text-ink-3">Drag</span> : <Kbd>{s.key}</Kbd>}</dt>
             <dd className="min-w-0 flex-1">
-              <span className="block text-[14px] text-ink">{s.title}</span>
+              <span className="block text-body text-ink">{s.title}</span>
               {/* Phones: the gesture under the step. */}
-              <span className="hidden text-[12px] text-ink-3 pointer-coarse:block">{s.touch}</span>
+              <span className="hidden text-caption text-ink-3 pointer-coarse:block">{s.touch}</span>
             </dd>
           </div>
         ))}
@@ -389,13 +389,13 @@ function WeekPills({ selected, todayKey, byDate, onSelect }: { selected: string;
               onClick={() => onSelect(key)}
               aria-pressed={on}
               aria-label={`${formatLong(day)}: ${tasks.length ? `${done} of ${tasks.length} done` : "no tasks"}`}
-              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-[11px] transition-colors duration-150 ${
+              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-lg transition-colors duration-150 ${
                 on && isToday ? "bg-accent-solid text-on-accent" : on ? "bg-primary text-on-primary" : "hover:bg-surface-3"
               }`}
             >
               {/* Today is the accent; another selected day is black (as in Calendar). */}
-              <span className={`text-[10.5px] leading-[13px] font-medium ${on ? "opacity-75" : isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(day)}</span>
-              <span className={`tabular text-[15px] leading-5 font-semibold ${on ? "" : isToday ? "text-accent-ink" : key < todayKey ? "text-ink-2" : "text-ink"}`}>
+              <span className={`text-caption-2 font-medium ${on ? "opacity-75" : isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(day)}</span>
+              <span className={`tabular text-callout font-semibold ${on ? "" : isToday ? "text-accent-ink" : key < todayKey ? "text-ink-2" : "text-ink"}`}>
                 {day.getDate()}
               </span>
               <span className={`mt-px size-1 rounded-full ${dot ? (on ? "bg-current opacity-60" : dot) : ""}`} />

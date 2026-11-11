@@ -48,7 +48,7 @@ export function Sidebar({
         <nav aria-label="Views" className="relative mt-3 flex flex-col gap-0.5">
           <span
             aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-9 rounded-[10px] bg-surface shadow-lift transition-transform duration-300 ease-out"
+            className="absolute inset-x-0 top-0 h-9 rounded-sm bg-surface shadow-lift transition-transform duration-300 ease-out"
             style={{ transform: `translateY(${index * NAV_ROW}px)` }}
           />
           {VIEWS.map((v) => {
@@ -62,13 +62,13 @@ export function Sidebar({
                 aria-current={on ? "page" : undefined}
                 data-tip={`${v.label} (${v.key})`}
                 data-tip-side="right"
-                className={`relative flex h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-[13.5px] transition-colors duration-150 ${
+                className={`relative flex h-9 items-center gap-2.5 rounded-sm px-2.5 text-body transition-colors duration-150 ${
                   on ? "font-medium text-ink" : "text-ink-2 hover:bg-line hover:text-ink"
                 }`}
               >
                 <span className={`transition-colors duration-150 ${on ? "text-accent" : "text-ink-3"}`}>{v.icon}</span>
                 <span className="flex-1 text-left">{v.label}</span>
-                {!!badge && <span className="tabular text-[12px] font-normal text-ink-3">{badge}</span>}
+                {!!badge && <span className="tabular text-caption font-normal text-ink-3">{badge}</span>}
               </button>
             );
           })}
@@ -119,7 +119,7 @@ export function MiniMonth({
   return (
     <div>
       <div className="flex items-center justify-between pl-1.5">
-        <span className="text-[13px] font-semibold tracking-[-0.01em]">
+        <span className="text-footnote font-semibold">
           {MONTHS[month]} <span className="font-normal text-ink-3">{year}</span>
         </span>
         <span className="flex">
@@ -131,7 +131,7 @@ export function MiniMonth({
           </IconButton>
         </span>
       </div>
-      <div className="mt-1.5 grid grid-cols-7 text-center text-[10.5px] font-medium text-ink-3">
+      <div className="mt-1.5 grid grid-cols-7 text-center text-caption-2 font-medium text-ink-3">
         {weekdayNames("letter").map((d, i) => (
           <span key={i} className="py-1">
             {d}
@@ -160,11 +160,11 @@ export function MiniMonth({
             >
               {/* Dragging a task over a day: the day lights up to take it. */}
               {drag.dragging && drag.target?.zone === "calendar" && drag.target.date === key && (
-                <span aria-hidden="true" className="absolute inset-[1px] animate-[pop-in_0.15s_ease-out_both] rounded-[9px] bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--accent)]" />
+                <span aria-hidden="true" className="absolute inset-[1px] animate-[pop-in_0.15s_ease-out_both] rounded-sm bg-accent-soft shadow-ring-accent" />
               )}
               {/* Today is the accent; another selected day is black (as in Calendar). */}
               <span
-                className={`tabular relative flex size-[26px] items-center justify-center rounded-full text-[12px] transition-colors duration-150 ${
+                className={`tabular relative flex size-[26px] items-center justify-center rounded-full text-caption transition-colors duration-150 ${
                   sel && today
                     ? "bg-accent-solid font-semibold text-on-accent"
                     : sel
@@ -195,12 +195,12 @@ function AccountButton({ user, onSettings }: { user: AppUser; onSettings: () => 
       aria-haspopup="dialog"
       aria-label={`${user.name}, settings`}
       onClick={onSettings}
-      className="flex w-full items-center gap-2.5 rounded-[12px] p-2 text-left transition-colors duration-150 hover:bg-line"
+      className="flex w-full items-center gap-2.5 rounded-sm p-2 text-left transition-colors duration-150 hover:bg-line"
     >
       <Avatar name={user.name} image={user.image} size={30} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium">{user.name}</span>
-        <span className="block truncate text-[11.5px] text-ink-3">{user.email}</span>
+        <span className="block truncate text-footnote font-medium">{user.name}</span>
+        <span className="block truncate text-caption text-ink-3">{user.email}</span>
       </span>
     </button>
   );
@@ -217,7 +217,7 @@ export function MobileHeader({
   onSettings: () => void;
 }) {
   return (
-    <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between pr-4 pl-5 shadow-[0_1px_0_var(--line)] md:hidden">
+    <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line pr-4 pl-5 md:hidden">
       <Wordmark />
       <div className="flex items-center gap-2">
         <SyncStatus sync={sync} className="empty:hidden" />
@@ -234,10 +234,10 @@ export function TabBar({ view, onView }: { view: View; onView: (v: View) => void
   const index = Math.max(0, VIEWS.findIndex((v) => v.value === view));
   return (
     <nav aria-label="Views" className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] md:hidden">
-      <div className="glass pointer-events-auto relative grid w-full max-w-[380px] grid-cols-4 rounded-[22px] p-1 shadow-float">
+      <div className="glass pointer-events-auto relative grid w-full max-w-[380px] grid-cols-4 rounded-card p-1 shadow-float">
         <span
           aria-hidden="true"
-          className="absolute inset-y-1 left-1 rounded-[18px] bg-surface shadow-lift transition-transform duration-300 ease-out"
+          className="absolute inset-y-1 left-1 rounded-lg bg-surface shadow-lift transition-transform duration-300 ease-out"
           style={{ width: "calc((100% - 8px) / 4)", transform: `translateX(${index * 100}%)` }}
         />
         {VIEWS.map((v) => {
@@ -248,7 +248,7 @@ export function TabBar({ view, onView }: { view: View; onView: (v: View) => void
               type="button"
               onClick={() => onView(v.value)}
               aria-current={on ? "page" : undefined}
-              className={`relative flex h-[52px] flex-col items-center justify-center gap-[3px] rounded-[18px] text-[10.5px] font-medium transition-colors duration-150 ${
+              className={`relative flex h-[52px] flex-col items-center justify-center gap-[3px] rounded-lg text-caption-2 font-medium transition-colors duration-150 ${
                 on ? "text-ink" : "text-ink-3"
               }`}
             >

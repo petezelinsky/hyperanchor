@@ -41,7 +41,7 @@ export function SyncStatus({ sync, className = "" }: { sync: Sync; className?: s
     </>
   ) : null;
   return (
-    <span role="status" className={`flex items-center gap-1.5 text-[12px] whitespace-nowrap text-ink-3 ${className}`}>
+    <span role="status" className={`flex items-center gap-1.5 text-caption whitespace-nowrap text-ink-3 ${className}`}>
       {!online || sync.trouble === "offline" ? (
         <>
           <CloudOffIcon size={13} className="flex-none" />

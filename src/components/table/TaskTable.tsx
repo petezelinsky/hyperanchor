@@ -17,26 +17,26 @@ export function taskMenu(task: Task, todayKey: string, actions: TableActions): M
   const tomorrow = ymd(addDays(today, 1));
   const nextWeek = ymd(addDays(startOfWeek(today), 7));
   return [
-    { label: task.done ? "Mark as Not Done" : "Mark as Done", shortcut: "Space", onSelect: () => actions.toggle(task) },
+    { label: task.done ? "Mark as open" : "Mark as done", shortcut: "Space", onSelect: () => actions.toggle(task) },
     { label: "Edit", shortcut: "↩", onSelect: () => actions.startEdit(task.id, "title") },
-    { label: task.description ? "Edit Note" : "Add Note", onSelect: () => actions.startEdit(task.id, "description") },
+    { label: task.description ? "Edit notes" : "Add notes", onSelect: () => actions.startEdit(task.id, "description") },
     { separator: true },
-    { label: "Move to Today", disabled: task.date === todayKey, onSelect: () => actions.move(task, todayKey) },
-    { label: "Move to Tomorrow", disabled: task.date === tomorrow, onSelect: () => actions.move(task, tomorrow) },
-    { label: "Move to Next Week", disabled: task.date === nextWeek, onSelect: () => actions.move(task, nextWeek) },
+    { label: "Move to today", disabled: task.date === todayKey, onSelect: () => actions.move(task, todayKey) },
+    { label: "Move to tomorrow", disabled: task.date === tomorrow, onSelect: () => actions.move(task, tomorrow) },
+    { label: "Move to next week", disabled: task.date === nextWeek, onSelect: () => actions.move(task, nextWeek) },
     { separator: true },
     { label: "Delete", shortcut: "⌫", destructive: true, onSelect: () => actions.remove(task) },
   ];
 }
 
 const SORTS: { label: string; sort: Sort }[] = [
-  { label: "My Order", sort: DEFAULT_SORT },
-  { label: "Newest First", sort: { key: "added", dir: "desc" } },
+  { label: "My order", sort: DEFAULT_SORT },
+  { label: "Newest first", sort: { key: "added", dir: "desc" } },
   { label: "Name A–Z", sort: { key: "title", dir: "asc" } },
   { label: "Name Z–A", sort: { key: "title", dir: "desc" } },
 ];
 
-/** A quiet "⇅ My Order" button that opens the sort options. */
+/** A quiet "⇅ My order" button that opens the sort options. */
 export function SortMenu({ sort, onSort }: { sort: Sort; onSort: (s: Sort) => void }) {
   const [anchor, setAnchor] = useState<{ rect: Anchor; el: HTMLElement } | null>(null);
   const current = SORTS.find((s) => s.sort.key === sort.key && s.sort.dir === sort.dir) ?? SORTS[0];
@@ -50,7 +50,7 @@ export function SortMenu({ sort, onSort }: { sort: Sort; onSort: (s: Sort) => vo
           const el = e.currentTarget;
           setAnchor((a) => (a ? null : { rect: el.getBoundingClientRect(), el }));
         }}
-        className="flex h-7 items-center gap-1.5 rounded-[8px] px-2 text-[12.5px] text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink"
+        className="tap relative flex h-7 items-center gap-1.5 rounded-sm px-2 text-footnote text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink"
       >
         <SortIcon size={13} />
         <span>
@@ -102,7 +102,7 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
   const input = "m-0 block w-full bg-transparent p-0 outline-none";
 
   return (
-    <div role="row" data-editing="true" className={`relative ${COLS} min-h-11 animate-rise items-start rounded-[10px] bg-surface-3 px-1 shadow-[0_0_0_1px_var(--line-2)] first:rounded-t-none`}>
+    <div role="row" data-editing="true" className={`relative ${COLS} min-h-11 animate-rise items-start rounded-sm bg-surface-3 px-1 shadow-ring-line-2 first:rounded-t-none`}>
       <div className="flex h-11 items-center justify-center">
         <span className="size-5 rounded-full border-[1.5px] border-dashed border-ink-4" />
       </div>
@@ -112,10 +112,10 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
           value={text.title}
           onChange={(e) => change({ title: e.target.value })}
           onKeyDown={keys}
-          placeholder="New Task"
+          placeholder="New task"
           aria-label="New task title"
           maxLength={500}
-          className={`${input} text-[14px] leading-5`}
+          className={`${input} text-body`}
         />
         <input
           value={text.description}
@@ -124,7 +124,7 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
           placeholder="Notes"
           aria-label="New task notes"
           maxLength={5000}
-          className={`${input} mt-0.5 text-[13px] leading-[19px] @2xl:hidden`}
+          className={`${input} mt-0.5 text-footnote @2xl:hidden`}
         />
       </div>
       <div className="hidden min-w-0 py-3 pr-3 @2xl:block">
@@ -135,10 +135,10 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
           placeholder="Notes"
           aria-label="New task notes"
           maxLength={5000}
-          className={`${input} text-[13px] leading-[19px]`}
+          className={`${input} text-footnote`}
         />
       </div>
-      <div className="flex h-11 items-center justify-center text-[13px] text-ink-3" data-tip="Press Return to add">
+      <div className="flex h-11 items-center justify-center text-footnote text-ink-3" data-tip="Enter to add">
         ↩
       </div>
     </div>
@@ -150,12 +150,12 @@ function NewTaskRow({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className={`${COLS} h-11 w-full items-center rounded-[10px] px-1 text-left text-[14px] text-ink-3 transition-[background-color,box-shadow,color] duration-150 first:rounded-t-none hover:bg-surface-2 hover:text-ink hover:shadow-[0_0_0_1px_var(--line)]`}
+      className={`${COLS} h-11 w-full items-center rounded-sm px-1 text-left text-body text-ink-3 transition-[background-color,box-shadow,color] duration-150 first:rounded-t-none hover:bg-surface-2 hover:text-ink hover:shadow-ring-line`}
     >
       <span className="flex justify-center">
         <PlusIcon size={15} />
       </span>
-      <span>Add a task</span>
+      <span>New task</span>
     </button>
   );
 }
@@ -191,9 +191,9 @@ export function TaskTable({
   actions: TableActions;
   /** Week view: a header per day. */
   grouped?: boolean;
-  /** Day view: an always-visible "Add a task" row. */
+  /** Day view: an always-visible "New task" row. */
   placeholderRow?: boolean;
-  /** Day view: whether the Completed group is expanded. */
+  /** Day view: whether the Done group is expanded. */
   completedOpen?: boolean;
   onCompletedOpen?: (open: boolean) => void;
   /** Day view: one quiet line under "To do" when nothing is left to do (or nothing was planned). */
@@ -249,21 +249,21 @@ export function TaskTable({
               data-drop-date={s.date}
               data-drop-zone="list"
               data-drop-list=""
-              className={`rounded-[12px] transition-colors duration-150 ${hot ? "bg-accent-soft" : ""}`}
+              className={`rounded-lg transition-colors duration-150 ${hot ? "bg-accent-soft" : ""}`}
             >
               {grouped ? (
                 <div className={`flex items-center gap-2.5 pr-1 pl-3 ${free ? "" : "border-b border-line"} ${i === 0 ? "pt-2" : free ? "pt-4" : "pt-7"} pb-2`}>
-                  <span className={`text-[15px] font-semibold tracking-[-0.015em] ${free ? "text-ink-2" : "text-ink"}`}>{dayName(d)}</span>
-                  <span className="text-[13px] text-ink-3">{formatShort(d)}</span>
-                  {isToday && <span className="text-[12px] font-medium text-accent-ink">Today</span>}
-                  <span className="tabular ml-auto text-[12px] text-ink-3">{all ? `${doneN} of ${all}` : "Free"}</span>
-                  <IconButton label={`Add task to ${dayName(d)}`} size="sm" onClick={() => actions.openComposer(s.date)}>
+                  <span className={`text-callout font-semibold ${free ? "text-ink-2" : "text-ink"}`}>{dayName(d)}</span>
+                  <span className="text-footnote text-ink-3">{formatShort(d)}</span>
+                  {isToday && <span className="text-caption font-medium text-accent-ink">Today</span>}
+                  <span className="tabular ml-auto text-caption text-ink-3">{all ? `${doneN} of ${all}` : "Free"}</span>
+                  <IconButton label={`New task on ${dayName(d)}`} size="sm" onClick={() => actions.openComposer(s.date)}>
                     <PlusIcon size={14} strokeWidth={2} />
                   </IconButton>
                 </div>
               ) : (
                 <div className="mx-[15px] flex h-9 items-center justify-between border-b border-line">
-                  <span className="text-[13px] font-semibold text-ink">
+                  <span className="text-footnote font-semibold text-ink">
                     To do <span className="tabular ml-1 font-normal text-ink-3">{s.tasks.filter((t) => !t.done).length || ""}</span>
                   </span>
                   {sort}
@@ -287,9 +287,9 @@ export function TaskTable({
                     type="button"
                     aria-expanded={completedOpen}
                     onClick={() => onCompletedOpen?.(!completedOpen)}
-                    className="group mx-[15px] flex h-9 w-[calc(100%-30px)] items-center gap-1.5 border-b border-line text-left text-[13px] font-semibold text-ink"
+                    className="tap group relative mx-[15px] flex h-9 w-[calc(100%-30px)] items-center gap-1.5 border-b border-line text-left text-footnote font-semibold text-ink"
                   >
-                    Completed <span className="tabular ml-1 font-normal text-ink-3">{s.completed.length}</span>
+                    Done <span className="tabular ml-1 font-normal text-ink-3">{s.completed.length}</span>
                     <ChevronDown
                       size={12}
                       strokeWidth={2}

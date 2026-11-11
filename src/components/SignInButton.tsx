@@ -15,7 +15,7 @@ export function SignInButton({ provider }: { provider: "google" | "apple" }) {
     <button
       type="submit"
       disabled={pending}
-      className="flex h-12 w-full items-center justify-center gap-2.5 rounded-[12px] bg-primary text-[15px] font-medium text-on-primary transition-[background-color,transform] duration-150 ease-out hover:bg-primary-hover active:scale-[0.985] disabled:cursor-wait disabled:opacity-80"
+      className="flex h-12 w-full items-center justify-center gap-2.5 rounded-sm bg-primary text-callout font-medium text-on-primary transition-[background-color,transform] duration-150 ease-out hover:bg-primary-hover active:scale-[0.985] disabled:cursor-wait disabled:opacity-80"
     >
       {provider === "google" ? <GoogleG size={18} /> : <AppleLogo size={19} />}
       {pending ? "Signing in…" : LABELS[provider]}

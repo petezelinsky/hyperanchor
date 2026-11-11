@@ -51,12 +51,12 @@ export function FocusPanel({
             <FocusTimer />
           </div>
           <div className="relative mt-6 w-full">
-            {waiting > 1 && <span aria-hidden="true" className="absolute inset-x-[9%] -bottom-[18px] h-16 rounded-[20px] bg-surface-2 shadow-lift" />}
-            {waiting > 0 && <span aria-hidden="true" className="absolute inset-x-[4.5%] -bottom-[9px] h-16 rounded-[22px] bg-surface shadow-lift" />}
+            {waiting > 1 && <span aria-hidden="true" className="absolute inset-x-[9%] -bottom-[18px] h-16 rounded-card bg-surface-2 shadow-lift" />}
+            {waiting > 0 && <span aria-hidden="true" className="absolute inset-x-[4.5%] -bottom-[9px] h-16 rounded-card bg-surface shadow-lift" />}
             <Card key={task.id} task={task} hasNext={!!next} onDone={onDone} onLater={onLater} />
             {leaving && <Card key={`${leaving.task.id}-leaving`} task={leaving.task} hasNext={leaving.hasNext} leaving />}
           </div>
-          <p className="mt-10 max-w-full truncate px-4 text-[13px] text-ink-3">
+          <p className="mt-10 max-w-full truncate px-4 text-footnote text-ink-3">
             {next ? (
               <>
                 Up next: <span className="text-ink-2">{next.title}</span>
@@ -70,11 +70,11 @@ export function FocusPanel({
       ) : total > 0 ? (
         <AllDone isToday={isToday} onExit={onExit} />
       ) : (
-        <p className="animate-rise text-[15px] text-ink-2">Nothing is planned for this day.</p>
+        <p className="animate-rise text-callout text-ink-2">Nothing is planned for this day.</p>
       )}
 
       <form
-        className="group mt-8 flex h-10 w-full max-w-[420px] items-center gap-2 rounded-[12px] bg-surface-2 pr-2 pl-3.5 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow focus-within:bg-surface focus-within:shadow-[0_0_0_1px_var(--accent),0_0_0_4px_var(--accent-soft)]"
+        className="group mt-8 flex h-10 w-full max-w-[420px] items-center gap-2 rounded-sm bg-surface-2 pointer-coarse:h-11 pr-2 pl-3.5 shadow-ring-line transition-shadow focus-within:bg-surface focus-within:shadow-ring-accent"
         onSubmit={(e) => {
           e.preventDefault();
           const input = e.currentTarget.elements.namedItem("thought") as HTMLInputElement;
@@ -92,7 +92,7 @@ export function FocusPanel({
           aria-label="Add a task for later"
           maxLength={500}
           autoComplete="off"
-          className="h-full min-w-0 flex-1 bg-transparent text-[13.5px] outline-none"
+          className="h-full min-w-0 flex-1 bg-transparent text-footnote outline-none"
           onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
         />
         <span className="group-focus-within:hidden pointer-coarse:hidden">
@@ -106,7 +106,7 @@ export function FocusPanel({
 /** Where you are in the day: one segment per task (a plain bar for long days), the current one half-lit. */
 function Progress({ done, total }: { done: number; total: number }) {
   return (
-    <div className="flex items-center gap-3 text-[12.5px] text-ink-3">
+    <div className="flex items-center gap-3 text-footnote text-ink-3">
       {total <= 12 ? (
         <span aria-hidden="true" className="flex gap-1">
           {Array.from({ length: total }, (_, i) => (
@@ -184,7 +184,7 @@ function FocusTimer() {
         onClick={() => setEnd(null)}
         aria-label={`Stop the timer, ${Math.ceil(secs / 60)} minutes left`}
         data-tip="Stop the timer"
-        className="group flex h-7 items-center gap-1.5 rounded-full px-2 text-[12.5px] font-medium text-accent-ink transition-colors duration-150 hover:bg-surface-3"
+        className="tap group relative flex h-7 items-center gap-1.5 rounded-full px-2 text-footnote font-medium text-accent-ink transition-colors duration-150 hover:bg-surface-3"
       >
         <ProgressRing value={1 - left / total} size={14} stroke={2.2} />
         <span className="tabular min-w-[34px] text-left">{clock}</span>
@@ -193,7 +193,7 @@ function FocusTimer() {
   }
   if (over)
     return (
-      <span role="status" className="flex h-7 animate-pop-in items-center px-2 text-[12.5px] font-medium text-accent-ink">
+      <span role="status" className="flex h-7 animate-pop-in items-center px-2 text-footnote font-medium text-accent-ink">
         {TIMER_MINUTES} minutes are up.
       </span>
     );
@@ -203,7 +203,7 @@ function FocusTimer() {
       onClick={start}
       aria-label={`Start a ${TIMER_MINUTES}-minute timer`}
       data-tip={`Start a ${TIMER_MINUTES}-minute timer`}
-      className="flex h-7 items-center gap-1.5 rounded-full px-2 text-[12.5px] text-ink-3 transition-colors duration-150 hover:bg-surface-3 hover:text-ink"
+      className="tap relative flex h-7 items-center gap-1.5 rounded-full px-2 text-footnote text-ink-3 transition-colors duration-150 hover:bg-surface-3 hover:text-ink"
     >
       <TimerIcon size={13} />
       {TIMER_MINUTES} min
@@ -253,22 +253,22 @@ function Card({
       : "pointer-events-none absolute inset-x-0 top-0 animate-[focus-later_0.34s_ease-in_both]"
     : "relative animate-[focus-in_0.45s_0.08s_var(--ease-out)_both]";
   return (
-    <article inert={leaving} aria-hidden={leaving || undefined} className={`rounded-[24px] bg-surface p-5 text-left shadow-float sm:p-7 ${motion}`}>
+    <article inert={leaving} aria-hidden={leaving || undefined} className={`rounded-card bg-surface p-5 text-left shadow-float sm:p-7 ${motion}`}>
       <div className="flex items-start gap-4">
         <Checkbox
           size={28}
           checked={task.done}
           onToggle={() => onDone?.(task)}
-          label={task.done ? `Mark “${task.title}” as not done` : `Mark “${task.title}” as done`}
+          label={task.done ? `Mark “${task.title}” as open` : `Mark “${task.title}” as done`}
           className="mt-[3px]"
         />
         <div className="min-w-0 flex-1">
           <h2
-            className={`text-[22px] leading-[1.25] font-semibold tracking-[-0.025em] break-words transition-colors duration-300 sm:text-[28px] ${task.done ? "text-ink-3" : ""}`}
+            className={`text-title-2 font-semibold break-words transition-colors duration-300 sm:text-title ${task.done ? "text-ink-3" : ""}`}
           >
             {task.title}
           </h2>
-          {task.description && <p className="mt-2 text-[15px] leading-relaxed whitespace-pre-line text-ink-2">{task.description}</p>}
+          {task.description && <p className="mt-2 text-callout whitespace-pre-line text-ink-2">{task.description}</p>}
         </div>
       </div>
       <div className="mt-7 grid grid-cols-2 gap-2 sm:flex sm:pl-[44px]">
@@ -292,7 +292,7 @@ function Card({
 function KeyHint({ children, tone = "light" }: { children: React.ReactNode; tone?: "light" | "dark" }) {
   return (
     <kbd
-      className={`ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] px-1.5 font-sans text-[11px] font-medium pointer-coarse:hidden ${
+      className={`ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-xs px-1.5 font-sans text-caption-2 font-medium pointer-coarse:hidden ${
         tone === "dark" ? "bg-on-primary/15 text-on-primary/75" : "bg-surface-3 text-ink-3"
       }`}
     >
@@ -322,8 +322,8 @@ function AllDone({ isToday, onExit }: { isToday: boolean; onExit: () => void }) 
   // The ring in the header has just filled and thrown its confetti; this only says where things stand.
   return (
     <div className="flex flex-col items-center text-center">
-      <p className="text-[20px] leading-7 font-semibold tracking-[-0.01em]">{isToday ? "That was the last one." : "Everything on this day is done."}</p>
-      <p className="mt-1 text-[14px] leading-5 text-ink-2">{isToday ? "Today’s list is finished." : "Nothing is left open here."}</p>
+      <p className="text-title-2 font-semibold">{isToday ? "That was the last one." : "Everything on this day is done."}</p>
+      <p className="mt-1 text-body text-ink-2">{isToday ? "Today’s list is finished." : "Nothing is left open here."}</p>
       <Button onClick={onExit} className="mt-6">
         Back to the list
       </Button>

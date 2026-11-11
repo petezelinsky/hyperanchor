@@ -20,7 +20,7 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
     ref.current?.focus();
   }, [composer.nonce]);
   return (
-    <div data-editing="true" className="animate-rise rounded-[8px] bg-surface-3 px-1.5 py-1.5 shadow-[0_0_0_1px_var(--line-2)]">
+    <div data-editing="true" className="animate-rise rounded-sm bg-surface-3 px-1.5 py-1.5 shadow-ring-line-2">
       <textarea
         ref={ref}
         rows={2}
@@ -41,10 +41,10 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
             actions.composerCancel();
           }
         }}
-        placeholder="New Task"
+        placeholder="New task"
         aria-label="New task title"
         maxLength={500}
-        className="block w-full resize-none bg-transparent text-[13.5px] leading-[18px] text-ink outline-none"
+        className="block w-full resize-none bg-transparent text-footnote text-ink outline-none"
       />
     </div>
   );
@@ -116,13 +116,13 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
             <div className="px-1.5">
               <div className="flex items-end justify-between gap-1">
                 <span className="flex min-w-0 flex-col">
-                  <span className={`text-[11.5px] leading-4 font-medium ${isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(d)}</span>
+                  <span className={`text-caption font-medium ${isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(d)}</span>
                   <span className="flex h-9 items-center">
                     <span
-                      className={`tabular flex items-center justify-center font-semibold tracking-[-0.02em] ${
+                      className={`tabular flex items-center justify-center font-semibold ${
                         isToday
-                          ? "-ml-0.5 size-[30px] rounded-full bg-accent-solid text-[15px] text-on-accent"
-                          : `text-[22px] ${past ? "text-ink-2" : "text-ink"}`
+                          ? "-ml-0.5 size-[30px] rounded-full bg-accent-solid text-callout text-on-accent"
+                          : `text-title-2 ${past ? "text-ink-2" : "text-ink"}`
                       }`}
                     >
                       {d.getDate()}
@@ -130,11 +130,11 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
                   </span>
                 </span>
                 <span className="flex items-center gap-0.5 pb-1">
-                  <span className="tabular text-[11.5px] text-ink-3">{all ? `${doneN}/${all}` : ""}</span>
+                  <span className="tabular text-caption text-ink-3">{all ? `${doneN} of ${all}` : ""}</span>
                   {/* With a mouse, + waits for the pointer on a busy day (seven of them are noise); an empty day always offers it. */}
                   <IconButton
-                    label={`Add task to ${dayShort(d)} ${d.getDate()}`}
-                    tip="Add a task"
+                    label={`New task on ${dayShort(d)} ${d.getDate()}`}
+                    tip="New task"
                     size="sm"
                     onClick={() => actions.openComposer(s.date)}
                     className={`-mr-1 focus-visible:opacity-100 ${all && !composing ? "pointer-fine:opacity-0 pointer-fine:group-hover/col:opacity-100" : ""}`}

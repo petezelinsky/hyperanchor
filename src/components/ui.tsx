@@ -9,20 +9,20 @@ type Variant = "primary" | "secondary" | "plain" | "danger" | "danger-quiet";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-primary text-on-primary shadow-[0_1px_2px_rgba(0,0,0,0.14)] hover:bg-primary-hover active:scale-[0.98]",
+  primary: "bg-primary text-on-primary hover:bg-primary-hover active:scale-[0.98]",
   secondary: "bg-surface text-ink shadow-lift hover:bg-surface-2 active:scale-[0.98]",
   plain: "text-ink-2 hover:bg-surface-3 hover:text-ink active:bg-line",
   // Red only for what can't be undone.
-  danger: "bg-red-ink text-surface shadow-[0_1px_2px_rgba(0,0,0,0.14)] hover:opacity-90 active:scale-[0.98]",
+  danger: "bg-red-ink text-surface hover:opacity-90 active:scale-[0.98]",
   "danger-quiet": "bg-surface text-red-ink shadow-lift hover:bg-red-soft active:scale-[0.98]",
 };
 const sizes: Record<Size, string> = {
-  sm: "h-7 rounded-[8px] px-2.5 text-[12.5px]",
-  md: "h-8 rounded-[9px] px-3 text-[13px]",
-  lg: "h-11 rounded-[12px] px-5 text-[15px]",
+  sm: "h-7 rounded-sm px-2.5 text-footnote",
+  md: "h-8 rounded-sm px-3 text-footnote",
+  lg: "h-11 rounded-sm px-5 text-callout",
 };
-const iconSizes: Record<Size, string> = { sm: "size-7 rounded-[8px]", md: "size-8 rounded-[9px]", lg: "size-11 rounded-[12px]" };
-const base = "transition-[background-color,color,box-shadow,transform] duration-150 ease-out select-none disabled:pointer-events-none";
+const iconSizes: Record<Size, string> = { sm: "size-7 rounded-sm", md: "size-8 rounded-sm", lg: "size-11 rounded-sm" };
+const base = "tap relative transition-[background-color,color,box-shadow,transform] duration-150 ease-out select-none disabled:pointer-events-none";
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size };
 
@@ -94,12 +94,12 @@ export function SegmentedControl<T extends string>({
           onChange,
         )
       }
-      className={`relative grid rounded-[10px] bg-surface-3 p-[3px] ${className}`}
+      className={`relative grid rounded-sm bg-surface-3 p-[3px] ${className}`}
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
     >
       <span
         aria-hidden="true"
-        className="absolute inset-y-[3px] left-[3px] rounded-[7px] bg-surface shadow-lift transition-transform duration-300 ease-out"
+        className="absolute inset-y-[3px] left-[3px] rounded-xs bg-surface shadow-lift transition-transform duration-300 ease-out"
         style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${index * 100}%)` }}
       />
       {options.map((o) => {
@@ -114,8 +114,8 @@ export function SegmentedControl<T extends string>({
             data-tip={o.iconOnly ? o.label : undefined}
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(o.value)}
-            className={`relative flex items-center justify-center gap-1.5 rounded-[7px] font-medium whitespace-nowrap transition-colors duration-150 ${
-              size === "lg" ? "h-8 px-3 text-[13px]" : "h-[26px] px-3 text-[12.5px]"
+            className={`tap relative flex items-center justify-center gap-1.5 rounded-xs font-medium whitespace-nowrap transition-colors duration-150 ${
+              size === "lg" ? "h-8 px-3 text-footnote" : "h-[26px] px-3 text-footnote"
             } ${on ? "text-ink" : "text-ink-2 hover:text-ink"}`}
           >
             {o.icon}
@@ -162,10 +162,10 @@ export function Checkbox({
         onToggle();
       }}
       style={{ width: size, height: size, animation: celebrate ? "check-pop 0.35s cubic-bezier(0.2,0.8,0.2,1)" : undefined }}
-      className={`relative flex flex-none items-center justify-center rounded-full transition-[background-color,box-shadow] duration-200 before:absolute before:-inset-1.5 before:content-[''] pointer-coarse:before:-inset-2 ${
+      className={`relative flex flex-none items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color] duration-200 before:absolute before:-inset-1.5 before:content-[''] pointer-coarse:before:inset-auto pointer-coarse:before:top-1/2 pointer-coarse:before:left-1/2 pointer-coarse:before:size-11 pointer-coarse:before:-translate-1/2 ${
         checked
-          ? "bg-accent text-on-accent"
-          : "shadow-[inset_0_0_0_1.5px_var(--check-ring)] hover:bg-accent-soft hover:shadow-[inset_0_0_0_1.5px_var(--accent)]"
+          ? "border-accent bg-accent text-on-accent"
+          : "border-check-ring hover:border-accent hover:bg-accent-soft"
       } ${className}`}
     >
       {celebrate && (
@@ -369,7 +369,7 @@ export function Popover({
       aria-label={label}
       data-floating=""
       style={style}
-      className={`fixed z-[100] animate-pop-in rounded-[14px] bg-elevated shadow-float ${className}`}
+      className={`fixed z-[100] animate-pop-in rounded-lg bg-elevated shadow-float ${className}`}
     >
       {children}
     </div>,
@@ -442,13 +442,13 @@ export function Menu({
       data-floating=""
       onKeyDown={onKeyDown}
       style={style}
-      className="fixed z-[100] min-w-[220px] animate-pop-in rounded-[12px] bg-elevated p-1 text-[13px] shadow-float outline-none"
+      className="fixed z-[100] min-w-[220px] animate-pop-in rounded-lg bg-elevated p-1 text-footnote shadow-float outline-none"
     >
       {entries.map((e, i) => {
         if ("separator" in e) return <div key={i} role="separator" className="mx-2 my-1 h-px bg-line" />;
         if ("heading" in e)
           return (
-            <div key={i} className="px-2.5 pt-1.5 pb-1 text-[11.5px] font-medium text-ink-3">
+            <div key={i} className="px-2.5 pt-1.5 pb-1 text-caption font-medium text-ink-3">
               {e.heading}
             </div>
           );
@@ -463,7 +463,7 @@ export function Menu({
             onMouseEnter={() => setActive(i)}
             onMouseLeave={() => setActive(-1)}
             onClick={() => run(e)}
-            className={`flex h-8 w-full items-center gap-2.5 rounded-[8px] px-2.5 text-left whitespace-nowrap disabled:opacity-35 ${
+            className={`flex h-8 w-full items-center gap-2.5 rounded-sm px-2.5 text-left whitespace-nowrap disabled:opacity-35 ${
               e.destructive ? `text-red-ink ${on ? "bg-red-soft" : ""}` : `text-ink ${on ? "bg-surface-3" : ""}`
             }`}
           >
@@ -474,7 +474,7 @@ export function Menu({
                 <path d="M2.5 6.2 4.9 8.6 9.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             ) : (
-              e.shortcut && <span className="pl-6 text-[12px] text-ink-3 pointer-coarse:hidden">{e.shortcut}</span>
+              e.shortcut && <span className="pl-6 text-caption text-ink-3 pointer-coarse:hidden">{e.shortcut}</span>
             )}
           </button>
         );
@@ -531,7 +531,7 @@ export function Modal({
         aria-label={label}
         tabIndex={-1}
         data-floating=""
-        className={`max-h-full w-full animate-pop-in overflow-y-auto overscroll-contain rounded-[18px] bg-elevated shadow-float outline-none ${className}`}
+        className={`max-h-full w-full animate-pop-in overflow-y-auto overscroll-contain rounded-card bg-elevated shadow-float outline-none ${className}`}
       >
         {children}
       </div>
@@ -543,7 +543,7 @@ export function Modal({
 /** Small key hint, e.g. ⏎ or N. */
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] bg-surface px-1.5 font-sans text-[11px] font-medium text-ink-2 shadow-[0_0_0_1px_var(--line-2),0_1px_0_var(--line-2)]">
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-xs bg-surface px-1.5 font-sans text-caption-2 font-medium text-ink-2 shadow-ring-line-2">
       {children}
     </kbd>
   );

@@ -16,20 +16,20 @@ export function WeekdayCard({ days }: { days: DayStat[] }) {
   const best = max > 0 ? ws.reduce((b, w) => (w.avg > b.avg ? w : b)) : null;
 
   return (
-    <Card title="By weekday" aside={<span className="text-[12px] text-ink-3">Average completed per day</span>}>
+    <Card title="By weekday" aside={<span className="text-caption text-ink-3">Average done per day</span>}>
       <div className="space-y-2">
         {ws.map((w) => {
           const top = best?.index === w.index;
           return (
             <div key={w.index} className="grid grid-cols-[34px_minmax(0,1fr)_76px] items-center gap-3">
-              <span className={`text-[12.5px] ${top ? "font-semibold text-ink" : "text-ink-2"}`}>{short[w.index]}</span>
+              <span className={`text-footnote ${top ? "font-semibold text-ink" : "text-ink-2"}`}>{short[w.index]}</span>
               <span className="h-2 overflow-hidden rounded-full bg-surface-3">
                 <span
                   className={`block h-full rounded-full transition-[width] duration-700 ease-out ${top ? "bg-accent" : "bg-ink-4"}`}
                   style={{ width: max ? `${(w.avg / max) * 100}%` : 0 }}
                 />
               </span>
-              <span className="tabular text-right text-[12.5px] text-ink">
+              <span className="tabular text-right text-footnote text-ink">
                 {fmt1(w.avg)}
                 <span className="ml-1.5 text-ink-3">{w.rate == null ? "—" : pct(w.rate)}</span>
               </span>
@@ -37,13 +37,13 @@ export function WeekdayCard({ days }: { days: DayStat[] }) {
           );
         })}
       </div>
-      <p className="mt-4 text-[12.5px] text-ink-2">
+      <p className="mt-4 text-footnote text-ink-2">
         {best ? (
           <>
             You get the most done on <span className="font-semibold text-ink">{weekdayNames("full")[best.index]}s</span>.
           </>
         ) : (
-          "Not enough completed tasks yet."
+          "Not enough done yet to compare."
         )}
       </p>
     </Card>
@@ -69,17 +69,17 @@ export function OpenCard({
   return (
     <Card title="Left open" count={open.length} className={className}>
       {open.length === 0 ? (
-        <p className="pb-2 text-[13px] leading-[18px] text-ink-3">Nothing from earlier days is waiting.</p>
+        <p className="pb-2 text-footnote text-ink-3">Nothing from earlier days is waiting.</p>
       ) : (
         <>
           <ul>
             {shown.map(({ task, day }) => (
               <li key={task.id} className="flex items-center gap-3 border-b border-line py-2 last:border-0">
                 <Checkbox size={18} checked={false} onToggle={() => onToggle(task)} label={`Mark “${task.title}” as done`} />
-                <span dir="auto" className="min-w-0 flex-1 truncate text-[13.5px]">
+                <span dir="auto" className="min-w-0 flex-1 truncate text-body">
                   {task.title}
                 </span>
-                <span className="tabular flex-none text-[12px] text-ink-3">{formatShort(day.date)}</span>
+                <span className="tabular flex-none text-caption text-ink-3">{formatShort(day.date)}</span>
                 <Button size="sm" variant="plain" onClick={() => onMove(task, todayKey)} aria-label={`Move “${task.title}” to today`} className="flex-none gap-1 text-ink!">
                   Today
                   <ArrowRightIcon size={12} />
@@ -88,7 +88,7 @@ export function OpenCard({
             ))}
           </ul>
           {open.length > 6 && (
-            <button type="button" onClick={() => setAll((a) => !a)} className="mt-3 text-[12px] leading-4 font-medium text-ink-2 underline decoration-ink-4 underline-offset-[3px] hover:text-ink hover:decoration-current">
+            <button type="button" onClick={() => setAll((a) => !a)} className="tap relative mt-3 text-caption font-medium text-ink-2 underline decoration-ink-4 underline-offset-[3px] hover:text-ink hover:decoration-current">
               {all ? "Show less" : `Show all ${open.length}`}
             </button>
           )}

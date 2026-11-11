@@ -23,7 +23,7 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
     <div>
       <div className="overflow-x-auto pb-1">
         <div className="min-w-[620px]">
-          <div className="relative ml-8 h-4 text-[11px] text-ink-3">
+          <div className="relative ml-8 h-4 text-caption-2 text-ink-3">
             {monthCols.map((col, m) => (
               <span key={m} className="absolute" style={{ left: `${(col / weeks) * 100}%` }}>
                 {MONTHS_SHORT[m]}
@@ -31,7 +31,7 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
             ))}
           </div>
           <div className="mt-1 flex gap-2">
-            <div className="grid w-6 flex-none grid-rows-7 gap-[3px] text-[10.5px] text-ink-3">
+            <div className="grid w-6 flex-none grid-rows-7 gap-[3px] text-caption-2 text-ink-3">
               {weekdayNames("short").map((l, i) => (
                 <span key={i} className="flex items-center">
                   {l === "Mon" || l === "Wed" || l === "Fri" ? l : ""}
@@ -50,7 +50,7 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
                     onClick={() => onPick(d.key)}
                     data-tip={`${formatMedium(d.date)} — ${d.total ? `${d.done} of ${d.total} done` : "no tasks"}`}
                     aria-label={`${formatMedium(d.date)}: ${d.done} of ${d.total} done`}
-                    className={`aspect-square w-full rounded-[3px] transition-transform duration-150 hover:scale-125 ${d.isToday ? "outline-[1.5px] outline-offset-1 outline-ink-2 outline-solid" : ""}`}
+                    className={`aspect-square w-full rounded-xs transition-transform duration-150 hover:scale-125 ${d.isToday ? "outline-[1.5px] outline-offset-1 outline-ink-2 outline-solid" : ""}`}
                     style={{ background: d.elapsed ? LEVELS[level(d)] : "var(--surface-2)" }}
                   />
                 );
@@ -59,10 +59,10 @@ export function Heatmap({ days, onPick }: { days: DayStat[]; onPick: (key: strin
           </div>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-ink-3">
+      <div className="mt-3 flex items-center justify-end gap-1.5 text-caption-2 text-ink-3">
         Less
         {LEVELS.map((c, i) => (
-          <span key={i} className="size-3 rounded-[3px]" style={{ background: c }} />
+          <span key={i} className="size-3 rounded-xs" style={{ background: c }} />
         ))}
         More
       </div>
