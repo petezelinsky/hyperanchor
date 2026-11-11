@@ -28,13 +28,14 @@
   --ink-4: #d4d4d4;
   --line: #ededed;
   --line-2: #e2e2e2;
-  --check-ring: #b8b8b8; /* an open checkbox */
+  --check-ring: #8a8a8a; /* an open checkbox: 3:1 against every surface it sits on */
 
   --primary: #171717; /* primary buttons */
   --primary-hover: #2e2e2e;
   --on-primary: #ffffff;
 
   --accent: #2563eb; /* today, completion, progress, data */
+  --accent-solid: #2563eb; /* accent behind white text: dark enough for 4.5:1 */
   --accent-hover: #1d4ed8;
   --accent-ink: #1d4ed8; /* accent as text (small labels only) */
   --accent-soft: #eff4ff; /* tinted backgrounds */
@@ -69,6 +70,7 @@
 
 :root[data-accent="orange"] {
   --accent: #f4511e;
+  --accent-solid: #c84a16;
   --accent-hover: #e0461a;
   --accent-ink: #c84a16;
   --accent-soft: #fff2ec;
@@ -81,6 +83,7 @@
 
 :root[data-accent="green"] {
   --accent: #16a34a;
+  --accent-solid: #15803d;
   --accent-hover: #15803d;
   --accent-ink: #15803d;
   --accent-soft: #edfaf2;
@@ -108,13 +111,14 @@
   --ink-4: #3d3d3d;
   --line: #242424;
   --line-2: #2e2e2e;
-  --check-ring: #555555; /* an open checkbox */
+  --check-ring: #707070; /* an open checkbox: 3:1 against every surface it sits on */
 
   --primary: #ededed; /* primary buttons */
   --primary-hover: #ffffff;
   --on-primary: #141414;
 
   --accent: #3b82f6; /* today, completion, progress, data */
+  --accent-solid: #2563eb; /* accent behind white text: dark enough for 4.5:1 */
   --accent-hover: #5591f7;
   --accent-ink: #82aefc; /* accent as text (small labels only) */
   --accent-soft: #0f1d38; /* tinted backgrounds */
@@ -138,6 +142,7 @@
 
 :root[data-theme="dark"][data-accent="orange"] {
   --accent: #ff6a2b;
+  --accent-solid: #c84a16;
   --accent-hover: #ff7a3d;
   --accent-ink: #ff8a52;
   --accent-soft: #2a1610;
@@ -150,6 +155,7 @@
 
 :root[data-theme="dark"][data-accent="green"] {
   --accent: #22c55e;
+  --accent-solid: #15803d;
   --accent-hover: #3ad270;
   --accent-ink: #4ade80;
   --accent-soft: #0d2316;
@@ -180,6 +186,7 @@
   --color-primary-hover: var(--primary-hover);
   --color-on-primary: var(--on-primary);
   --color-accent: var(--accent);
+  --color-accent-solid: var(--accent-solid);
   --color-accent-hover: var(--accent-hover);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
@@ -295,6 +302,23 @@
 :root[data-switching] *::before,
 :root[data-switching] *::after {
   transition-property: transform, translate, scale, rotate, opacity !important;
+}
+
+/* Long words in narrow columns: break only words of 10+ letters, never "li-brary" or "den-tist". */
+@utility hyphens-calm {
+  hyphens: auto;
+  hyphenate-limit-chars: 10 4 4;
+  -webkit-hyphenate-limit-before: 4;
+  -webkit-hyphenate-limit-after: 4;
+}
+
+/* While a task is dragged, the rows it passes over don't light up as if they were the target. */
+:root[data-dragging] [data-task-row][aria-selected="false"]:hover {
+  background-color: transparent;
+  box-shadow: none;
+}
+:root[data-dragging] [data-task-row][aria-selected="false"]:hover::after {
+  opacity: 1;
 }
 
 /* Numbers that line up in columns (tables, axes, counters) — not for big standalone figures. */

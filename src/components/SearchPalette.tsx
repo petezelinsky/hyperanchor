@@ -16,7 +16,7 @@ function Highlight({ text, q }: { text: string; q: string }) {
   for (let i = lower.indexOf(needle); i >= 0; i = lower.indexOf(needle, i + needle.length)) {
     if (i > at) parts.push(text.slice(at, i));
     parts.push(
-      <mark key={i} className="rounded-[3px] bg-accent-soft px-px text-accent-ink">
+      <mark key={i} className="rounded-[3px] bg-surface-3 px-px font-semibold text-ink">
         {text.slice(i, i + needle.length)}
       </mark>,
     );
@@ -27,7 +27,7 @@ function Highlight({ text, q }: { text: string; q: string }) {
 }
 
 /**
- * Search across every task, on any date (press / or ⌘K). Results come grouped by day, newest first;
+ * Search across every task, on any date (press / or ⌘K). Results come grouped by day: today and the days ahead first, then the past;
  * ↑ ↓ pick one, Enter opens its day with the task selected.
  */
 export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string; onOpen: (task: Task) => void; onClose: () => void }) {
@@ -47,7 +47,7 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
     setLoading(true);
     const ctrl = new AbortController();
     const id = setTimeout(() => {
-      fetch(`/api/tasks/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal })
+      fetch(`/api/tasks/search?q=${encodeURIComponent(query)}&today=${todayKey}`, { signal: ctrl.signal })
         .then((r) => (r.ok ? r.json() : { tasks: [] }))
         .then(({ tasks }: { tasks: Task[] }) => {
           setResults(tasks);

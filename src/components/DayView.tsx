@@ -73,7 +73,15 @@ export function DayView({
           <>
             <span>
               {/* The title already names the weekday unless it says Today / Tomorrow / Yesterday. */}
-              {relativeDay(selected, todayKey) ? formatLong(d) : `${MONTHS[d.getMonth()]} ${d.getDate()}`}
+              {relativeDay(selected, todayKey) ? (
+                <>
+                  {/* Phones get the short date, so the count beside it is never cut off. */}
+                  <span className="sm:hidden">{formatMedium(d)}</span>
+                  <span className="max-sm:hidden">{formatLong(d)}</span>
+                </>
+              ) : (
+                `${MONTHS[d.getMonth()]} ${d.getDate()}`
+              )}
               {year}
             </span>
             <span className="text-ink-4">·</span>
@@ -86,6 +94,16 @@ export function DayView({
               </>
             ) : (
               <span>No tasks</span>
+            )}
+            {/* Phones: the way back to today sits on this line, so the week strip below never changes width. */}
+            {!isToday && !focus && (
+              <button
+                type="button"
+                onClick={() => onSelectDate(todayKey)}
+                className="relative ml-auto font-medium text-ink underline decoration-ink-4 underline-offset-[3px] before:absolute before:-inset-3 md:hidden"
+              >
+                Today
+              </button>
             )}
           </>
         }
@@ -142,15 +160,8 @@ export function DayView({
           />
         ) : (
           <>
-            <div className="mb-2 flex items-center gap-2 md:hidden">
-              <div className="min-w-0 flex-1">
-                <WeekPills selected={selected} todayKey={todayKey} byDate={byDate} onSelect={onSelectDate} />
-              </div>
-              {!isToday && (
-                <Button size="sm" onClick={() => onSelectDate(todayKey)}>
-                  Today
-                </Button>
-              )}
+            <div className="mb-2 md:hidden">
+              <WeekPills selected={selected} todayKey={todayKey} byDate={byDate} onSelect={onSelectDate} />
             </div>
 
             {past && open.length > 0 && (
@@ -370,7 +381,7 @@ function WeekPills({ selected, todayKey, byDate, onSelect }: { selected: string;
               aria-pressed={on}
               aria-label={`${formatLong(day)}: ${tasks.length ? `${done} of ${tasks.length} done` : "no tasks"}`}
               className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-[11px] transition-colors duration-150 ${
-                on && isToday ? "bg-accent text-on-accent" : on ? "bg-primary text-on-primary" : "hover:bg-surface-3"
+                on && isToday ? "bg-accent-solid text-on-accent" : on ? "bg-primary text-on-primary" : "hover:bg-surface-3"
               }`}
             >
               {/* Today is the accent; another selected day is black (as in Calendar). */}

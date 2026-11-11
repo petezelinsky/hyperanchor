@@ -130,6 +130,12 @@ export function TaskApp({ user }: { user: AppUser }) {
     return map;
   }, [tasks]);
   const byDate = useCallback((key: string) => byDateMap.get(key) ?? [], [byDateMap]);
+  // The earliest day with a task (of everything loaded, which reaches a year back): analytics starts counting there.
+  const firstDay = useMemo(() => {
+    let first: string | null = null;
+    for (const key of byDateMap.keys()) if (!first || key < first) first = key;
+    return first;
+  }, [byDateMap]);
 
   const sections = useMemo((): Section[] => {
     const make = (date: string) => ({ date, tasks: sortTasks(byDate(date), sort) });
@@ -287,8 +293,10 @@ export function TaskApp({ user }: { user: AppUser }) {
         edit(task.id, { done: !task.done });
         if (task.done) return;
         setSettling((s) => [...s, task.id]);
-        // The tick plays before the task moves on; in focus the next card shouldn't wait long.
-        setTimeout(() => setSettling((s) => s.filter((id) => id !== task.id)), latest.current.focusOn ? 520 : 900);
+        // The tick plays before the task moves on; in focus the next card shouldn't wait long. Without motion there's
+        // no tick to watch, so the task moves on almost at once.
+        const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        setTimeout(() => setSettling((s) => s.filter((id) => id !== task.id)), still ? 150 : latest.current.focusOn ? 520 : 900);
       },
       move: (task, date) => {
         const from = task.date;
@@ -648,6 +656,7 @@ export function TaskApp({ user }: { user: AppUser }) {
                 period={stats.period}
                 offset={stats.offset}
                 todayKey={todayKey}
+                firstDay={firstDay}
                 byDate={byDate}
                 onPeriod={(period) => setStats({ period, offset: 0 })}
                 onOffset={(offset) => setStats((s) => ({ ...s, offset: Math.min(0, offset) }))}

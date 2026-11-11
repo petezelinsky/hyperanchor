@@ -103,6 +103,20 @@ export function MiniMonth({
 }) {
   const { start, rows } = monthGrid(year, month);
   const drag = useDrag();
+  const keys = Array.from({ length: rows * 7 }, (_, i) => ymd(addDays(start, i)));
+  // One Tab stop for the whole month (the selected day, else today, else the 1st); arrows move between days.
+  const [active, setActive] = useState<string | null>(null);
+  const tabKey = [active, selected, todayKey, ymd(new Date(year, month, 1))].find((k) => k && keys.includes(k));
+  const grid = useRef<HTMLDivElement>(null);
+  const onGridKey = (e: React.KeyboardEvent) => {
+    const step = ({ ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 } as Record<string, number>)[e.key];
+    const i = keys.indexOf((e.target as HTMLElement).dataset.dropDate ?? "");
+    if (!step || i < 0) return;
+    e.preventDefault();
+    const j = Math.min(keys.length - 1, Math.max(0, i + step));
+    setActive(keys[j]);
+    grid.current?.querySelectorAll<HTMLButtonElement>("button")[j]?.focus();
+  };
   return (
     <div>
       <div className="flex items-center justify-between pl-1.5">
@@ -125,10 +139,9 @@ export function MiniMonth({
           </span>
         ))}
       </div>
-      <div className="grid grid-cols-7">
-        {Array.from({ length: rows * 7 }, (_, i) => {
+      <div ref={grid} className="grid grid-cols-7" onKeyDown={onGridKey}>
+        {keys.map((key, i) => {
           const d = addDays(start, i);
-          const key = ymd(d);
           const sel = key === selected;
           const today = key === todayKey;
           const tasks = byDate(key);
@@ -140,6 +153,8 @@ export function MiniMonth({
               onClick={() => onSelect(key)}
               aria-label={formatLong(d)}
               aria-pressed={sel}
+              tabIndex={key === tabKey ? 0 : -1}
+              onFocus={() => setActive(key)}
               data-drop-date={key}
               data-drop-zone="calendar"
               className="group relative flex h-[30px] items-center justify-center"
@@ -152,7 +167,7 @@ export function MiniMonth({
               <span
                 className={`tabular relative flex size-[26px] items-center justify-center rounded-full text-[12px] transition-colors duration-150 ${
                   sel && today
-                    ? "bg-accent font-semibold text-on-accent"
+                    ? "bg-accent-solid font-semibold text-on-accent"
                     : sel
                       ? "bg-primary font-semibold text-on-primary"
                       : today

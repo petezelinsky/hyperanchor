@@ -42,6 +42,8 @@ struct ThemeShadow: Sendable, Hashable {
 struct AccentPalette: Sendable, Hashable {
     /// Today, completion, progress, data.
     let accent: ThemeColor
+    /// Accent behind white text: dark enough for 4.5:1.
+    let accentSolid: ThemeColor
     let accentHover: ThemeColor
     /// Accent as text (small labels only).
     let accentInk: ThemeColor
@@ -86,6 +88,7 @@ enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
         case .blue:
             AccentPalette(
                 accent: ThemeColor(light: RGBA(hex: 0x2563EB), dark: RGBA(hex: 0x3B82F6)),
+                accentSolid: ThemeColor(light: RGBA(hex: 0x2563EB), dark: RGBA(hex: 0x2563EB)),
                 accentHover: ThemeColor(light: RGBA(hex: 0x1D4ED8), dark: RGBA(hex: 0x5591F7)),
                 accentInk: ThemeColor(light: RGBA(hex: 0x1D4ED8), dark: RGBA(hex: 0x82AEFC)),
                 accentSoft: ThemeColor(light: RGBA(hex: 0xEFF4FF), dark: RGBA(hex: 0x0F1D38)),
@@ -98,6 +101,7 @@ enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
         case .orange:
             AccentPalette(
                 accent: ThemeColor(light: RGBA(hex: 0xF4511E), dark: RGBA(hex: 0xFF6A2B)),
+                accentSolid: ThemeColor(light: RGBA(hex: 0xC84A16), dark: RGBA(hex: 0xC84A16)),
                 accentHover: ThemeColor(light: RGBA(hex: 0xE0461A), dark: RGBA(hex: 0xFF7A3D)),
                 accentInk: ThemeColor(light: RGBA(hex: 0xC84A16), dark: RGBA(hex: 0xFF8A52)),
                 accentSoft: ThemeColor(light: RGBA(hex: 0xFFF2EC), dark: RGBA(hex: 0x2A1610)),
@@ -110,6 +114,7 @@ enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
         case .green:
             AccentPalette(
                 accent: ThemeColor(light: RGBA(hex: 0x16A34A), dark: RGBA(hex: 0x22C55E)),
+                accentSolid: ThemeColor(light: RGBA(hex: 0x15803D), dark: RGBA(hex: 0x15803D)),
                 accentHover: ThemeColor(light: RGBA(hex: 0x15803D), dark: RGBA(hex: 0x3AD270)),
                 accentInk: ThemeColor(light: RGBA(hex: 0x15803D), dark: RGBA(hex: 0x4ADE80)),
                 accentSoft: ThemeColor(light: RGBA(hex: 0xEDFAF2), dark: RGBA(hex: 0x0D2316)),
@@ -149,8 +154,8 @@ enum Tokens {
     static let ink4 = ThemeColor(light: RGBA(hex: 0xD4D4D4), dark: RGBA(hex: 0x3D3D3D))
     static let line = ThemeColor(light: RGBA(hex: 0xEDEDED), dark: RGBA(hex: 0x242424))
     static let line2 = ThemeColor(light: RGBA(hex: 0xE2E2E2), dark: RGBA(hex: 0x2E2E2E))
-    /// An open checkbox.
-    static let checkRing = ThemeColor(light: RGBA(hex: 0xB8B8B8), dark: RGBA(hex: 0x555555))
+    /// An open checkbox: 3:1 against every surface it sits on.
+    static let checkRing = ThemeColor(light: RGBA(hex: 0x8A8A8A), dark: RGBA(hex: 0x707070))
 
     // MARK: Primary buttons
 

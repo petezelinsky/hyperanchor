@@ -1,7 +1,7 @@
 "use client";
 
 import { addDays, dayShort, formatLong, formatMedium, MONTHS, MONTHS_SHORT, parseYmd, rangeLabel, relativeDay, ymd } from "@/lib/dates";
-import { currentStreak, dayStats, longestStreak, monthStats, periodBounds, summarize, type Period } from "@/lib/stats";
+import { currentStreak, dayStats, longestStreak, monthStats, periodBounds, summarize, type DayStat, type Period } from "@/lib/stats";
 import type { Task } from "@/lib/types";
 import { ChartIcon } from "../icons";
 import { EmptyState, NavGroup, Toolbar } from "../Toolbar";
@@ -18,6 +18,7 @@ export function AnalyticsView({
   period,
   offset,
   todayKey,
+  firstDay,
   byDate,
   onPeriod,
   onOffset,
@@ -30,6 +31,8 @@ export function AnalyticsView({
   period: Period;
   offset: number;
   todayKey: string;
+  /** The earliest day the person has a task on: days before it don't count against them. */
+  firstDay: string | null;
   byDate: (key: string) => Task[];
   onPeriod: (p: Period) => void;
   onOffset: (o: number) => void;
@@ -41,11 +44,18 @@ export function AnalyticsView({
   onPlan: () => void;
 }) {
   const b = periodBounds(period, offset, todayKey);
-  const days = dayStats(b, todayKey, byDate);
+  // Days before the person's first task aren't theirs to be measured on: averages start when they started.
+  const fromStart = (list: DayStat[]) => (firstDay ? list.map((d) => (d.key < firstDay ? { ...d, elapsed: false } : d)) : list);
+  const days = fromStart(dayStats(b, todayKey, byDate));
   const sum = summarize(days);
-  // Like for like: this period so far against the same number of days of the previous one.
-  const prevDays = dayStats(periodBounds(period, offset - 1, todayKey), todayKey, byDate);
-  const prev = summarize(offset === 0 ? prevDays.slice(0, sum.elapsedDays) : prevDays);
+  const prevDays = fromStart(dayStats(periodBounds(period, offset - 1, todayKey), todayKey, byDate));
+  // A day still in progress isn't a result yet: rates and averages of the current period run through yesterday, and are
+  // compared with the same stretch of the previous period.
+  const todayIndex = days.findIndex((d) => d.isToday);
+  const settledDays = todayIndex >= 0 ? days.map((d) => (d.isToday ? { ...d, elapsed: false } : d)) : days;
+  const settled = summarize(settledDays);
+  const prevSettled = summarize(todayIndex >= 0 ? prevDays.slice(0, todayIndex) : prevDays);
+  const throughYesterday = todayIndex >= 0;
   const today = parseYmd(todayKey);
   const year = b.start.getFullYear();
   const current = offset === 0;
@@ -108,7 +118,9 @@ export function AnalyticsView({
   }
 
   const elapsedBars = bars.filter((x) => x.elapsed).length;
-  const avg = period === "year" ? (elapsedBars ? sum.completed / elapsedBars : 0) : sum.avg;
+  // The average line, like the figures, counts finished days only (and, for a year, the months since the person started).
+  const settledMonths = period === "year" ? monthStats(settledDays).filter((m) => m.elapsedDays > 0).length : 0;
+  const avg = period === "year" ? (settledMonths ? settled.completed / settledMonths : elapsedBars ? sum.completed / elapsedBars : 0) : settled.elapsedDays ? settled.avg : sum.avg;
   const longest = longestStreak(days);
   // The current streak counts back from today (or from yesterday, while today has nothing done yet).
   const streak = current ? currentStreak(todayKey, byDate) : longest;
@@ -148,7 +160,7 @@ export function AnalyticsView({
         />
       </Toolbar>
 
-      {!sum.planned && !sum.upcoming && !prev.planned ? (
+      {!sum.planned && !sum.upcoming && !prevDays.some((d) => d.total) ? (
         // Nothing to measure yet: one calm line instead of empty charts.
         <div className="mx-auto max-w-[1240px] px-3 pb-10 md:px-8">
           {current ? (
@@ -165,7 +177,9 @@ export function AnalyticsView({
       <div className="mx-auto max-w-[1240px] space-y-3 px-3 pb-10 md:space-y-4 md:px-8">
         <Kpis
           sum={sum}
-          prev={prev}
+          settled={settled}
+          prevSettled={prevSettled}
+          throughYesterday={throughYesterday}
           period={period}
           current={current}
           spark={spark}
@@ -215,7 +229,7 @@ export function AnalyticsView({
         <div className="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-2">
           {period !== "week" && <WeekdayCard days={days} />}
           <OpenCard
-            open={sum.open}
+            open={throughYesterday ? sum.open.filter((o) => !o.day.isToday) : sum.open}
             todayKey={todayKey}
             onToggle={onToggle}
             onMove={onMove}

@@ -520,7 +520,7 @@ export function Modal({
   }, []);
   return createPortal(
     <div
-      className={`fixed inset-0 z-[110] flex animate-[fade_0.2s_ease-out_both] justify-center bg-[var(--scrim)] p-4 backdrop-blur-[2px] ${
+      className={`fixed inset-0 z-[110] flex animate-[fade_0.2s_ease-out_both] justify-center bg-[var(--scrim)] p-4 ${
         top ? "items-start pt-[max(1rem,10vh)]" : "items-center"
       }`}
     >

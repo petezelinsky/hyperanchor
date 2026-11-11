@@ -128,7 +128,7 @@ export function MonthView({
                   {/* Today is the accent; another selected day is black (as in Calendar). */}
                   <span
                     className={`tabular flex size-[26px] items-center justify-center rounded-full text-[13px] transition-colors duration-150 ${
-                      isToday ? "bg-accent font-semibold text-on-accent" : isSel ? "bg-primary font-semibold text-on-primary" : out ? "text-ink-4" : "text-ink"
+                      isToday ? "bg-accent-solid font-semibold text-on-accent" : isSel ? "bg-primary font-semibold text-on-primary" : out ? "text-ink-4" : "text-ink"
                     }`}
                   >
                     {d.getDate()}

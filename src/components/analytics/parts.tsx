@@ -115,7 +115,9 @@ function Tile({
 
 export function Kpis({
   sum,
-  prev,
+  settled,
+  prevSettled,
+  throughYesterday,
   period,
   current,
   spark,
@@ -124,7 +126,12 @@ export function Kpis({
   recent,
 }: {
   sum: Summary;
-  prev: Summary;
+  /** The period without today: a day still in progress isn't a result yet. */
+  settled: Summary;
+  /** The same stretch of the previous period. */
+  prevSettled: Summary;
+  /** Today falls in this period, so rates and averages stop at yesterday. */
+  throughYesterday: boolean;
   period: Period;
   /** Viewing the current period (vs an earlier one). */
   current: boolean;
@@ -136,14 +143,14 @@ export function Kpis({
   /** Whether each of the last 7 days had something completed, oldest first. */
   recent: boolean[];
 }) {
-  // The current period is compared with the same stretch of the previous one (this point last week), not all of it.
-  const vs = current ? `vs this time last ${period}` : `vs previous ${period}`;
-  const prevHas = prev.planned > 0;
+  const vs = `vs last ${period}`;
+  const prevHas = prevSettled.planned > 0;
   const completed = useCountUp(sum.completed);
-  const rate = useCountUp(sum.rate ?? 0);
-  const avg = useCountUp(sum.avg);
+  const rate = useCountUp(settled.rate ?? 0);
+  const avg = useCountUp(settled.avg);
   const streakN = useCountUp(streak);
-  const none = <span>No data for the previous {period}</span>;
+  const none = <span>No last {period} to compare with</span>;
+  const suffix = throughYesterday ? ", through yesterday" : "";
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -153,27 +160,33 @@ export function Kpis({
         visual={<Sparkline points={spark} />}
         foot={
           <>
-            <span>{sum.planned ? `of ${sum.planned} planned` : "Nothing planned yet"}</span>
-            {prevHas && <Delta value={sum.completed - prev.completed} digits={0} vs={vs} />}
+            <span>{sum.planned ? `of ${sum.planned} planned${throughYesterday ? " so far" : ""}` : "Nothing planned yet"}</span>
           </>
         }
       />
       <Tile
-        label="Completion rate"
-        value={sum.rate == null ? "—" : pct(rate)}
-        visual={<Meter value={sum.rate} className="w-[84px]" />}
-        foot={sum.rate == null ? <span>Plan tasks to see your rate</span> : prevHas && prev.rate != null ? <Delta value={(sum.rate - prev.rate) * 100} digits={0} suffix=" pts" vs={vs} /> : none}
+        label={`Completion${suffix}`}
+        value={settled.rate == null ? "—" : pct(rate)}
+        visual={<Meter value={settled.rate} className="w-[84px]" />}
+        foot={
+          settled.rate == null ? (
+            <span>{throughYesterday && !settled.elapsedDays ? "Counts finished days only" : "Plan tasks to see your rate"}</span>
+          ) : prevHas && prevSettled.rate != null ? (
+            <Delta value={(settled.rate - prevSettled.rate) * 100} digits={0} suffix=" pts" vs={vs} />
+          ) : (
+            none
+          )
+        }
       />
       <Tile
-        label="Daily average"
-        value={fmt1(avg)}
-        unit="per day"
+        label={`Per day${suffix}`}
+        value={settled.elapsedDays ? fmt1(avg) : "—"}
         foot={
           <>
             <span>
-              {sum.activeDays}/{sum.elapsedDays} days active
+              {settled.activeDays}/{settled.elapsedDays} days active
             </span>
-            {prevHas && <Delta value={sum.avg - prev.avg} digits={1} vs={vs} />}
+            {prevHas && settled.elapsedDays > 0 && <Delta value={settled.avg - prevSettled.avg} digits={1} vs={vs} />}
           </>
         }
       />

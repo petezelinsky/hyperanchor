@@ -107,7 +107,7 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
                     <span
                       className={`tabular flex items-center justify-center font-semibold tracking-[-0.02em] ${
                         isToday
-                          ? "-ml-0.5 size-[30px] rounded-full bg-accent text-[15px] text-on-accent"
+                          ? "-ml-0.5 size-[30px] rounded-full bg-accent-solid text-[15px] text-on-accent"
                           : `text-[22px] ${past ? "text-ink-2" : "text-ink"}`
                       }`}
                     >

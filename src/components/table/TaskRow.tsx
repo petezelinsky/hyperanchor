@@ -104,7 +104,7 @@ function SwipeActions({ dx, done }: { dx: number; done: boolean }) {
   return (
     <div
       aria-hidden="true"
-      className={`absolute inset-0 flex items-center px-5 text-[13px] font-semibold ${right ? "justify-start bg-accent text-on-accent" : "justify-end bg-primary text-on-primary"}`}
+      className={`absolute inset-0 flex items-center px-5 text-[13px] font-semibold ${right ? "justify-start bg-accent-solid text-on-accent" : "justify-end bg-primary text-on-primary"}`}
     >
       <span className={`flex items-center gap-2 transition-transform duration-150 ${past ? "scale-110" : "scale-90 opacity-80"}`}>
         {right ? (
@@ -176,36 +176,31 @@ export function TaskRow({
   const titleText = compact ? "text-[13px] leading-[18px]" : card ? "text-[13.5px] leading-[18px]" : "text-[14px] leading-5";
   // Cards are narrow: long words hyphenate rather than break mid-word.
   // (line-clamp brings its own display, so it never goes with `block`.)
-  const titleCls = `w-full ${card && !compact ? "line-clamp-3 break-words hyphens-auto" : "block truncate"} ${titleText} transition-colors duration-300 ${task.done ? "text-ink-3" : "text-ink"}`;
+  // A picked task shows its title whole; otherwise one line in lists, three on cards.
+  const titleFit = selected ? "block break-words hyphens-calm" : card && !compact ? "line-clamp-3 break-words hyphens-calm" : "block truncate";
+  const titleCls = `w-full ${titleFit} ${titleText} transition-colors duration-300 ${task.done ? "text-ink-3" : "text-ink"}`;
   const notesText = card ? "text-[12px] leading-4" : "text-[13px] leading-[19px]";
-  // A selected task shows its notes in full; otherwise one quiet line (two on a card).
-  const notesCls = `w-full ${notesText} text-ink-2 ${selected && !editing ? "block break-words whitespace-pre-line" : card ? "line-clamp-2 break-words hyphens-auto" : "block truncate"}`;
+  // A picked task shows its notes in full (while its title is edited too); otherwise one quiet line (two on a card).
+  const notesCls = `w-full ${notesText} text-ink-2 ${selected ? "block break-words whitespace-pre-line" : card ? "line-clamp-2 break-words hyphens-calm" : "block truncate"}`;
 
+  // The first click picks a task and shows it whole; a click on the picked task, Enter or a double click edits it.
+  const editOnClick = (field: Field) => () => {
+    if (selected) actions.startEdit(task.id, field);
+  };
   const title =
     editingField === "title" ? (
-      card ? (
-        <AutoTextarea
-          ref={titleRef}
-          value={task.title}
-          onChange={(e) => actions.change(task.id, { title: e.target.value.replace(/\n/g, " ") })}
-          onKeyDown={keys("title")}
-          aria-label="Task title"
-          maxLength={500}
-          className={`${titleText} text-ink`}
-        />
-      ) : (
-        <input
-          ref={titleRef}
-          value={task.title}
-          onChange={(e) => actions.change(task.id, { title: e.target.value })}
-          onKeyDown={keys("title")}
-          aria-label="Task title"
-          maxLength={500}
-          className={`${titleCls} m-0 bg-transparent p-0 text-ink outline-none`}
-        />
-      )
+      <AutoTextarea
+        ref={titleRef}
+        value={task.title}
+        onChange={(e) => actions.change(task.id, { title: e.target.value.replace(/\n/g, " ") })}
+        onKeyDown={keys("title")}
+        aria-label="Task title"
+        maxLength={500}
+        dir="auto"
+        className={`${titleText} text-ink`}
+      />
     ) : (
-      <span className={titleCls} onClick={() => actions.startEdit(task.id, "title")}>
+      <span dir="auto" className={titleCls} onClick={editOnClick("title")} onDoubleClick={() => actions.startEdit(task.id, "title")}>
         {task.title}
       </span>
     );
@@ -223,10 +218,11 @@ export function TaskRow({
         placeholder="Notes"
         aria-label="Notes"
         maxLength={5000}
+        dir="auto"
         className={`${notesText} text-ink`}
       />
     ) : task.description ? (
-      <span className={notesCls} onClick={() => actions.startEdit(task.id, "description")}>
+      <span dir="auto" className={notesCls} onClick={editOnClick("description")} onDoubleClick={() => actions.startEdit(task.id, "description")}>
         {selected ? task.description : task.description.replace(/\s*\n\s*/g, " · ")}
       </span>
     ) : (
