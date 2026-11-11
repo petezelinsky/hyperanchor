@@ -48,7 +48,7 @@ export function Sidebar({
         <nav aria-label="Views" className="relative mt-3 flex flex-col gap-0.5">
           <span
             aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-9 rounded-sm bg-surface shadow-lift transition-transform duration-300 ease-out"
+            className="absolute inset-x-0 top-0 h-9 rounded-sm bg-surface shadow-lift transition-transform duration-(--duration-base) ease-out"
             style={{ transform: `translateY(${index * NAV_ROW}px)` }}
           />
           {VIEWS.map((v) => {
@@ -62,11 +62,11 @@ export function Sidebar({
                 aria-current={on ? "page" : undefined}
                 data-tip={`${v.label} (${v.key})`}
                 data-tip-side="right"
-                className={`relative flex h-9 items-center gap-2.5 rounded-sm px-2.5 text-body transition-colors duration-150 ${
+                className={`relative flex h-9 items-center gap-2.5 rounded-sm px-2.5 text-body transition-colors duration-(--duration-fast) ${
                   on ? "font-medium text-ink" : "text-ink-2 hover:bg-line hover:text-ink"
                 }`}
               >
-                <span className={`transition-colors duration-150 ${on ? "text-accent" : "text-ink-3"}`}>{v.icon}</span>
+                <span className={`transition-colors duration-(--duration-fast) ${on ? "text-accent" : "text-ink-3"}`}>{v.icon}</span>
                 <span className="flex-1 text-left">{v.label}</span>
                 {!!badge && <span className="tabular text-caption font-normal text-ink-3">{badge}</span>}
               </button>
@@ -160,11 +160,11 @@ export function MiniMonth({
             >
               {/* Dragging a task over a day: the day lights up to take it. */}
               {drag.dragging && drag.target?.zone === "calendar" && drag.target.date === key && (
-                <span aria-hidden="true" className="absolute inset-[1px] animate-[pop-in_0.15s_ease-out_both] rounded-sm bg-accent-soft shadow-ring-accent" />
+                <span aria-hidden="true" className="absolute inset-[1px] animate-pop-in rounded-sm bg-accent-soft shadow-ring-accent" />
               )}
               {/* Today is the accent; another selected day is black (as in Calendar). */}
               <span
-                className={`tabular relative flex size-[26px] items-center justify-center rounded-full text-caption transition-colors duration-150 ${
+                className={`tabular relative flex size-[26px] items-center justify-center rounded-full text-caption transition-colors duration-(--duration-fast) ${
                   sel && today
                     ? "bg-accent-solid font-semibold text-on-accent"
                     : sel
@@ -178,7 +178,7 @@ export function MiniMonth({
               >
                 {d.getDate()}
               </span>
-              {tasks.length > 0 && !sel && <span className={`absolute bottom-0 size-[3px] rounded-full ${allDone ? "bg-accent" : "bg-ink-4"}`} />}
+              {tasks.length > 0 && !sel && <span data-day-dot={key} className={`absolute bottom-0 size-[3px] rounded-full ${allDone ? "bg-accent" : "bg-ink-4"}`} />}
             </button>
           );
         })}
@@ -195,7 +195,7 @@ function AccountButton({ user, onSettings }: { user: AppUser; onSettings: () => 
       aria-haspopup="dialog"
       aria-label={`${user.name}, settings`}
       onClick={onSettings}
-      className="flex w-full items-center gap-2.5 rounded-sm p-2 text-left transition-colors duration-150 hover:bg-line"
+      className="flex w-full items-center gap-2.5 rounded-sm p-2 text-left transition-colors duration-(--duration-fast) hover:bg-line"
     >
       <Avatar name={user.name} image={user.image} size={30} />
       <span className="min-w-0 flex-1">
@@ -237,7 +237,7 @@ export function TabBar({ view, onView }: { view: View; onView: (v: View) => void
       <div className="glass pointer-events-auto relative grid w-full max-w-[380px] grid-cols-4 rounded-card p-1 shadow-float">
         <span
           aria-hidden="true"
-          className="absolute inset-y-1 left-1 rounded-lg bg-surface shadow-lift transition-transform duration-300 ease-out"
+          className="absolute inset-y-1 left-1 rounded-lg bg-surface shadow-lift transition-transform duration-(--duration-base) ease-out"
           style={{ width: "calc((100% - 8px) / 4)", transform: `translateX(${index * 100}%)` }}
         />
         {VIEWS.map((v) => {
@@ -248,7 +248,7 @@ export function TabBar({ view, onView }: { view: View; onView: (v: View) => void
               type="button"
               onClick={() => onView(v.value)}
               aria-current={on ? "page" : undefined}
-              className={`relative flex h-[52px] flex-col items-center justify-center gap-[3px] rounded-lg text-caption-2 font-medium transition-colors duration-150 ${
+              className={`relative flex h-[52px] flex-col items-center justify-center gap-[3px] rounded-lg text-caption-2 font-medium transition-colors duration-(--duration-fast) ${
                 on ? "text-ink" : "text-ink-3"
               }`}
             >

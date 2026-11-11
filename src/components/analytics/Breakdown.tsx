@@ -25,8 +25,8 @@ export function WeekdayCard({ days }: { days: DayStat[] }) {
               <span className={`text-footnote ${top ? "font-semibold text-ink" : "text-ink-2"}`}>{short[w.index]}</span>
               <span className="h-2 overflow-hidden rounded-full bg-surface-3">
                 <span
-                  className={`block h-full rounded-full transition-[width] duration-700 ease-out ${top ? "bg-accent" : "bg-ink-4"}`}
-                  style={{ width: max ? `${(w.avg / max) * 100}%` : 0 }}
+                  className={`block h-full origin-left rounded-full transition-transform duration-(--duration-data) ease-out ${top ? "bg-accent" : "bg-ink-4"}`}
+                  style={{ transform: `scaleX(${max ? w.avg / max : 0})` }}
                 />
               </span>
               <span className="tabular text-right text-footnote text-ink">
@@ -74,7 +74,7 @@ export function OpenCard({
         <>
           <ul>
             {shown.map(({ task, day }) => (
-              <li key={task.id} className="flex items-center gap-3 border-b border-line py-2 last:border-0">
+              <li key={task.id} data-flip={task.id} className="flex items-center gap-3 border-b border-line py-2 last:border-0">
                 <Checkbox size={18} checked={false} onToggle={() => onToggle(task)} label={`Mark “${task.title}” as done`} />
                 <span dir="auto" className="min-w-0 flex-1 truncate text-body">
                   {task.title}

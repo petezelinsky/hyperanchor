@@ -8,7 +8,7 @@ import { ArrowRightIcon, ChevronDown, ChevronLeft, ChevronRight, FocusIcon, Tras
 import { TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
 import { NavGroup, NewTaskButton, Toolbar } from "./Toolbar";
-import { Burst, Button, Checkbox, IconButton, Kbd, ProgressRing } from "./ui";
+import { Accordion, Burst, Button, Checkbox, IconButton, Kbd, ProgressRing } from "./ui";
 
 /** Focus mode for the selected day (null when off). */
 export type Focus = {
@@ -231,8 +231,8 @@ function MoveButton({ label, onClick }: { label: string; onClick: () => void }) 
 function Swap({ on, a, b, className = "" }: { on: boolean; a: React.ReactNode; b: React.ReactNode; className?: string }) {
   return (
     <span className={`grid ${className}`}>
-      <span className={`col-start-1 row-start-1 transition-opacity duration-200 ${on ? "invisible opacity-0" : ""}`}>{a}</span>
-      <span aria-hidden={!on} className={`col-start-1 row-start-1 transition-opacity duration-200 ${on ? "" : "invisible opacity-0"}`}>
+      <span className={`col-start-1 row-start-1 transition-opacity duration-(--duration-fast) ${on ? "invisible opacity-0" : ""}`}>{a}</span>
+      <span aria-hidden={!on} className={`col-start-1 row-start-1 transition-opacity duration-(--duration-fast) ${on ? "" : "invisible opacity-0"}`}>
         {b}
       </span>
     </span>
@@ -248,12 +248,10 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
   const [open, setOpen] = useState(false);
   // The list exists only while it's open (and while it closes), and grows by 50 as it's scrolled: hundreds of old tasks
   // cost nothing until someone looks at them.
-  const [mounted, setMounted] = useState(false);
   const [limit, setLimit] = useState(CHUNK);
   const end = useRef<HTMLLIElement>(null);
   useEffect(() => {
-    if (open) setMounted(true);
-    else setLimit(CHUNK);
+    if (!open) setLimit(CHUNK);
   }, [open]);
   useEffect(() => {
     const el = end.current;
@@ -261,7 +259,7 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
     const io = new IntersectionObserver(([e]) => e.isIntersecting && setLimit((l) => l + CHUNK), { root: el.parentElement, rootMargin: "200px" });
     io.observe(el);
     return () => io.disconnect();
-  }, [mounted, limit, tasks.length]);
+  }, [open, limit, tasks.length]);
   const n = tasks.length;
   const thisYear = parseYmd(todayKey).getFullYear();
   const when = (date: string) => {
@@ -274,7 +272,7 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
         <>
           <Button size="sm" variant="plain" onClick={() => setOpen(!open)} aria-expanded={open} className="gap-1">
             <Swap on={open} a="Review" b="Hide" className="justify-items-end" />
-            <ChevronDown size={12} strokeWidth={2} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+            <ChevronDown size={12} strokeWidth={2} className={`transition-transform duration-(--duration-base) ${open ? "rotate-180" : ""}`} />
           </Button>
           {/* Bringing everything along is a choice made while looking at the list, not a button that's always there. */}
           {open && (
@@ -285,34 +283,27 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
         </>
       }
       more={
-        <div
-          className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
-          onTransitionEnd={(e) => e.target === e.currentTarget && !open && setMounted(false)}
-        >
-          <div className="min-h-0 overflow-hidden" inert={!open}>
-            {(open || mounted) && (
-              <ul className="mt-1.5 max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain rounded-lg border border-line">
-                {tasks.slice(0, limit).map((t, i) => (
-                  <li key={t.id} className={`flex items-center gap-3 py-1.5 pr-2 pl-3.5 ${i ? "border-t border-line" : ""}`}>
-                    <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-body text-ink">{t.title}</span>
-                      <span className="block text-caption text-ink-3">{when(t.date)}</span>
-                    </span>
-                    <Button size="sm" variant="plain" onClick={() => actions.move(t, todayKey)} className="gap-1 text-ink!">
-                      Today
-                      <ArrowRightIcon size={12} strokeWidth={2} />
-                    </Button>
-                    <IconButton label={`Delete “${t.title}”`} tip="Delete" size="sm" onClick={() => actions.remove(t)} className="hover:text-red-ink!">
-                      <TrashIcon size={14} />
-                    </IconButton>
-                  </li>
-                ))}
-                {limit < n && <li ref={end} aria-hidden="true" className="h-px" />}
-              </ul>
-            )}
-          </div>
-        </div>
+        <Accordion open={open}>
+          <ul className="mt-1.5 max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain rounded-lg border border-line">
+            {tasks.slice(0, limit).map((t, i) => (
+              <li key={t.id} data-flip={t.id} className={`flex items-center gap-3 py-1.5 pr-2 pl-3.5 ${i ? "border-t border-line" : ""}`}>
+                <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-body text-ink">{t.title}</span>
+                  <span className="block text-caption text-ink-3">{when(t.date)}</span>
+                </span>
+                <Button size="sm" variant="plain" onClick={() => actions.move(t, todayKey)} className="gap-1 text-ink!">
+                  Today
+                  <ArrowRightIcon size={12} strokeWidth={2} />
+                </Button>
+                <IconButton label={`Delete “${t.title}”`} tip="Delete" size="sm" onClick={() => actions.remove(t)} className="hover:text-red-ink!">
+                  <TrashIcon size={14} />
+                </IconButton>
+              </li>
+            ))}
+            {limit < n && <li ref={end} aria-hidden="true" className="h-px" />}
+          </ul>
+        </Accordion>
       }
     >
       {n} open from earlier days
@@ -389,7 +380,7 @@ function WeekPills({ selected, todayKey, byDate, onSelect }: { selected: string;
               onClick={() => onSelect(key)}
               aria-pressed={on}
               aria-label={`${formatLong(day)}: ${tasks.length ? `${done} of ${tasks.length} done` : "no tasks"}`}
-              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-lg transition-colors duration-150 ${
+              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-lg transition-colors duration-(--duration-fast) ${
                 on && isToday ? "bg-accent-solid text-on-accent" : on ? "bg-primary text-on-primary" : "hover:bg-surface-3"
               }`}
             >
@@ -398,7 +389,7 @@ function WeekPills({ selected, todayKey, byDate, onSelect }: { selected: string;
               <span className={`tabular text-callout font-semibold ${on ? "" : isToday ? "text-accent-ink" : key < todayKey ? "text-ink-2" : "text-ink"}`}>
                 {day.getDate()}
               </span>
-              <span className={`mt-px size-1 rounded-full ${dot ? (on ? "bg-current opacity-60" : dot) : ""}`} />
+              <span data-day-dot={key} className={`mt-px size-1 rounded-full ${dot ? (on ? "bg-current opacity-60" : dot) : ""}`} />
             </button>
           );
         })}

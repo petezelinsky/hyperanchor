@@ -5,7 +5,8 @@ import { addDays, dayName, formatShort, parseYmd, startOfWeek, ymd } from "@/lib
 import { DEFAULT_SORT, type Sort } from "@/lib/tasks";
 import type { Task } from "@/lib/types";
 import { ChevronDown, PlusIcon, SortIcon } from "../icons";
-import { IconButton, Menu, type Anchor, type MenuEntry } from "../ui";
+import { motion } from "../motion";
+import { Accordion, IconButton, Menu, type Anchor, type MenuEntry } from "../ui";
 import { useDrag } from "../drag";
 import { COLS, TaskRow } from "./TaskRow";
 import type { Composer, Section, TableActions, TableState } from "./types";
@@ -83,9 +84,12 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
     setText((t) => ({ ...t, ...patch }));
     actions.composerChange(patch);
   };
+  const rowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setText({ title: "", description: "" });
     titleRef.current?.focus();
+    // The field that was here just became the task; a new one appears in its place.
+    rowRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: motion().fast, easing: motion().out });
   }, [composer.nonce]);
 
   const keys = (e: React.KeyboardEvent) => {
@@ -102,7 +106,7 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
   const input = "m-0 block w-full bg-transparent p-0 outline-none";
 
   return (
-    <div role="row" data-editing="true" className={`relative ${COLS} min-h-11 animate-rise items-start rounded-sm bg-surface-3 px-1 shadow-ring-line-2 first:rounded-t-none`}>
+    <div ref={rowRef} role="row" data-editing="true" className={`relative ${COLS} min-h-11 items-start rounded-sm bg-surface-3 px-1 shadow-ring-line-2 first:rounded-t-none`}>
       <div className="flex h-11 items-center justify-center">
         <span className="size-5 rounded-full border-[1.5px] border-dashed border-ink-4" />
       </div>
@@ -150,7 +154,7 @@ function NewTaskRow({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className={`${COLS} h-11 w-full items-center rounded-sm px-1 text-left text-body text-ink-3 transition-[background-color,box-shadow,color] duration-150 first:rounded-t-none hover:bg-surface-2 hover:text-ink hover:shadow-ring-line`}
+      className={`${COLS} h-11 w-full items-center rounded-sm px-1 text-left text-body text-ink-3 transition-[background-color,box-shadow,color] duration-(--duration-fast) first:rounded-t-none hover:bg-surface-2 hover:text-ink hover:shadow-ring-line`}
     >
       <span className="flex justify-center">
         <PlusIcon size={15} />
@@ -158,22 +162,6 @@ function NewTaskRow({ onClick }: { onClick: () => void }) {
       <span>New task</span>
     </button>
   );
-}
-
-/** Remembers which task ids each list showed last time, so rows that just arrived can ease in. */
-export function useFresh() {
-  const seen = useRef<Map<string, Set<string>> | null>(null);
-  const next = new Map<string, Set<string>>();
-  const isFresh = (list: string, id: string) => {
-    let ids = next.get(list);
-    if (!ids) next.set(list, (ids = new Set()));
-    ids.add(id);
-    return seen.current != null && !seen.current.get(list)?.has(id);
-  };
-  useEffect(() => {
-    seen.current = next;
-  });
-  return isFresh;
 }
 
 export function TaskTable({
@@ -201,7 +189,6 @@ export function TaskTable({
 }) {
   const [menu, setMenu] = useState<MenuState>(null);
   const root = useRef<HTMLDivElement>(null);
-  const isFresh = useFresh();
   const drag = useDrag();
 
   // Keep the keyboard selection in view.
@@ -219,7 +206,6 @@ export function TaskTable({
       task={t}
       selected={state.selectedId === t.id}
       editingField={state.editing?.id === t.id ? state.editing.field : null}
-      fresh={isFresh(list, t.id)}
       tomorrow={tomorrow}
       actions={actions}
       onMenu={openMenu}
@@ -249,7 +235,7 @@ export function TaskTable({
               data-drop-date={s.date}
               data-drop-zone="list"
               data-drop-list=""
-              className={`rounded-lg transition-colors duration-150 ${hot ? "bg-accent-soft" : ""}`}
+              className={`rounded-lg transition-colors duration-(--duration-fast) ${hot ? "bg-accent-soft" : ""}`}
             >
               {grouped ? (
                 <div className={`flex items-center gap-2.5 pr-1 pl-3 ${free ? "" : "border-b border-line"} ${i === 0 ? "pt-2" : free ? "pt-4" : "pt-7"} pb-2`}>
@@ -293,14 +279,14 @@ export function TaskTable({
                     <ChevronDown
                       size={12}
                       strokeWidth={2}
-                      className={`ml-0.5 text-ink-3 transition-transform duration-200 group-hover:text-ink ${completedOpen ? "" : "-rotate-90"}`}
+                      className={`ml-0.5 text-ink-3 transition-transform duration-(--duration-fast) group-hover:text-ink ${completedOpen ? "" : "-rotate-90"}`}
                     />
                   </button>
-                  {completedOpen && (
+                  <Accordion open={completedOpen}>
                     <div data-list="done" className="mx-px pb-1">
                       {s.completed.map((t) => row(t, "done"))}
                     </div>
-                  )}
+                  </Accordion>
                 </div>
               )}
             </div>

@@ -37,7 +37,7 @@ export function ThemeSwitch() {
     >
       <span
         aria-hidden="true"
-        className="absolute inset-y-[3px] left-[3px] w-[calc((100%-6px)/2)] rounded-xs bg-surface shadow-lift transition-transform duration-300 ease-out dark:translate-x-full"
+        className="absolute inset-y-[3px] left-[3px] w-[calc((100%-6px)/2)] rounded-xs bg-surface shadow-lift transition-transform duration-(--duration-base) ease-out dark:translate-x-full"
       />
       {THEMES.map((o) => {
         const on = o.value === theme;
@@ -51,7 +51,7 @@ export function ThemeSwitch() {
             data-tip={o.label}
             tabIndex={on ? 0 : -1}
             onClick={() => pick(o.value)}
-            className={`tap relative flex h-[26px] items-center justify-center rounded-xs transition-colors duration-150 hover:text-ink ${
+            className={`tap relative flex h-[26px] items-center justify-center rounded-xs transition-colors duration-(--duration-fast) hover:text-ink ${
               o.value === "dark" ? "text-ink-2 dark:text-ink" : "text-ink dark:text-ink-2"
             }`}
           >

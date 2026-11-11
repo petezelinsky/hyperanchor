@@ -7,7 +7,7 @@ import { Showcase } from "./landing/Showcase";
 import { SignInButton } from "./SignInButton";
 import { ThemeSwitch } from "./ThemeSwitch";
 
-const enter = "animate-[rise_0.6s_var(--ease-out)_both]";
+const enter = "animate-[fade_var(--duration-data)_var(--ease-out)_both]";
 
 /**
  * The signed-out home page: sign-in on the left (logo, headline, Google and Apple buttons, legal), the animated showcase on the right.
@@ -18,7 +18,7 @@ export function SignInScreen({ error }: { error?: boolean }) {
     <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:grid-rows-[minmax(0,1fr)_auto]">
       <section className="flex min-h-[min(calc(100svh_-_12rem),640px)] min-w-0 justify-center px-5 pt-5 sm:px-8 sm:pt-8 lg:col-start-1 lg:row-start-1 lg:min-h-0 lg:pt-10">
         <div className="flex w-full max-w-[380px] flex-col">
-          <header className="flex h-8 items-center animate-[fade_0.6s_ease_both]">
+          <header className="flex h-8 items-center animate-[fade_var(--duration-data)_var(--ease-out)_both]">
             <Wordmark href="/" size={24} />
           </header>
 

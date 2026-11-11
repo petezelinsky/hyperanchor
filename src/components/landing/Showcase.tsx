@@ -26,7 +26,7 @@ function TodayScene({ t }: { t: number }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="font-display text-title-2 font-bold">Today</div>
-          <div className={`tabular mt-0.5 text-footnote transition-colors duration-300 ${all ? "font-medium text-ink" : "text-ink-3"}`}>
+          <div className={`tabular mt-0.5 text-footnote transition-colors duration-(--duration-base) ${all ? "font-medium text-ink" : "text-ink-3"}`}>
             {all ? "All done." : `${done} of ${TASKS.length} done`}
           </div>
         </div>
@@ -39,7 +39,7 @@ function TodayScene({ t }: { t: number }) {
           <li key={task.title} className="flex items-start gap-3 border-t border-line py-2.5">
             <Checkbox checked={i < done} onToggle={() => {}} label={task.title} className="mt-px" />
             <div className="min-w-0">
-              <div className={`truncate text-body transition-colors duration-300 ${i < done ? "text-ink-3" : "text-ink"}`}>{task.title}</div>
+              <div className={`truncate text-body transition-colors duration-(--duration-base) ${i < done ? "text-ink-3" : "text-ink"}`}>{task.title}</div>
               {task.note && <div className="truncate text-caption text-ink-3">{task.note}</div>}
             </div>
           </li>
@@ -90,7 +90,7 @@ function CaptureScene({ t }: { t: number }) {
           )}
         </span>
         <kbd
-          className={`flex h-[26px] min-w-[26px] items-center justify-center rounded-xs px-1.5 font-sans text-caption font-medium transition-[background-color,color,transform] duration-150 ${
+          className={`flex h-[26px] min-w-[26px] items-center justify-center rounded-xs px-1.5 font-sans text-caption font-medium transition-[background-color,color,transform] duration-(--duration-fast) ${
             t >= ENTER_AT && !added ? "translate-y-px bg-accent text-on-accent" : "bg-surface-3 text-ink-2"
           }`}
         >
@@ -99,10 +99,10 @@ function CaptureScene({ t }: { t: number }) {
       </div>
       {/* Four rows in a three-row window: the new task slides the list down into view. */}
       <div className="mt-2.5 h-28 overflow-hidden">
-        <div className="flex flex-col gap-0.5 transition-transform duration-[450ms] ease-out" style={{ transform: `translateY(${added ? 0 : -38}px)` }}>
+        <div className="flex flex-col gap-0.5 transition-transform duration-(--duration-move) ease-out" style={{ transform: `translateY(${added ? 0 : -38}px)` }}>
           <div
             className={row}
-            style={{ opacity: added ? 1 : 0, backgroundColor: added && t < ADDED_AT + 1600 ? "var(--surface-3)" : "transparent", transition: "opacity 0.35s, background-color 0.8s" }}
+            style={{ opacity: added ? 1 : 0, backgroundColor: added && t < ADDED_AT + 1600 ? "var(--surface-3)" : "transparent", transition: "opacity var(--duration-move), background-color var(--duration-data)" }}
           >
             <Tick />
             {PHRASE}
@@ -143,7 +143,7 @@ function FocusScene({ t }: { t: number }) {
       <div className="flex items-center gap-3 text-caption text-ink-3">
         <span className="flex gap-1">
           {QUEUE.map((_, n) => (
-            <span key={n} className={`h-1.5 w-5 rounded-full transition-colors duration-500 ${n < finished ? "bg-accent" : n === finished ? "bg-accent/45" : "bg-accent-track"}`} />
+            <span key={n} className={`h-1.5 w-5 rounded-full transition-colors duration-(--duration-data) ${n < finished ? "bg-accent" : n === finished ? "bg-accent/45" : "bg-accent-track"}`} />
           ))}
         </span>
         <span className="tabular">
@@ -154,14 +154,14 @@ function FocusScene({ t }: { t: number }) {
       <div className="relative mt-4 w-full pb-[18px]">
         <span className="absolute inset-x-[9%] bottom-0 h-16 rounded-card bg-surface-2 shadow-lift" />
         <span className="absolute inset-x-[4.5%] bottom-[9px] h-16 rounded-card bg-surface shadow-lift" />
-        <div key={i} className="relative animate-[focus-in_0.45s_var(--ease-out)_both] rounded-card bg-surface p-6 shadow-float">
+        <div key={i} className="relative animate-[focus-in_var(--duration-move)_var(--ease-spring)_both] rounded-card bg-surface p-6 shadow-float">
           <div className="flex items-start gap-3.5">
             <Checkbox checked={done} onToggle={() => {}} label={QUEUE[i]} size={24} className="mt-px" />
-            <div className={`text-title-2 font-semibold transition-colors duration-300 ${done ? "text-ink-3" : "text-ink"}`}>{QUEUE[i]}</div>
+            <div className={`text-title-2 font-semibold transition-colors duration-(--duration-base) ${done ? "text-ink-3" : "text-ink"}`}>{QUEUE[i]}</div>
           </div>
           <div className="mt-5 flex gap-2 pl-[38px]">
             <span
-              className={`inline-flex h-9 items-center gap-1.5 rounded-sm pr-2 pl-3 text-footnote font-medium text-on-primary transition-[transform,background-color] duration-150 pointer-coarse:pr-3.5 ${
+              className={`inline-flex h-9 items-center gap-1.5 rounded-sm pr-2 pl-3 text-footnote font-medium text-on-primary transition-[transform,background-color] duration-(--duration-fast) pointer-coarse:pr-3.5 ${
                 pressed ? "scale-95 bg-primary-hover" : "bg-primary"
               }`}
             >
@@ -206,7 +206,7 @@ function WeekScene({ t }: { t: number }) {
               return (
                 <span
                   key={j}
-                  className={`h-[7px] rounded-full transition-[opacity,transform] duration-300 ease-out ${done ? "bg-accent" : "bg-accent-track"} ${
+                  className={`h-[7px] rounded-full transition-[opacity,transform] duration-(--duration-base) ease-out ${done ? "bg-accent" : "bg-accent-track"} ${
                     visible ? "scale-100 opacity-100" : "scale-75 opacity-0"
                   }`}
                 />
@@ -338,7 +338,7 @@ export function Showcase() {
               aria-label={`${i + 1} of ${SLIDES.length}`}
               aria-hidden={leaving || undefined}
               className={`flex w-full max-w-[400px] flex-col items-center text-center [grid-area:1/1] ${
-                leaving ? "pointer-events-none animate-[slide-out_0.45s_ease_both]" : "animate-[slide-in_0.6s_var(--ease-out)_both]"
+                leaving ? "pointer-events-none animate-[slide-out_var(--duration-base)_var(--ease-in)_both]" : "animate-[slide-in_var(--duration-data)_var(--ease-out)_both]"
               }`}
             >
               <div inert className="w-full text-left">
@@ -361,11 +361,11 @@ export function Showcase() {
             aria-current={i === slide || undefined}
             className="tap relative flex h-6 items-center rounded-full px-1"
           >
-            <span className={`relative block h-1.5 overflow-hidden rounded-full bg-ink-3 transition-[width] duration-[350ms] ease-out ${i === slide ? "w-7" : "w-1.5"}`}>
+            <span className={`relative block h-1.5 overflow-hidden rounded-full bg-ink-3 ${i === slide ? "w-7" : "w-1.5"}`}>
               {i === slide && (
                 <span
-                  className="absolute inset-y-0 left-0 rounded-full bg-ink transition-[width] duration-[50ms] ease-linear"
-                  style={{ width: `${moving ? Math.min(100, (t / s.ms) * 100) : 100}%` }}
+                  className="absolute inset-0 origin-left rounded-full bg-ink transition-transform duration-[50ms] ease-linear"
+                  style={{ transform: `scaleX(${moving ? Math.min(1, t / s.ms) : 1})` }}
                 />
               )}
             </span>

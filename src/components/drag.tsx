@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Task } from "@/lib/types";
+import { flyIntoDay } from "./motion";
 
 /** Where a dragged task would land: a day, in an ordered list the index it would take there, and which kind of zone it's over. */
 export type DropTarget = { date: string; index: number | null; zone: string };
@@ -131,6 +132,8 @@ export function DragProvider({
       const t = targetRef.current;
       targetRef.current = null;
       hideLine();
+      // Dropped on the calendar: the card flies into the day (before it's taken away below).
+      if (drop && p && t?.zone === "calendar") flyIntoDay(ghost.current, t.date);
       setDragging(null);
       setTarget(null);
       if (drop && p && t) latest.current.onDrop(p.task, t);
@@ -198,7 +201,7 @@ export function DragProvider({
         createPortal(
           <>
             <div ref={ghost} aria-hidden="true" className="pointer-events-none fixed top-0 left-0 z-[200]" style={{ width: Math.min(press.current?.width ?? 320, 360) }}>
-              <div className="flex animate-[lift_0.18s_var(--ease-out)_both] items-center gap-3 rounded-lg bg-elevated px-3 py-2.5 shadow-float">
+              <div className="flex animate-[lift_var(--duration-fast)_var(--ease-out)_both] items-center gap-3 rounded-lg bg-elevated px-3 py-2.5 shadow-float">
                 <span className={`size-[18px] flex-none rounded-full ${dragging.done ? "bg-accent" : "border-[1.5px] border-check-ring"}`} />
                 <span className={`truncate text-body ${dragging.done ? "text-ink-3" : "text-ink"}`}>{dragging.title}</span>
               </div>
@@ -206,7 +209,7 @@ export function DragProvider({
             <div
               ref={line}
               aria-hidden="true"
-              className="pointer-events-none fixed top-0 left-0 z-[190] h-[2px] rounded-full bg-accent opacity-0 transition-opacity duration-100 before:absolute before:-top-[3px] before:-left-1 before:size-2 before:rounded-full before:border-2 before:border-accent before:bg-surface"
+              className="pointer-events-none fixed top-0 left-0 z-[190] h-[2px] rounded-full bg-accent opacity-0 transition-opacity duration-(--duration-press) before:absolute before:-top-[3px] before:-left-1 before:size-2 before:rounded-full before:border-2 before:border-accent before:bg-surface"
             />
           </>,
           document.body,

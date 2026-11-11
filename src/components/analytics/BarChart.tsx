@@ -72,14 +72,14 @@ export function BarChart({ bars, avg, avgLabel, onPick }: { bars: Bar[]; avg: nu
                   onClick={() => onPick?.(b)}
                   disabled={!b.elapsed && !b.total}
                   aria-label={`${b.title}: ${b.done} of ${b.total} done`}
-                  className={`flex h-full min-w-0 flex-col items-center justify-end rounded-sm transition-[background-color,opacity] duration-150 ${hover === i ? "bg-surface-2" : ""} ${
+                  className={`flex h-full min-w-0 flex-col items-center justify-end rounded-sm transition-[background-color,opacity] duration-(--duration-fast) ${hover === i ? "bg-surface-2" : ""} ${
                     hover != null && hover !== i ? "opacity-45" : ""
                   }`}
                 >
                   {b.total > 0 ? (
                     <span
                       className={`flex w-full origin-bottom flex-col justify-end ${b.elapsed ? "" : "opacity-60"}`}
-                      style={{ height: `${(b.total / max) * 100}%`, maxWidth: maxW, animation: `grow-y 0.6s ${Math.min(i, 30) * 18}ms cubic-bezier(0.2,0.8,0.2,1) both` }}
+                      style={{ height: `${(b.total / max) * 100}%`, maxWidth: maxW, animation: `grow-y var(--duration-data) ${Math.min(i, 30) * 18}ms var(--ease-out) both` }}
                     >
                       {open > 0 && <span className="min-h-[3px] rounded-t-xs bg-accent-track" style={{ flex: open }} />}
                       {open > 0 && b.done > 0 && <span className="h-[2px] flex-none" />}

@@ -20,7 +20,7 @@ export function Toolbar({
   wide?: boolean;
 }) {
   return (
-    <div className="relative z-20 px-4 pt-5 pb-3 transition-[background-color,box-shadow] duration-200 md:sticky md:top-0 md:px-8 md:pt-6 md:pb-4 md:border-b md:border-transparent md:group-data-[scrolled=true]/sheet:glass md:group-data-[scrolled=true]/sheet:border-line">
+    <div className="relative z-20 px-4 pt-5 pb-3 transition-[background-color,box-shadow] duration-(--duration-fast) md:sticky md:top-0 md:px-8 md:pt-6 md:pb-4 md:border-b md:border-transparent md:group-data-[scrolled=true]/sheet:glass md:group-data-[scrolled=true]/sheet:border-line">
       {/* min width: on narrow screens the controls wrap below the title instead of squeezing it. */}
       <div className={`mx-auto flex flex-wrap items-center gap-x-4 gap-y-3 ${wide ? "" : "max-w-[1120px]"}`}>
         <div className="min-w-[220px] flex-1">
@@ -57,7 +57,7 @@ export function NavGroup({
   nextDisabled?: boolean;
 }) {
   const ghost =
-    "tap relative flex h-8 items-center justify-center rounded-sm text-ink-2 transition-colors duration-150 hover:bg-surface-3 hover:text-ink active:bg-line disabled:pointer-events-none disabled:text-ink-4";
+    "tap relative flex h-8 items-center justify-center rounded-sm text-ink-2 transition-colors duration-(--duration-fast) hover:bg-surface-3 hover:text-ink active:bg-line disabled:pointer-events-none disabled:text-ink-4";
   return (
     <div className="flex items-center">
       <button type="button" aria-label={prevLabel} data-tip={prevLabel} onClick={onPrev} className={`${ghost} w-8`}>

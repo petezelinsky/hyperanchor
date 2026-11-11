@@ -70,7 +70,7 @@ export function FocusPanel({
       ) : total > 0 ? (
         <AllDone isToday={isToday} onExit={onExit} />
       ) : (
-        <p className="animate-rise text-callout text-ink-2">Nothing is planned for this day.</p>
+        <p className="text-callout text-ink-2">Nothing is planned for this day.</p>
       )}
 
       <form
@@ -112,13 +112,13 @@ function Progress({ done, total }: { done: number; total: number }) {
           {Array.from({ length: total }, (_, i) => (
             <span
               key={i}
-              className={`h-1.5 w-5 rounded-full transition-colors duration-500 ${i < done ? "bg-accent" : i === done ? "bg-accent/45" : "bg-accent-track"}`}
+              className={`h-1.5 w-5 rounded-full transition-colors duration-(--duration-data) ${i < done ? "bg-accent" : i === done ? "bg-accent/45" : "bg-accent-track"}`}
             />
           ))}
         </span>
       ) : (
         <span aria-hidden="true" className="block h-1.5 w-40 overflow-hidden rounded-full bg-accent-track">
-          <span className="block h-full rounded-full bg-accent transition-[width] duration-700 ease-out" style={{ width: `${(done / total) * 100}%` }} />
+          <span className="block h-full origin-left rounded-full bg-accent transition-transform duration-(--duration-data) ease-out" style={{ transform: `scaleX(${done / total})` }} />
         </span>
       )}
       <span className="tabular">
@@ -184,7 +184,7 @@ function FocusTimer() {
         onClick={() => setEnd(null)}
         aria-label={`Stop the timer, ${Math.ceil(secs / 60)} minutes left`}
         data-tip="Stop the timer"
-        className="tap group relative flex h-7 items-center gap-1.5 rounded-full px-2 text-footnote font-medium text-accent-ink transition-colors duration-150 hover:bg-surface-3"
+        className="tap group relative flex h-7 items-center gap-1.5 rounded-full px-2 text-footnote font-medium text-accent-ink transition-colors duration-(--duration-fast) hover:bg-surface-3"
       >
         <ProgressRing value={1 - left / total} size={14} stroke={2.2} />
         <span className="tabular min-w-[34px] text-left">{clock}</span>
@@ -203,7 +203,7 @@ function FocusTimer() {
       onClick={start}
       aria-label={`Start a ${TIMER_MINUTES}-minute timer`}
       data-tip={`Start a ${TIMER_MINUTES}-minute timer`}
-      className="tap relative flex h-7 items-center gap-1.5 rounded-full px-2 text-footnote text-ink-3 transition-colors duration-150 hover:bg-surface-3 hover:text-ink"
+      className="tap relative flex h-7 items-center gap-1.5 rounded-full px-2 text-footnote text-ink-3 transition-colors duration-(--duration-fast) hover:bg-surface-3 hover:text-ink"
     >
       <TimerIcon size={13} />
       {TIMER_MINUTES} min
@@ -249,9 +249,9 @@ function Card({
 }) {
   const motion = leaving
     ? task.done
-      ? "pointer-events-none absolute inset-x-0 top-0 animate-[focus-done_0.4s_var(--ease-out)_both]"
-      : "pointer-events-none absolute inset-x-0 top-0 animate-[focus-later_0.34s_ease-in_both]"
-    : "relative animate-[focus-in_0.45s_0.08s_var(--ease-out)_both]";
+      ? "pointer-events-none absolute inset-x-0 top-0 animate-[focus-done_var(--duration-base)_var(--ease-in)_both]"
+      : "pointer-events-none absolute inset-x-0 top-0 animate-[focus-later_var(--duration-base)_var(--ease-in)_both]"
+    : "relative animate-[focus-in_var(--duration-move)_80ms_var(--ease-spring)_both]";
   return (
     <article inert={leaving} aria-hidden={leaving || undefined} className={`rounded-card bg-surface p-5 text-left shadow-float sm:p-7 ${motion}`}>
       <div className="flex items-start gap-4">
@@ -264,7 +264,7 @@ function Card({
         />
         <div className="min-w-0 flex-1">
           <h2
-            className={`text-title-2 font-semibold break-words transition-colors duration-300 sm:text-title ${task.done ? "text-ink-3" : ""}`}
+            className={`text-title-2 font-semibold break-words transition-colors duration-(--duration-base) sm:text-title ${task.done ? "text-ink-3" : ""}`}
           >
             {task.title}
           </h2>

@@ -5,8 +5,9 @@ import { addDays, dayShort, parseYmd, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { useDrag } from "../drag";
 import { PlusIcon } from "../icons";
+import { motion } from "../motion";
 import { IconButton, Menu } from "../ui";
-import { taskMenu, useFresh, type MenuState } from "./TaskTable";
+import { taskMenu, type MenuState } from "./TaskTable";
 import { TaskRow } from "./TaskRow";
 import type { Composer, Section, TableActions, TableState } from "./types";
 
@@ -15,12 +16,15 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
   const ref = useRef<HTMLTextAreaElement>(null);
   // The text lives here while it's typed, so a key press redraws this card and nothing else.
   const [title, setTitle] = useState("");
+  const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setTitle("");
     ref.current?.focus();
+    // The field that was here just became the task; a new one appears in its place.
+    box.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: motion().fast, easing: motion().out });
   }, [composer.nonce]);
   return (
-    <div data-editing="true" className="animate-rise rounded-sm bg-surface-3 px-1.5 py-1.5 shadow-ring-line-2">
+    <div ref={box} data-editing="true" className="rounded-sm bg-surface-3 px-1.5 py-1.5 shadow-ring-line-2">
       <textarea
         ref={ref}
         rows={2}
@@ -59,7 +63,6 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
 export function WeekBoard({ sections, state, actions }: { sections: Section[]; state: TableState; actions: TableActions }) {
   const [menu, setMenu] = useState<MenuState>(null);
   const openMenu = useCallback((task: Task, anchor: DOMRect | { x: number; y: number }, trigger?: HTMLElement) => setMenu({ task, anchor, trigger }), []);
-  const isFresh = useFresh();
   const drag = useDrag();
   const root = useRef<HTMLDivElement>(null);
   const tomorrow = ymd(addDays(parseYmd(state.todayKey), 1));
@@ -76,7 +79,6 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
       task={t}
       selected={state.selectedId === t.id}
       editingField={state.editing?.id === t.id ? state.editing.field : null}
-      fresh={isFresh(list, t.id)}
       tomorrow={tomorrow}
       actions={actions}
       onMenu={openMenu}
@@ -109,7 +111,7 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
               if (!(e.target as HTMLElement).closest("[data-task-row], [data-editing], button, textarea, input")) actions.openComposer(s.date);
             }}
             // Lanes, not boxes: a hairline between days and nothing behind them.
-            className={`group/col flex min-h-[max(420px,calc(100dvh-8.5rem))] min-w-0 flex-col border-l border-line px-1.5 transition-colors duration-150 first:border-l-0 ${
+            className={`group/col flex min-h-[max(420px,calc(100dvh-8.5rem))] min-w-0 flex-col border-l border-line px-1.5 transition-colors duration-(--duration-fast) first:border-l-0 ${
               hot ? "bg-accent-soft/60" : ""
             }`}
           >
@@ -145,7 +147,7 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
               </div>
               {/* The day's progress is its divider: a hairline that fills with the accent as tasks get done. */}
               <div aria-hidden="true" className="mt-1 mb-2 h-[2px] overflow-hidden rounded-full bg-line">
-                <div className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out" style={{ width: all ? `${(doneN / all) * 100}%` : "0%" }} />
+                <div className="h-full origin-left rounded-full bg-accent transition-transform duration-(--duration-data) ease-out" style={{ transform: `scaleX(${all ? doneN / all : 0})` }} />
               </div>
             </div>
             <div data-list="open" className="flex flex-col gap-px">

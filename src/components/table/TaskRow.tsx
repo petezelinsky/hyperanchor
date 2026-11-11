@@ -106,7 +106,7 @@ function SwipeActions({ dx, done }: { dx: number; done: boolean }) {
       aria-hidden="true"
       className={`absolute inset-0 flex items-center px-5 text-footnote font-semibold ${right ? "justify-start bg-accent-solid text-on-accent" : "justify-end bg-primary text-on-primary"}`}
     >
-      <span className={`flex items-center gap-2 transition-transform duration-150 ${past ? "scale-110" : "scale-90 opacity-80"}`}>
+      <span className={`flex items-center gap-2 transition-transform duration-(--duration-fast) ${past ? "scale-110" : "scale-90 opacity-80"}`}>
         {right ? (
           <>
             <CheckIcon size={13} strokeWidth={2.4} />
@@ -128,7 +128,6 @@ export const TaskRow = memo(function TaskRow({
   task,
   selected,
   editingField,
-  fresh = false,
   variant = "row",
   tomorrow,
   actions,
@@ -137,8 +136,6 @@ export const TaskRow = memo(function TaskRow({
   task: Task;
   selected: boolean;
   editingField: Field | null;
-  /** Just arrived in this list (added, completed or reopened): eases in. */
-  fresh?: boolean;
   /** A list row, or a card in a week column. */
   variant?: "row" | "card";
   /** The date a left swipe moves the task to. */
@@ -179,7 +176,7 @@ export const TaskRow = memo(function TaskRow({
   // (line-clamp brings its own display, so it never goes with `block`.)
   // A picked task shows its title whole; otherwise one line in lists, three on cards.
   const titleFit = selected ? "block break-words hyphens-calm" : card && !compact ? "line-clamp-3 break-words hyphens-calm" : "block truncate";
-  const titleCls = `w-full ${titleFit} ${titleText} transition-colors duration-300 ${task.done ? "text-ink-3" : "text-ink"}`;
+  const titleCls = `w-full ${titleFit} ${titleText} transition-colors duration-(--duration-base) ${task.done ? "text-ink-3" : "text-ink"}`;
   const notesText = card ? "text-caption" : "text-footnote";
   // A picked task shows its notes in full (while its title is edited too); otherwise one quiet line.
   const notesCls = `w-full ${notesText} ${selected ? "block break-words whitespace-pre-line text-ink-2" : card ? "block truncate text-ink-3" : "block truncate text-ink-2"}`;
@@ -278,9 +275,9 @@ export const TaskRow = memo(function TaskRow({
         {...common}
         onPointerDown={(e) => !editing && drag.start(e, task)}
         // A line of the day, like a row in the Day list: no card until it's picked up.
-        className={`group/row relative rounded-sm ${compact ? "py-[5px]" : "py-1.5"} px-1.5 transition-[background-color,box-shadow,opacity] duration-150 ${
+        className={`group/row relative rounded-sm ${compact ? "py-[5px]" : "py-1.5"} px-1.5 transition-[background-color,box-shadow,opacity] duration-(--duration-fast) ${
           lifted ? "opacity-35" : ""
-        } ${selected || editing ? "bg-surface-3 shadow-ring-line-2" : "hover:bg-surface-2 hover:shadow-ring-line"} ${fresh ? "animate-rise" : ""}`}
+        } ${selected || editing ? "bg-surface-3 shadow-ring-line-2" : "hover:bg-surface-2 hover:shadow-ring-line"}`}
       >
         <div className="flex items-start gap-2">
           <div role="gridcell" className="flex-none">
@@ -312,18 +309,18 @@ export const TaskRow = memo(function TaskRow({
       // 1px ring sits over the hairlines above and below, so they turn into the box's edges instead of breaking off at
       // its corners. The first row hangs from the section's line, so its top corners stay square. It clips only while
       // swiped (so the menu button's touch area can reach past its edge).
-      className={`group/row relative rounded-sm transition-[background-color,box-shadow,opacity] duration-150 first:rounded-t-none ${dx !== 0 ? "overflow-hidden" : ""} after:pointer-events-none after:absolute after:right-3.5 after:bottom-0 after:left-11 after:h-px after:bg-line ${
+      className={`group/row relative rounded-sm transition-[background-color,box-shadow,opacity] duration-(--duration-fast) first:rounded-t-none ${dx !== 0 ? "overflow-hidden" : ""} after:pointer-events-none after:absolute after:right-3.5 after:bottom-0 after:left-11 after:h-px after:bg-line ${
         selected || editing
           ? "bg-surface-3 shadow-ring-line-2 after:opacity-0"
           : "hover:bg-surface-2 hover:shadow-ring-line hover:after:opacity-0"
-      } ${lifted ? "opacity-35" : ""} ${fresh ? "animate-rise" : ""}`}
+      } ${lifted ? "opacity-35" : ""}`}
     >
       {dx !== 0 && <SwipeActions dx={dx} done={task.done} />}
       <div
         className={`relative ${COLS} min-h-11 items-start px-1 ${dx !== 0 ? "rounded-sm bg-surface" : ""}`}
         style={{
           transform: dx ? `translateX(${dx}px)` : undefined,
-          transition: back ? "transform 0.26s var(--ease-out)" : undefined,
+          transition: back ? "transform var(--duration-base) var(--ease-out)" : undefined,
         }}
       >
         <div role="gridcell" className="col-start-1 row-start-1 flex h-11 items-center justify-center">

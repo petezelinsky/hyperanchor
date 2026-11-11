@@ -56,6 +56,13 @@ function themeLines(theme) {
     out.push("");
   }
   for (const [k, s] of Object.entries(tokens.shadow)) out.push(`--shadow-${k}: ${cssShadow(s[theme])};`);
+  if (theme === "light") {
+    // Motion: plain variables (the same in both themes), read by CSS and by the scripts that move rows.
+    out.push("", `/* Motion. ${tokens.motion.note} */`);
+    for (const [k, d] of Object.entries(tokens.motion.duration)) out.push(`--duration-${k}: ${d.ms}ms; /* ${d.note} */`);
+    out.push(`--duration-reduced: ${tokens.motion.reduced.ms}ms; /* ${tokens.motion.reduced.note} */`);
+    for (const [k, c] of Object.entries(tokens.motion.curve)) out.push(`--ease-${k}: cubic-bezier(${c.points.join(", ")}); /* ${c.note} */`);
+  }
   return out;
 }
 
@@ -159,6 +166,14 @@ function swift() {
   p("    let style: TextStyleName");
   p("}");
   p();
+  p("/// A cubic-bezier timing curve, as in CSS.");
+  p("struct CubicCurve: Sendable, Hashable {");
+  p("    let x1: Double");
+  p("    let y1: Double");
+  p("    let x2: Double");
+  p("    let y2: Double");
+  p("}");
+  p();
   p("struct ThemeShadow: Sendable, Hashable {");
   p("    let light: [ShadowLayer]");
   p("    let dark: [ShadowLayer]");
@@ -222,6 +237,14 @@ function swift() {
   p();
   p(`${doc(tokens.type.note.replace(/\.$/, ""), "    ")}    enum Typography {`);
   for (const [k, t] of steps) p(`        static let ${camel(k)} = TypeStep(size: ${num(t.size)}, lineHeight: ${num(t.line)}, tracking: ${num(t.tracking)}, style: .${t.ios})`);
+  p("    }");
+  p();
+  p("    // MARK: Motion");
+  p();
+  p(`${doc(tokens.motion.note.replace(/\.$/, ""), "    ")}    enum Motion {`);
+  for (const [k, d] of Object.entries(tokens.motion.duration)) p(`${doc(d.note, "        ")}        static let ${camel(k)}: Double = ${num(d.ms / 1000)}`);
+  p(`${doc(tokens.motion.reduced.note, "        ")}        static let reduced: Double = ${num(tokens.motion.reduced.ms / 1000)}`);
+  for (const [k, c] of Object.entries(tokens.motion.curve)) p(`${doc(c.note, "        ")}        static let ${camel(k)}Curve = CubicCurve(x1: ${num(c.points[0])}, y1: ${num(c.points[1])}, x2: ${num(c.points[2])}, y2: ${num(c.points[3])})`);
   p("    }");
   p();
   p("    // MARK: Rings");

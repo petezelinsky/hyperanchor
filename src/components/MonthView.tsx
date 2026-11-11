@@ -99,7 +99,7 @@ export function MonthView({
         <div
           key={`${year}-${month}`}
           style={{ "--weeks": rows } as React.CSSProperties}
-          className="grid animate-rise grid-cols-7 [grid-auto-rows:minmax(76px,auto)] md:min-h-[calc(100dvh-10.5rem)] md:[grid-template-rows:repeat(var(--weeks),minmax(112px,1fr))]"
+          className="grid animate-[fade_var(--duration-fast)_var(--ease-out)_both] grid-cols-7 [grid-auto-rows:minmax(76px,auto)] md:min-h-[calc(100dvh-10.5rem)] md:[grid-template-rows:repeat(var(--weeks),minmax(112px,1fr))]"
         >
           {cells.map((d, i) => {
             const key = ymd(d);
@@ -121,14 +121,14 @@ export function MonthView({
                 }}
                 onDoubleClick={() => onOpenDay(key)}
                 aria-label={`${formatLong(d)}${tasks.length ? `, ${plural(tasks.length, "task")}` : ""}`}
-                className={`flex min-w-0 flex-col gap-1 border-line p-1.5 text-left transition-[background-color,box-shadow] duration-150 md:p-2 ${i % 7 < 6 ? "border-r" : ""} ${
+                className={`flex min-w-0 flex-col gap-1 border-line p-1.5 text-left transition-[background-color,box-shadow] duration-(--duration-fast) md:p-2 ${i % 7 < 6 ? "border-r" : ""} ${
                   i < cells.length - 7 ? "border-b" : ""
                 } ${hot ? "bg-accent-soft outline -outline-offset-1 outline-accent" : isSel ? "bg-surface-3" : weekend ? "bg-surface-2 hover:bg-surface-3" : "hover:bg-surface-2"}`}
               >
                 <span className="flex justify-end">
                   {/* Today is the accent; another selected day is black (as in Calendar). */}
                   <span
-                    className={`tabular flex size-[26px] items-center justify-center rounded-full text-footnote transition-colors duration-150 ${
+                    className={`tabular flex size-[26px] items-center justify-center rounded-full text-footnote transition-colors duration-(--duration-fast) ${
                       isToday ? "bg-accent-solid font-semibold text-on-accent" : isSel ? "bg-primary font-semibold text-on-primary" : out ? "text-ink-4" : "text-ink"
                     }`}
                   >
@@ -235,7 +235,7 @@ function DayPopover({
             <li key={t.id} className="flex items-start gap-2.5 rounded-sm px-1 py-1.5">
               <Checkbox size={18} checked={t.done} onToggle={() => onToggle(t)} label={t.done ? `Mark “${t.title}” as open` : `Mark “${t.title}” as done`} className="mt-0.5" />
               <div className="min-w-0">
-                <div className={`text-body break-words transition-colors duration-300 ${t.done ? "text-ink-3" : "text-ink"}`}>{t.title}</div>
+                <div className={`text-body break-words transition-colors duration-(--duration-base) ${t.done ? "text-ink-3" : "text-ink"}`}>{t.title}</div>
                 {t.description && <div className="truncate text-caption text-ink-3">{t.description}</div>}
               </div>
             </li>

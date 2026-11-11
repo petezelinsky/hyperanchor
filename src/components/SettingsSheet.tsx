@@ -221,7 +221,7 @@ function DeleteAccount() {
       </Row>
     );
   return (
-    <div role="group" aria-labelledby="delete-title" className="mt-4 animate-rise rounded-lg bg-red-soft p-4">
+    <div role="group" aria-labelledby="delete-title" className="mt-4 animate-[fade_var(--duration-fast)_var(--ease-out)_both] rounded-lg bg-red-soft p-4">
       <div id="delete-title" className="text-body font-semibold text-red-ink">
         Delete your account?
       </div>

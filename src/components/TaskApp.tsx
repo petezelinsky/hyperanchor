@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, formatMedium, monthGrid, parseYmd, relativeDay, setWeekStart, startOfWeek, ymd, type WeekStart } from "@/lib/dates";
 import { statsRange, type Period } from "@/lib/stats";
 import { DEFAULT_SORT, placeBetween, placeOf, sortTasks, type Sort } from "@/lib/tasks";
@@ -9,6 +9,7 @@ import { AnalyticsView } from "./analytics/AnalyticsView";
 import { DayView, type Focus, type Welcome } from "./DayView";
 import { DragProvider, type DropTarget } from "./drag";
 import { MonthView } from "./MonthView";
+import { appearOnRender, cancelLeaving, exitCopy, foldAway, motion, playFlip, prepareFlip, pulseDayOnRender, reducedMotion, slideAway, unfoldOnRender } from "./motion";
 import { readWeekStart, saveWeekStart } from "./prefs";
 import { SearchPalette } from "./SearchPalette";
 import { SettingsSheet, type SettingsTab } from "./SettingsSheet";
@@ -100,8 +101,13 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const scroller = useRef<HTMLElement>(null);
 
+  // Set when a toast takes another's place, so the old one doesn't linger behind it.
+  const toastReplaced = useRef(false);
   const notify = useCallback((message: string, action?: Toast["action"]) => {
-    setToast({ id: Date.now(), message, action });
+    setToast((t) => {
+      toastReplaced.current = !!t;
+      return { id: Date.now(), message, action };
+    });
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : 4000);
   }, []);
@@ -227,6 +233,25 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
   const latest = useRef({ tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen, sort });
   latest.current = { tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen, sort };
 
+  // A change that waits for its row to finish leaving (folding away, sliding off): Undo in the meantime calls it off.
+  const leaving = useRef(new Map<string, () => void>());
+  const leave = useCallback((id: string, animate: (done: () => void) => void, commit: () => void) => {
+    const run = () => {
+      if (leaving.current.get(id) !== run) return;
+      leaving.current.delete(id);
+      commit();
+    };
+    leaving.current.set(id, run);
+    animate(run);
+  }, []);
+  const callOff = useCallback((id: string) => {
+    if (!leaving.current.delete(id)) return false;
+    cancelLeaving(id);
+    return true;
+  }, []);
+  /** Whether a list for `date` is on screen (then a task moving there travels to its place). */
+  const dayShown = (date: string) => !!document.querySelector(`[data-drop-list][data-drop-date="${date}"], [role="grid"] > [data-drop-date="${date}"]`);
+
   /** "today", "tomorrow", or "Wed, Nov 18": a day as a message names it mid-sentence. */
   const dayLabel = useCallback((key: string) => relativeDay(key, latest.current.todayKey)?.toLowerCase() ?? formatMedium(parseYmd(key)), []);
   // A new task's text while it's typed (the composer shows it; the app reads it on Enter).
@@ -335,24 +360,48 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
       },
       change: (id, patch) => edit(id, patch, SAVE_DELAY),
       toggle: (task) => {
+        // Reopened: it travels back up to what's left at once.
+        if (task.done) prepareFlip(task.id);
         edit(task.id, { done: !task.done });
         remember(() => {
           const t = latest.current.tasks[task.id];
           if (!t || t.done === task.done) return false;
+          prepareFlip(task.id);
           edit(task.id, { done: task.done });
           return true;
         }, `“${task.title}” is ${task.done ? "done" : "open"} again`);
         if (task.done) return;
         setSettling((s) => [...s, task.id]);
-        // The tick plays before the task moves on; in focus the next card shouldn't wait long. Without motion there's
-        // no tick to watch, so the task moves on almost at once.
-        const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        setTimeout(() => setSettling((s) => s.filter((id) => id !== task.id)), still ? 150 : latest.current.focusOn ? 520 : 900);
+        // The tick plays, then the row travels down to Done (about 600 ms from the click in all). In focus the next card
+        // takes a little longer to come; without motion the task moves on almost at once.
+        setTimeout(
+          () => {
+            prepareFlip(task.id);
+            setSettling((s) => s.filter((id) => id !== task.id));
+          },
+          reducedMotion() ? motion().reduced : latest.current.focusOn ? 520 : motion().base,
+        );
       },
       move: (task, date) => {
         const from = task.date;
-        edit(task.id, { date });
-        const u = remember(() => !!latest.current.tasks[task.id] && (edit(task.id, { date: from }), true), `Moved back to ${dayLabel(from)}`);
+        // To a day on screen the row travels to its new place; to one off screen it slides toward it and the day's dot
+        // in the calendar answers.
+        const commit = () => {
+          edit(task.id, { date });
+          pulseDayOnRender(date);
+        };
+        if (dayShown(date)) {
+          prepareFlip(task.id);
+          commit();
+        } else leave(task.id, (done) => slideAway(task.id, date > from, done), commit);
+        const u = remember(() => {
+          if (callOff(task.id)) return true;
+          if (!latest.current.tasks[task.id]) return false;
+          if (dayShown(from)) prepareFlip(task.id);
+          else appearOnRender(task.id);
+          edit(task.id, { date: from });
+          return true;
+        }, `Moved back to ${dayLabel(from)}`);
         notify(`Moved to ${dayLabel(date)}`, { label: "Undo", run: () => undoThis(u) });
       },
       remove: (task) => {
@@ -360,8 +409,15 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
         const i = visibleIds.indexOf(task.id);
         setSelectedId(i >= 0 ? (visibleIds[i + 1] ?? visibleIds[i - 1] ?? null) : null);
         if (editing?.id === task.id) setEditing(null);
-        remove(task.id);
-        const u = remember(() => !latest.current.tasks[task.id] && (restore(task), true), `Restored “${task.title}”`);
+        // The row folds away, then it's gone; Undo opens it up again in the same place.
+        leave(task.id, (done) => foldAway(task.id, done), () => remove(task.id));
+        const u = remember(() => {
+          if (callOff(task.id)) return true;
+          if (latest.current.tasks[task.id]) return false;
+          unfoldOnRender(task.id);
+          restore(task);
+          return true;
+        }, `Restored “${task.title}”`);
         notify(`Deleted “${task.title}”`, { label: "Undo", run: () => undoThis(u) });
       },
       openComposer: (date) => {
@@ -381,7 +437,7 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
       },
       sort: setSort,
     };
-  }, [create, edit, remove, restore, notify, remember, undoThis, dayLabel]);
+  }, [create, edit, remove, restore, notify, remember, undoThis, dayLabel, leave, callOff]);
 
   const focus: Focus =
     focusOn && view === "day"
@@ -411,9 +467,11 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
   }, [leftToday]);
 
   const moveAllToToday = (list: Task[]) => {
+    prepareFlip();
     for (const t of list) edit(t.id, { date: todayKey });
     const u = remember(() => {
       const back = list.filter((t) => latest.current.tasks[t.id]);
+      prepareFlip();
       back.forEach((t) => edit(t.id, { date: t.date }));
       return back.length > 0;
     }, list.length === 1 ? "Moved back" : `Moved ${list.length} tasks back`);
@@ -456,6 +514,7 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
       const index = openOf(task.date).findIndex((t) => t.id === task.id);
       return () => {
         if (!latest.current.tasks[task.id]) return false;
+        prepareFlip(task.id);
         const rest = openOf(task.date, task.id);
         edit(task.id, { date: task.date, position: index < 0 ? task.position : positionAt(rest, Math.min(index, rest.length)) });
         return true;
@@ -473,6 +532,7 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
       if (j < 0 || j >= list.length) return;
       const rest = list.filter((t) => t.id !== task.id);
       const back = placeBack(task);
+      prepareFlip(task.id);
       edit(task.id, { position: positionAt(rest, j) });
       remember(back, "Order restored");
     },
@@ -488,6 +548,7 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
         target.index != null ? positionAt(list, target.index) : target.date !== task.date ? placeBetween(list.at(-1), undefined) : task.position;
       if (target.date === task.date && position === task.position) return;
       const back = placeBack(task);
+      prepareFlip(task.id);
       edit(task.id, { date: target.date, position });
       setSelectedId(task.id);
       if (target.date === task.date) return void remember(back, "Order restored");
@@ -686,6 +747,11 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
     return () => el.removeEventListener("scroll", update);
   }, []);
 
+  // Rows that changed place move from where they were (motion.ts), before the browser paints the new layout.
+  useLayoutEffect(() => {
+    playFlip();
+  });
+
   // ── Layout ──────────────────────────────────────────────────────────────────
   const sync = { saving, waiting, trouble };
   const tableState = { todayKey, selectedId, editing, composer, sort };
@@ -787,30 +853,44 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
       {sheet && <SettingsSheet tab={sheet} user={user} weekStart={weekStart} onWeekStart={changeWeekStart} onClose={() => setSheet(null)} />}
       {searching && <SearchPalette todayKey={todayKey} onOpen={openFound} onClose={() => setSearching(false)} />}
 
-      {toast && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+90px)] z-[120] flex justify-center px-4 md:bottom-6">
-          <div
-            role="status"
-            key={toast.id}
-            className="pointer-events-auto flex animate-rise items-center gap-3 rounded-lg bg-ink py-1.5 pr-1.5 pl-4 text-footnote text-surface shadow-float"
-          >
-            <span className="line-clamp-2 max-w-[min(60vw,420px)]">{toast.message}</span>
-            {toast.action && (
-              <button
-                type="button"
-                onClick={() => {
-                  toast.action?.run();
-                  setToast(null);
-                }}
-                className="tap relative rounded-sm bg-surface/12 px-2.5 py-1 font-semibold transition-colors hover:bg-surface/20"
-              >
-                {toast.action.label}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* One toast at a time: a new one takes the place of the last at once; the last one leaves gently. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+90px)] z-[120] grid justify-center px-4 md:bottom-6">
+        {toast && <ToastView key={toast.id} toast={toast} replaced={toastReplaced} onDone={() => setToast(null)} />}
+      </div>
     </div>
     </DragProvider>
+  );
+}
+
+/** The toast: rises in; leaves gently when it times out or is acted on, at once when another takes its place. */
+function ToastView({ toast, replaced, onDone }: { toast: Toast; replaced: React.RefObject<boolean>; onDone: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    replaced.current = false;
+    return () => {
+      if (!replaced.current) exitCopy(el, "down");
+    };
+  }, [replaced]);
+  return (
+    <div
+      ref={ref}
+      role="status"
+      className="pointer-events-auto flex animate-rise items-center gap-3 rounded-lg bg-ink py-1.5 pr-1.5 pl-4 text-footnote text-surface shadow-float [grid-area:1/1]"
+    >
+      <span className="line-clamp-2 max-w-[min(60vw,420px)]">{toast.message}</span>
+      {toast.action && (
+        <button
+          type="button"
+          onClick={() => {
+            toast.action?.run();
+            onDone();
+          }}
+          className="tap relative rounded-sm bg-surface/12 px-2.5 py-1 font-semibold transition-colors hover:bg-surface/20"
+        >
+          {toast.action.label}
+        </button>
+      )}
+    </div>
   );
 }

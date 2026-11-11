@@ -46,6 +46,14 @@ struct TypeStep: Sendable, Hashable {
     let style: TextStyleName
 }
 
+/// A cubic-bezier timing curve, as in CSS.
+struct CubicCurve: Sendable, Hashable {
+    let x1: Double
+    let y1: Double
+    let x2: Double
+    let y2: Double
+}
+
 struct ThemeShadow: Sendable, Hashable {
     let light: [ShadowLayer]
     let dark: [ShadowLayer]
@@ -216,6 +224,30 @@ enum Tokens {
         static let headline = TypeStep(size: 17, lineHeight: 24, tracking: -0.01, style: .body)
         static let title2 = TypeStep(size: 20, lineHeight: 28, tracking: -0.01, style: .title3)
         static let title = TypeStep(size: 26, lineHeight: 32, tracking: -0.02, style: .title)
+    }
+
+    // MARK: Motion
+
+    /// One family of movements. Durations in ms; curves as cubic-bezier control points. Exits take about 70% of the entrance and ease in.
+    enum Motion {
+        /// A press, a tick.
+        static let press: Double = 0.1
+        /// Menus, popovers, a new field appearing.
+        static let fast: Double = 0.16
+        /// Neighbours making room, lists opening, a row folding away.
+        static let base: Double = 0.24
+        /// A task travelling to its new place.
+        static let move: Double = 0.36
+        /// Charts and rings filling.
+        static let data: Double = 0.6
+        /// With reduced motion, a move becomes a fade this long; waits in code stay under 150 ms.
+        static let reduced: Double = 0.12
+        /// Things arriving.
+        static let outCurve = CubicCurve(x1: 0.2, y1: 0.8, x2: 0.2, y2: 1)
+        /// Things leaving.
+        static let inCurve = CubicCurve(x1: 0.4, y1: 0, x2: 1, y2: 1)
+        /// A task landing in its new place; SwiftUI .spring(duration: 0.36, bounce: 0.15).
+        static let springCurve = CubicCurve(x1: 0.3, y1: 1.25, x2: 0.5, y2: 1)
     }
 
     // MARK: Rings

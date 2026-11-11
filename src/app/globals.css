@@ -55,6 +55,17 @@
   --shadow-lift: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.03);
   --shadow-sheet: 0 0 0 1px rgba(0, 0, 0, 0.045), 0 1px 3px rgba(0, 0, 0, 0.04), 0 10px 30px -12px rgba(0, 0, 0, 0.07);
   --shadow-float: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.07), 0 18px 40px -12px rgba(0, 0, 0, 0.16);
+
+  /* Motion. One family of movements. Durations in ms; curves as cubic-bezier control points. Exits take about 70% of the entrance and ease in. */
+  --duration-press: 100ms; /* a press, a tick */
+  --duration-fast: 160ms; /* menus, popovers, a new field appearing */
+  --duration-base: 240ms; /* neighbours making room, lists opening, a row folding away */
+  --duration-move: 360ms; /* a task travelling to its new place */
+  --duration-data: 600ms; /* charts and rings filling */
+  --duration-reduced: 120ms; /* with reduced motion, a move becomes a fade this long; waits in code stay under 150 ms */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1); /* things arriving */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1); /* things leaving */
+  --ease-spring: cubic-bezier(0.3, 1.25, 0.5, 1); /* a task landing in its new place; SwiftUI .spring(duration: 0.36, bounce: 0.15) */
 }
 
 :root[data-accent="orange"] {
@@ -236,10 +247,8 @@
 }
 
 @theme {
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-
-  --animate-pop-in: pop-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  --animate-rise: rise 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pop-in: pop-in var(--duration-fast) var(--ease-out) both;
+  --animate-rise: rise var(--duration-base) var(--ease-out) both;
 
   @keyframes pop-in {
     from {
@@ -277,8 +286,8 @@
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
     transition:
-      text-decoration-color 0.15s,
-      color 0.15s;
+      text-decoration-color var(--duration-fast),
+      color var(--duration-fast);
   }
   a:hover {
     text-decoration-color: currentColor;
