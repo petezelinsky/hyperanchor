@@ -146,6 +146,31 @@ export function useTasks(onError: (message: string) => void) {
     [enqueue],
   );
 
+  /**
+   * Every task still open before `before` (today), whatever its date: Today offers to bring them along. Open tasks
+   * from earlier days that the server no longer lists were finished or deleted elsewhere, so they leave the store.
+   */
+  const loadOpen = useCallback(
+    async (before: string) => {
+      try {
+        const { tasks: fetched } = (await request(`/api/tasks/open?before=${before}`)) as { tasks: Task[] };
+        const ids = new Set(fetched.map((t) => t.id));
+        setTasks((prev) => {
+          const next: Record<string, Task> = {};
+          for (const t of Object.values(prev)) {
+            if (!t.done && t.date < before && !ids.has(t.id) && !isBusy(t.id)) continue;
+            next[t.id] = t;
+          }
+          for (const t of fetched) if (!isBusy(t.id)) next[t.id] = t;
+          return next;
+        });
+      } catch (e) {
+        onError(e instanceof Error ? e.message : "Couldn’t load tasks");
+      }
+    },
+    [onError],
+  );
+
   /** Adds tasks fetched elsewhere (search results) without touching ones being edited. */
   const merge = useCallback((list: Task[]) => {
     setTasks((prev) => {
@@ -155,5 +180,5 @@ export function useTasks(onError: (message: string) => void) {
     });
   }, []);
 
-  return { tasks, load, create, edit, remove, restore, merge, saving: inFlight > 0, loads };
+  return { tasks, load, loadOpen, create, edit, remove, restore, merge, saving: inFlight > 0, loads };
 }

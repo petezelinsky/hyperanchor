@@ -35,20 +35,38 @@ export const WeekIcon = (p: IconProps) => (
   </Svg>
 );
 
+// Week, Month and Analytics share one rounded frame and differ only inside it, so the set reads as one family.
+
+/** Month: the shared frame with a header band and two binder rings. */
 export const CalendarIcon = (p: IconProps) => (
   <Svg {...p}>
-    <rect x="1.8" y="2.6" width="12.4" height="11" rx="2.2" />
-    <path d="M1.8 6.2h12.4M5 1.4v2.4M11 1.4v2.4" />
-    <path d="M4.8 8.8h.01M8 8.8h.01M11.2 8.8h.01M4.8 11.2h.01M8 11.2h.01" strokeWidth={2} />
+    <rect x="1.8" y="2.6" width="12.4" height="10.8" rx="2.2" />
+    <path d="M1.8 6.4h12.4M5.2 1.2v2.6M10.8 1.2v2.6" />
   </Svg>
 );
 
+/** Analytics: the shared frame with three bars standing on its bottom edge. */
 export const ChartIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M2 14h12" />
-    <rect x="3" y="8" width="2.4" height="4.2" rx=".7" />
-    <rect x="6.8" y="4.5" width="2.4" height="7.7" rx=".7" />
-    <rect x="10.6" y="2" width="2.4" height="10.2" rx=".7" />
+    <rect x="1.8" y="2.6" width="12.4" height="10.8" rx="2.2" />
+    <path d="M5.2 13.4V9.6M8 13.4V6.2M10.8 13.4V8.2" />
+  </Svg>
+);
+
+/** Settings: two sliders. */
+export const SlidersIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M2.5 5H8.4M11.6 5H13.5M2.5 11h1.9M7.6 11h5.9" />
+    <circle cx="10" cy="5" r="1.6" />
+    <circle cx="6" cy="11" r="1.6" />
+  </Svg>
+);
+
+/** Keyboard shortcuts: a keyboard with a row of keys and the space bar. */
+export const KeyboardIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="1.6" y="3.6" width="12.8" height="8.8" rx="2" />
+    <path d="M4.6 6.6h.8M7.6 6.6h.8M10.6 6.6h.8M5.4 9.6h5.2" />
   </Svg>
 );
 

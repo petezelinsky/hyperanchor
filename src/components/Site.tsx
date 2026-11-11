@@ -7,7 +7,7 @@ export function SiteHeader() {
   return (
     <header className="border-b border-line">
       <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-4 px-5">
-        <Wordmark href="/" size={18} />
+        <Wordmark href="/" size={20} />
         <Link href="/" className="text-[13.5px] text-ink-2 no-underline transition-colors hover:text-ink pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
           Back to Hyperanchor
         </Link>

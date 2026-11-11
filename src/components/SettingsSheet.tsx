@@ -5,7 +5,7 @@ import { signOutAction } from "@/app/actions";
 import type { WeekStart } from "@/lib/dates";
 import type { AppUser } from "@/lib/types";
 import { Avatar } from "./Avatar";
-import { DownloadIcon, XIcon } from "./icons";
+import { DownloadIcon, KeyboardIcon, SlidersIcon, XIcon } from "./icons";
 import { applyTheme, readTheme, type Theme } from "./prefs";
 import { THEMES } from "./ThemeSwitch";
 import { Button, buttonClass, IconButton, Kbd, Modal, SegmentedControl } from "./ui";
@@ -87,11 +87,12 @@ export function SettingsSheet({
           label="Settings section"
           value={tab}
           options={[
-            { value: "general", label: "General" },
-            { value: "shortcuts", label: "Keyboard shortcuts" },
+            { value: "general", label: "General", icon: <SlidersIcon size={14} /> },
+            { value: "shortcuts", label: "Keyboard shortcuts", icon: <KeyboardIcon size={14} /> },
           ]}
           onChange={setTab}
-          className="w-[280px]"
+          size="lg"
+          className="w-full"
         />
       </div>
 
@@ -124,7 +125,7 @@ export function SettingsSheet({
             />
           </Row>
           <Row title="Your tasks" hint="Every task as a CSV file, for any spreadsheet.">
-            <a href="/api/export" download className={`${buttonClass()} w-[184px]`}>
+            <a href="/api/export" download className={`${buttonClass()} w-[184px] no-underline`}>
               <DownloadIcon size={14} />
               Export
             </a>

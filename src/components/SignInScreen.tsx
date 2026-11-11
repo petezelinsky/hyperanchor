@@ -19,7 +19,7 @@ export function SignInScreen({ error }: { error?: boolean }) {
       <section className="flex min-h-[min(calc(100svh_-_12rem),640px)] min-w-0 justify-center px-5 pt-5 sm:px-8 sm:pt-8 lg:col-start-1 lg:row-start-1 lg:min-h-0 lg:pt-10">
         <div className="flex w-full max-w-[380px] flex-col">
           <header className="flex h-8 items-center animate-[fade_0.6s_ease_both]">
-            <Wordmark href="/" size={20} />
+            <Wordmark href="/" size={24} />
           </header>
 
           <main className="flex flex-1 flex-col justify-center py-10 lg:py-14">
@@ -50,10 +50,18 @@ export function SignInScreen({ error }: { error?: boolean }) {
                 Sign-in didn’t work. Please try again.
               </p>
             )}
-            <p className={`mt-5 text-[12.5px] leading-[1.6] text-pretty text-ink-2 [animation-delay:210ms] ${enter}`}>
-              Free forever. By continuing, you agree to the <Link href="/terms">Terms of Service</Link> and{" "}
-              <span className="whitespace-nowrap">
-                <Link href="/privacy">Privacy Policy</Link>.
+            {/* Two set lines: the documents always sit together on the second, and neither name ever breaks. */}
+            <p className={`mt-5 text-[12.5px] leading-[1.6] text-ink-2 [animation-delay:210ms] ${enter}`}>
+              <span className="block text-balance">Free forever. By continuing, you agree to the</span>
+              <span className="block">
+                <Link href="/terms" className="whitespace-nowrap">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="whitespace-nowrap">
+                  Privacy Policy
+                </Link>
+                .
               </span>
             </p>
           </main>

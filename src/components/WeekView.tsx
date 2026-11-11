@@ -5,7 +5,7 @@ import { addDays, dayDiff, formatShort, parseYmd, rangeLabel, startOfWeek, ymd }
 import { SortMenu, TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
 import { WeekBoard } from "./table/WeekBoard";
-import { NavGroup, NewTaskButton, SearchButton, Toolbar } from "./Toolbar";
+import { NavGroup, NewTaskButton, Toolbar } from "./Toolbar";
 import { ProgressRing } from "./ui";
 
 const BOARD_MIN = 1040; // px of sheet below which seven columns get too narrow and the week becomes a list
@@ -16,14 +16,12 @@ export function WeekView({
   state,
   actions,
   onSelectDate,
-  onSearch,
 }: {
   selected: string;
   sections: Section[];
   state: TableState;
   actions: TableActions;
   onSelectDate: (key: string) => void;
-  onSearch: () => void;
 }) {
   const { todayKey } = state;
   const start = startOfWeek(parseYmd(selected));
@@ -60,7 +58,7 @@ export function WeekView({
         }
         wide={board}
       >
-        <SearchButton onClick={onSearch} />
+        {board && <SortMenu sort={state.sort} onSort={actions.sort} />}
         <NavGroup
           prevLabel="Previous week"
           nextLabel="Next week"
@@ -73,14 +71,9 @@ export function WeekView({
         <NewTaskButton onClick={() => actions.openComposer(selected)} />
       </Toolbar>
 
-      <div ref={box} className="px-3 pb-16 md:px-8">
+      <div ref={box} className={`px-3 md:px-8 ${board ? "pb-6" : "pb-16"}`}>
         {board ? (
-          <>
-            <div className="-mt-1 mb-2 flex justify-end">
-              <SortMenu sort={state.sort} onSort={actions.sort} />
-            </div>
-            <WeekBoard sections={sections} state={state} actions={actions} />
-          </>
+          <WeekBoard sections={sections} state={state} actions={actions} />
         ) : (
           <div className="mx-auto max-w-[1120px]">
             <TaskTable sections={sections} state={state} actions={actions} grouped />

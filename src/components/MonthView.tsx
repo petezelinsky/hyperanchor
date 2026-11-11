@@ -5,7 +5,7 @@ import { addDays, formatLong, isWeekend, monthGrid, MONTHS, plural, weekdayNames
 import type { Task } from "@/lib/types";
 import { useDrag } from "./drag";
 import { ArrowRightIcon, PlusIcon, XIcon } from "./icons";
-import { NavGroup, SearchButton, Toolbar } from "./Toolbar";
+import { NavGroup, Toolbar } from "./Toolbar";
 import { Button, Checkbox, IconButton, Popover, ProgressRing } from "./ui";
 
 export function MonthView({
@@ -20,7 +20,6 @@ export function MonthView({
   onOpenDay,
   onToggle,
   onCreate,
-  onSearch,
 }: {
   year: number;
   month: number;
@@ -33,12 +32,14 @@ export function MonthView({
   onOpenDay: (key: string) => void;
   onToggle: (t: Task) => void;
   onCreate: (date: string, title: string) => void;
-  onSearch: () => void;
 }) {
   const [pop, setPop] = useState<{ key: string; rect: DOMRect } | null>(null);
   const drag = useDrag();
   const { start, rows } = monthGrid(year, month);
   const cells = Array.from({ length: rows * 7 }, (_, i) => addDays(start, i));
+  // Five-week months have taller days: room for a fourth title. A day that would show "+1 more" shows that task instead.
+  const fit = rows > 5 ? 3 : 4;
+  const shown = (n: number) => (n === fit + 1 ? fit + 1 : Math.min(n, fit));
   const inMonth = cells.filter((d) => d.getMonth() === month).flatMap((d) => byDate(ymd(d)));
   const done = inMonth.filter((t) => t.done).length;
   const isCurrent = ymd(new Date(year, month, 1)).slice(0, 7) === todayKey.slice(0, 7);
@@ -65,7 +66,6 @@ export function MonthView({
         }
         wide
       >
-        <SearchButton onClick={onSearch} />
         <NavGroup
           prevLabel="Previous month"
           nextLabel="Next month"
@@ -94,7 +94,12 @@ export function MonthView({
             </div>
           ))}
         </div>
-        <div key={`${year}-${month}`} className="grid animate-rise grid-cols-7 [grid-auto-rows:minmax(76px,auto)] md:[grid-auto-rows:minmax(118px,auto)]">
+        {/* On computers the weeks share the screen's height, so the month always fills the sheet. */}
+        <div
+          key={`${year}-${month}`}
+          style={{ "--weeks": rows } as React.CSSProperties}
+          className="grid animate-rise grid-cols-7 [grid-auto-rows:minmax(76px,auto)] md:min-h-[calc(100dvh-10.5rem)] md:[grid-template-rows:repeat(var(--weeks),minmax(112px,1fr))]"
+        >
           {cells.map((d, i) => {
             const key = ymd(d);
             const tasks = byDate(key);
@@ -129,8 +134,8 @@ export function MonthView({
                     {d.getDate()}
                   </span>
                 </span>
-                <span className="flex min-w-0 flex-col gap-[3px] max-md:hidden">
-                  {tasks.slice(0, 3).map((t) => (
+                <span className="flex min-w-0 flex-col gap-[3px] max-lg:hidden">
+                  {tasks.slice(0, shown(tasks.length)).map((t) => (
                     // A task can be dragged straight from here onto another day.
                     <span
                       key={t.id}
@@ -143,10 +148,12 @@ export function MonthView({
                       <span className="truncate">{t.title}</span>
                     </span>
                   ))}
-                  {tasks.length > 3 && <span className="pl-3 text-[11.5px] font-medium text-ink-3">+{tasks.length - 3} more</span>}
+                  {tasks.length > shown(tasks.length) && (
+                    <span className="pl-3 text-[11.5px] font-medium text-ink-3">+{tasks.length - shown(tasks.length)} more</span>
+                  )}
                 </span>
                 {tasks.length > 0 && (
-                  <span className="flex flex-wrap justify-end gap-[3px] md:hidden">
+                  <span className="flex flex-wrap justify-end gap-[3px] lg:hidden">
                     {tasks.slice(0, 4).map((t) => (
                       <span key={t.id} className={`size-[5px] rounded-full ${t.done ? "bg-accent" : "bg-ink-4"}`} />
                     ))}
@@ -156,8 +163,8 @@ export function MonthView({
             );
           })}
         </div>
-        {/* Phones show dots, not titles: say what they mean. */}
-        <div className="mt-3 flex items-center justify-center gap-4 text-[12px] text-ink-3 md:hidden">
+        {/* Phones and tablets show dots, not titles: say what they mean. */}
+        <div className="mt-3 flex items-center justify-center gap-4 text-[12px] text-ink-3 lg:hidden">
           <span className="flex items-center gap-1.5">
             <span className="size-[6px] rounded-full bg-accent" />
             Done

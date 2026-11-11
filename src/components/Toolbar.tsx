@@ -1,7 +1,7 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, PlusIcon, SearchIcon } from "./icons";
-import { Button, Kbd } from "./ui";
+import { ChevronLeft, ChevronRight, PlusIcon } from "./icons";
+import { Button } from "./ui";
 
 /**
  * Header of a view: title + subtitle on the left, controls on the right.
@@ -33,7 +33,10 @@ export function Toolbar({
   );
 }
 
-/** ‹ Today › as one bordered group. */
+/**
+ * ‹ Today ›: quiet on purpose — plain chevrons and a text button, no frame — so it never competes with the view's
+ * real actions (Focus, New Task). "Today" greys out while today is already on screen.
+ */
 export function NavGroup({
   onPrev,
   onNext,
@@ -53,44 +56,20 @@ export function NavGroup({
   todayDisabled?: boolean;
   nextDisabled?: boolean;
 }) {
-  const seg = "flex h-8 items-center justify-center text-ink transition-colors duration-150 hover:bg-surface-2 active:bg-surface-3 disabled:pointer-events-none disabled:text-ink-4";
+  const ghost =
+    "flex h-8 items-center justify-center rounded-[9px] text-ink-2 transition-colors duration-150 hover:bg-surface-3 hover:text-ink active:bg-line disabled:pointer-events-none disabled:text-ink-4";
   return (
-    <div className="flex overflow-hidden rounded-[9px] bg-surface shadow-lift">
-      <button type="button" aria-label={prevLabel} data-tip={prevLabel} onClick={onPrev} className={`${seg} w-8`}>
-        <ChevronLeft size={14} strokeWidth={2} />
+    <div className="flex items-center">
+      <button type="button" aria-label={prevLabel} data-tip={prevLabel} onClick={onPrev} className={`${ghost} w-8`}>
+        <ChevronLeft size={15} strokeWidth={1.8} />
       </button>
-      <button type="button" onClick={onToday} disabled={todayDisabled} className={`${seg} border-x border-line px-3 text-[13px] font-medium whitespace-nowrap`}>
+      <button type="button" onClick={onToday} disabled={todayDisabled} className={`${ghost} px-2 text-[13px] font-medium whitespace-nowrap`}>
         {todayLabel}
       </button>
-      <button type="button" aria-label={nextLabel} data-tip={nextLabel} onClick={onNext} disabled={nextDisabled} className={`${seg} w-8`}>
-        <ChevronRight size={14} strokeWidth={2} />
+      <button type="button" aria-label={nextLabel} data-tip={nextLabel} onClick={onNext} disabled={nextDisabled} className={`${ghost} w-8`}>
+        <ChevronRight size={15} strokeWidth={1.8} />
       </button>
     </div>
-  );
-}
-
-/** ⌘K on Apple devices, Ctrl K elsewhere. */
-export const searchKeys = () => (typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K");
-
-/**
- * Opens search across all tasks. On wide screens it looks like a field, so it reads as "type here"; on tablets and
- * small laptops it's a round icon, leaving the title its room. Phones have it in the top bar.
- */
-export function SearchButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Search"
-      data-tip="Search all tasks (/)"
-      className="hidden size-8 flex-none items-center justify-center gap-2 rounded-[9px] bg-surface-3 text-[13px] text-ink-3 transition-colors duration-150 hover:bg-line hover:text-ink-2 md:flex xl:w-44 xl:justify-start xl:pr-1.5 xl:pl-2.5"
-    >
-      <SearchIcon size={13} />
-      <span className="hidden flex-1 text-left xl:inline">Search</span>
-      <span className="hidden xl:inline">
-        <Kbd>{searchKeys()}</Kbd>
-      </span>
-    </button>
   );
 }
 

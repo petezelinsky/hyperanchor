@@ -171,10 +171,12 @@ export function TaskRow({
     }
   };
 
-  const titleText = card ? "text-[13.5px] leading-[18px]" : "text-[14px] leading-5";
+  // A finished task on the week board steps back to one quiet line (picking it shows it whole again).
+  const compact = card && task.done && !selected && !editing;
+  const titleText = compact ? "text-[13px] leading-[18px]" : card ? "text-[13.5px] leading-[18px]" : "text-[14px] leading-5";
   // Cards are narrow: long words hyphenate rather than break mid-word.
   // (line-clamp brings its own display, so it never goes with `block`.)
-  const titleCls = `w-full ${card ? "line-clamp-3 break-words hyphens-auto" : "block truncate"} ${titleText} transition-colors duration-300 ${task.done ? "text-ink-3" : "text-ink"}`;
+  const titleCls = `w-full ${card && !compact ? "line-clamp-3 break-words hyphens-auto" : "block truncate"} ${titleText} transition-colors duration-300 ${task.done ? "text-ink-3" : "text-ink"}`;
   const notesText = card ? "text-[12px] leading-4" : "text-[13px] leading-[19px]";
   // A selected task shows its notes in full; otherwise one quiet line (two on a card).
   const notesCls = `w-full ${notesText} text-ink-2 ${selected && !editing ? "block break-words whitespace-pre-line" : card ? "line-clamp-2 break-words hyphens-auto" : "block truncate"}`;
@@ -210,7 +212,7 @@ export function TaskRow({
 
   // One notes element: under the title in narrow tables and cards, in its own column from @2xl.
   // A task without notes shows none; while it's being edited, a quiet "Notes" invites one (Tab gets there too).
-  const showNotes = !!task.description || editing;
+  const showNotes = (!!task.description || editing) && !compact;
   const notes =
     editingField === "description" ? (
       <AutoTextarea
@@ -235,7 +237,7 @@ export function TaskRow({
 
   const checkbox = (
     <Checkbox
-      size={card ? 18 : 20}
+      size={compact ? 16 : card ? 18 : 20}
       checked={task.done}
       onToggle={() => {
         actions.select(task.id);
@@ -278,7 +280,7 @@ export function TaskRow({
       <div
         {...common}
         onPointerDown={(e) => !editing && drag.start(e, task)}
-        className={`group/row relative rounded-[10px] py-2 pr-2 pl-2.5 transition-[background-color,box-shadow,opacity] duration-150 ${
+        className={`group/row relative rounded-[10px] ${compact ? "py-[5px]" : "py-2"} pr-2 pl-2.5 transition-[background-color,box-shadow,opacity] duration-150 ${
           lifted ? "opacity-35" : ""
         } ${
           selected || editing
@@ -314,8 +316,13 @@ export function TaskRow({
         swipeHandlers.onPointerDown(e);
       }}
       style={{ touchAction: "pan-y" }}
-      className={`group/row relative overflow-hidden rounded-[10px] transition-[background-color,opacity] duration-150 after:pointer-events-none after:absolute after:right-3 after:bottom-0 after:left-12 after:h-px after:bg-line ${
-        selected || editing ? "bg-surface-3 after:opacity-0" : "hover:bg-surface-2"
+      // Rows are divided by hairlines. A hovered or picked row becomes a rounded box outlined in the same line color: its
+      // 1px ring sits over the hairlines above and below, so they turn into the box's edges instead of breaking off at
+      // its corners. The first row hangs from the section's line, so its top corners stay square.
+      className={`group/row relative overflow-hidden rounded-[10px] transition-[background-color,box-shadow,opacity] duration-150 first:rounded-t-none after:pointer-events-none after:absolute after:right-3 after:bottom-0 after:left-12 after:h-px after:bg-line ${
+        selected || editing
+          ? "bg-surface-3 shadow-[0_0_0_1px_var(--line-2)] after:opacity-0"
+          : "hover:bg-surface-2 hover:shadow-[0_0_0_1px_var(--line)] hover:after:opacity-0"
       } ${lifted ? "opacity-35" : ""} ${fresh ? "animate-rise" : ""}`}
     >
       {dx !== 0 && <SwipeActions dx={dx} done={task.done} />}

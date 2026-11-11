@@ -93,7 +93,7 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
   const input = "m-0 block w-full bg-transparent p-0 outline-none";
 
   return (
-    <div role="row" data-editing="true" className={`relative ${COLS} min-h-11 animate-rise items-start rounded-[10px] bg-surface-3 px-1`}>
+    <div role="row" data-editing="true" className={`relative ${COLS} min-h-11 animate-rise items-start rounded-[10px] bg-surface-3 px-1 shadow-[0_0_0_1px_var(--line-2)] first:rounded-t-none`}>
       <div className="flex h-11 items-center justify-center">
         <span className="size-5 rounded-full border-[1.5px] border-dashed border-ink-4" />
       </div>
@@ -141,7 +141,7 @@ function NewTaskRow({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className={`${COLS} h-11 w-full items-center rounded-[10px] px-1 text-left text-[14px] text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink`}
+      className={`${COLS} h-11 w-full items-center rounded-[10px] px-1 text-left text-[14px] text-ink-3 transition-[background-color,box-shadow,color] duration-150 first:rounded-t-none hover:bg-surface-2 hover:text-ink hover:shadow-[0_0_0_1px_var(--line)]`}
     >
       <span className="flex justify-center">
         <PlusIcon size={15} />
@@ -263,7 +263,9 @@ export function TaskTable({
                   {sort}
                 </div>
               )}
-              <div data-list="open" className="py-1">
+              {/* Flush with the section's line: the first row's hover box hangs right from it. */}
+              {/* 1px in from the sides: a hovered row's outline then lines up with the ends of the section's line. */}
+              <div data-list="open" className="mx-px pb-1">
                 {s.tasks.map((t) => row(t, "open"))}
                 {!s.tasks.length && !!s.completed?.length && cleared}
                 {state.composer?.date === s.date ? (
@@ -289,7 +291,7 @@ export function TaskTable({
                     />
                   </button>
                   {completedOpen && (
-                    <div data-list="done" className="py-1">
+                    <div data-list="done" className="mx-px pb-1">
                       {s.completed.map((t) => row(t, "done"))}
                     </div>
                   )}

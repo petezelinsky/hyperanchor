@@ -110,6 +110,15 @@ export function AnalyticsView({
   const elapsedBars = bars.filter((x) => x.elapsed).length;
   const avg = period === "year" ? (elapsedBars ? sum.completed / elapsedBars : 0) : sum.avg;
   const longest = longestStreak(days);
+  // The current streak counts back from today (or from yesterday, while today has nothing done yet).
+  const streak = current ? currentStreak(todayKey, byDate) : longest;
+  const streakSince = (() => {
+    if (!current || !streak) return null;
+    const last = byDate(todayKey).some((t) => t.done) ? today : addDays(today, -1);
+    const first = addDays(last, -(streak - 1));
+    const key = ymd(first);
+    return key === todayKey ? "today" : key === ymd(addDays(today, -1)) ? "yesterday" : formatMedium(first).replace(/^\w+, /, "");
+  })();
   // The last seven days up to today (or up to the end of an earlier period).
   const end = current ? today : b.end;
   const recent = Array.from({ length: 7 }, (_, i) => byDate(ymd(addDays(end, i - 6))).some((t) => t.done));
@@ -160,8 +169,8 @@ export function AnalyticsView({
           period={period}
           current={current}
           spark={spark}
-          streak={current ? currentStreak(todayKey, byDate) : longest}
-          longest={longest}
+          streak={streak}
+          streakSince={streakSince}
           recent={recent}
         />
 

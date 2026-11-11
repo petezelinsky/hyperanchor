@@ -8,7 +8,7 @@ import { FocusPanel } from "./FocusPanel";
 import { ArrowRightIcon, CheckIcon, ChevronDown, ChevronLeft, ChevronRight, FocusIcon, PlusIcon, SunIcon, TrashIcon } from "./icons";
 import { TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
-import { EmptyState, NavGroup, NewTaskButton, SearchButton, Toolbar } from "./Toolbar";
+import { EmptyState, NavGroup, NewTaskButton, Toolbar } from "./Toolbar";
 import { Burst, Button, Checkbox, IconButton, Kbd, ProgressRing } from "./ui";
 
 /** Focus mode for the selected day (null when off). */
@@ -38,7 +38,6 @@ export function DayView({
   carried,
   focus,
   onFocus,
-  onSearch,
   welcome,
 }: {
   selected: string;
@@ -54,7 +53,6 @@ export function DayView({
   carried: Task[];
   focus: Focus;
   onFocus: () => void;
-  onSearch: () => void;
   welcome: Welcome;
 }) {
   const { todayKey } = state;
@@ -102,7 +100,6 @@ export function DayView({
           </Button>
         ) : (
           <>
-            <SearchButton onClick={onSearch} />
             {/* Computers step through days here and jump with the sidebar calendar; phones get the week strip below. */}
             <div className="max-md:hidden">
               <NavGroup
@@ -230,16 +227,36 @@ function MoveButton({ label, onClick }: { label: string; onClick: () => void }) 
   );
 }
 
-/** Tasks left open on earlier days: move them all, or go through them one by one. */
+/** Two labels sharing one spot: the box keeps the size of the larger, so swapping them never shifts the layout. */
+function Swap({ on, a, b, className = "" }: { on: boolean; a: React.ReactNode; b: React.ReactNode; className?: string }) {
+  return (
+    <span className={`grid ${className}`}>
+      <span className={`col-start-1 row-start-1 transition-opacity duration-200 ${on ? "invisible opacity-0" : ""}`}>{a}</span>
+      <span aria-hidden={!on} className={`col-start-1 row-start-1 transition-opacity duration-200 ${on ? "" : "invisible opacity-0"}`}>
+        {b}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Every task left open on an earlier day: move them all, or go through them one by one (most recent first). The header
+ * keeps its size whether the list is open or not, so nothing jumps; a long list scrolls inside.
+ */
 function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; todayKey: string; actions: TableActions; onMoveAll: () => void }) {
   const [open, setOpen] = useState(false);
   const n = tasks.length;
+  const thisYear = parseYmd(todayKey).getFullYear();
+  const when = (date: string) => {
+    const d = parseYmd(date);
+    return relativeDay(date, todayKey) ?? `${formatMedium(d)}${d.getFullYear() !== thisYear ? `, ${d.getFullYear()}` : ""}`;
+  };
   return (
     <Notice
       action={
         <>
           <Button size="sm" variant="plain" onClick={() => setOpen(!open)} aria-expanded={open} className="gap-1">
-            {open ? "Hide" : "Review"}
+            <Swap on={open} a="Review" b="Hide" className="justify-items-end" />
             <ChevronDown size={12} strokeWidth={2} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
           </Button>
           <MoveButton label={n === 1 ? "Move to Today" : "Move all to Today"} onClick={onMoveAll} />
@@ -247,29 +264,36 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
       }
       more={
         <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-          <ul className="min-h-0 overflow-hidden" inert={!open}>
-            {tasks.map((t) => (
-              <li key={t.id} className="flex items-center gap-3 border-t border-line py-1.5 pr-2 pl-3.5">
-                <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] text-ink">{t.title}</span>
-                  <span className="block text-[11.5px] text-ink-3">{relativeDay(t.date, todayKey) ?? formatMedium(parseYmd(t.date))}</span>
-                </span>
-                <Button size="sm" variant="plain" onClick={() => actions.move(t, todayKey)} className="gap-1 text-ink!">
-                  Today
-                  <ArrowRightIcon size={12} strokeWidth={2} />
-                </Button>
-                <IconButton label={`Delete “${t.title}”`} tip="Delete" size="sm" onClick={() => actions.remove(t)} className="hover:text-red-ink!">
-                  <TrashIcon size={14} />
-                </IconButton>
-              </li>
-            ))}
-          </ul>
+          <div className="min-h-0 overflow-hidden" inert={!open}>
+            <ul className="max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain border-t border-line">
+              {tasks.map((t, i) => (
+                <li key={t.id} className={`flex items-center gap-3 py-1.5 pr-2 pl-3.5 ${i ? "border-t border-line" : ""}`}>
+                  <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13.5px] text-ink">{t.title}</span>
+                    <span className="block text-[11.5px] text-ink-3">{when(t.date)}</span>
+                  </span>
+                  <Button size="sm" variant="plain" onClick={() => actions.move(t, todayKey)} className="gap-1 text-ink!">
+                    Today
+                    <ArrowRightIcon size={12} strokeWidth={2} />
+                  </Button>
+                  <IconButton label={`Delete “${t.title}”`} tip="Delete" size="sm" onClick={() => actions.remove(t)} className="hover:text-red-ink!">
+                    <TrashIcon size={14} />
+                  </IconButton>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       }
     >
       <span className="block text-ink">{n === 1 ? "1 task is still open from earlier days" : `${n} tasks are still open from earlier days`}</span>
-      {!open && <span className="block truncate text-[12px] text-ink-3">{tasks.map((t) => t.title).join(", ")}</span>}
+      <Swap
+        on={open}
+        a={<span className="block truncate">{tasks.map((t) => t.title).join(", ")}</span>}
+        b={<span className="block truncate">{n === 1 ? "Tick it off, bring it to today, or let it go." : "Tick each off, bring it to today, or let it go."}</span>}
+        className="grid-cols-[minmax(0,1fr)] text-[12px] text-ink-3"
+      />
     </Notice>
   );
 }
