@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { LOGO_BOX, LOGO_SIGN_SCALE, SIGN_PATH, WORD_PATH } from "@/components/brandPaths";
 
 export const alt = "Hyperanchor — own your day, week and month";
 export const size = { width: 1200, height: 630 };
@@ -39,13 +40,15 @@ export default function Image() {
     (
       <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", background: "#ffffff", padding: "0 80px", gap: 64 }}>
         <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <svg width="56" height="56" viewBox="0 0 64 64">
-              <rect width="64" height="64" rx="16" fill={INK} />
-              <path d="M22.25 15v34M22.25 33.5c0-6 4.4-10 10-10s9.5 4 9.5 10V49" fill="none" stroke="#fff" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <div style={{ fontSize: 44, fontWeight: 600, letterSpacing: -2, color: INK }}>hyperanchor</div>
-          </div>
+          {/* The logo, outlined: the sign and the name, #111111. */}
+          <svg
+            width={Math.round((48 * LOGO_BOX.width) / LOGO_BOX.height)}
+            height="48"
+            viewBox={`${LOGO_BOX.x} ${LOGO_BOX.y} ${LOGO_BOX.width} ${LOGO_BOX.height}`}
+          >
+            <path transform={`translate(0 -727.5) scale(${LOGO_SIGN_SCALE})`} d={SIGN_PATH} fill="#111111" />
+            <path d={WORD_PATH} fill="#111111" />
+          </svg>
           <div style={{ marginTop: 56, fontSize: 76, fontWeight: 700, lineHeight: 1.08, letterSpacing: -3, color: INK, display: "flex", flexDirection: "column" }}>
             <span>Own your day,</span>
             <span>week and month.</span>

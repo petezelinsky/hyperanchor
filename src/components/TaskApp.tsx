@@ -89,7 +89,7 @@ export function TaskApp({ user }: { user: AppUser }) {
     toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : 4000);
   }, []);
 
-  const { tasks, load, create, edit, remove, restore, merge, saving, loads } = useTasks(notify);
+  const { tasks, load, loadOpen, create, edit, remove, restore, merge, saving, loads } = useTasks(notify);
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const mainRange = useMemo((): [string, string] => {
@@ -111,11 +111,10 @@ export function TaskApp({ user }: { user: AppUser }) {
   useEffect(() => {
     load(...miniRange);
   }, [load, miniRange]);
-  // Today gathers tasks left open during the past week, so nothing quietly slips away.
-  const lookback = useMemo((): [string, string] => [ymd(addDays(parseYmd(todayKey), -7)), ymd(addDays(parseYmd(todayKey), -1))], [todayKey]);
+  // Today gathers every task left open on an earlier day, however long ago, so nothing quietly slips away.
   useEffect(() => {
-    if (view === "day") load(...lookback);
-  }, [load, view, lookback]);
+    if (view === "day") loadOpen(todayKey);
+  }, [loadOpen, view, todayKey]);
   // Analytics shows the current streak, which can reach further back than the period on screen.
   useEffect(() => {
     if (view === "analytics") load(ymd(addDays(parseYmd(todayKey), -365)), todayKey);
@@ -161,12 +160,13 @@ export function TaskApp({ user }: { user: AppUser }) {
     if (selectedId && !visibleIds.includes(selectedId)) setSelectedId(null);
   }, [selectedId, visibleIds]);
 
+  // Most recent first: yesterday's leftovers lead, the long-forgotten follow.
   const carried = useMemo(
     () =>
       Object.values(tasks)
-        .filter((t) => !t.done && t.date >= lookback[0] && t.date <= lookback[1])
-        .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt)),
-    [tasks, lookback],
+        .filter((t) => !t.done && t.date < todayKey)
+        .sort((a, b) => b.date.localeCompare(a.date) || a.createdAt.localeCompare(b.createdAt)),
+    [tasks, todayKey],
   );
 
   // What focus mode works through: open tasks in list order, "Not now" ones last. A task just ticked off
@@ -580,7 +580,6 @@ export function TaskApp({ user }: { user: AppUser }) {
         saving={saving}
         view={view}
         onView={showView}
-        onShortcuts={() => setSheet("shortcuts")}
         onSettings={() => setSheet("general")}
         badges={{ day: byDate(selected).filter((t) => !t.done).length, week: weekOpen }}
         mini={
@@ -600,7 +599,7 @@ export function TaskApp({ user }: { user: AppUser }) {
         }
       />
       <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
-        <MobileHeader user={user} saving={saving} onSearch={() => setSearching(true)} onShortcuts={() => setSheet("shortcuts")} onSettings={() => setSheet("general")} />
+        <MobileHeader user={user} saving={saving} onSettings={() => setSheet("general")} />
         {/* The content sheet. Desktop: an inset white sheet that scrolls inside (the toolbar sticks). Phone: the page scrolls. */}
         <div className="min-h-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+92px)] md:pb-0">
           <main ref={scroller} className="group/sheet md:h-full md:scroll-pt-32 md:overflow-y-auto md:rounded-[14px] md:bg-surface md:shadow-sheet">
@@ -623,12 +622,11 @@ export function TaskApp({ user }: { user: AppUser }) {
                 carried={carried}
                 focus={focus}
                 onFocus={() => setFocus(!focusOn)}
-                onSearch={() => setSearching(true)}
                 welcome={welcome}
               />
             )}
             {view === "week" && (
-              <WeekView selected={selected} sections={sections} state={tableState} actions={actions} onSelectDate={selectDate} onSearch={() => setSearching(true)} />
+              <WeekView selected={selected} sections={sections} state={tableState} actions={actions} onSelectDate={selectDate} />
             )}
             {view === "month" && (
               <MonthView
@@ -643,7 +641,6 @@ export function TaskApp({ user }: { user: AppUser }) {
                 onOpenDay={openDay}
                 onToggle={actions.toggle}
                 onCreate={(date, title) => create({ title, description: "", date, done: false })}
-                onSearch={() => setSearching(true)}
               />
             )}
             {view === "analytics" && (

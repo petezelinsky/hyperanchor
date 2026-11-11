@@ -120,7 +120,7 @@ export function Kpis({
   current,
   spark,
   streak,
-  longest,
+  streakSince,
   recent,
 }: {
   sum: Summary;
@@ -131,7 +131,8 @@ export function Kpis({
   spark: SparkPoint[];
   /** Current streak (current period) or the longest one in the period. */
   streak: number;
-  longest: number;
+  /** When the current streak began, e.g. "Sep 18" or "today" (current period, with a streak going). */
+  streakSince: string | null;
   /** Whether each of the last 7 days had something completed, oldest first. */
   recent: boolean[];
 }) {
@@ -189,7 +190,11 @@ export function Kpis({
             <FlameIcon size={15} className={`ml-1 ${streak > 0 ? "text-accent" : "text-ink-4"}`} />
           </span>
         }
-        foot={<span>{current ? `Longest this ${period}: ${longest} ${longest === 1 ? "day" : "days"}` : "Days in a row with something done"}</span>}
+        foot={
+          <span>
+            {!current ? "Days in a row with something done" : streakSince ? `Since ${streakSince}` : "Finish a task today to start one"}
+          </span>
+        }
       />
     </div>
   );

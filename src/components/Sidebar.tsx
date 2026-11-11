@@ -7,7 +7,7 @@ import type { AppUser, Task } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
 import { useDrag } from "./drag";
-import { CalendarIcon, ChartIcon, ChevronLeft, ChevronRight, SearchIcon, SunIcon, WeekIcon } from "./icons";
+import { CalendarIcon, ChartIcon, ChevronLeft, ChevronRight, SunIcon, WeekIcon } from "./icons";
 import { SyncStatus } from "./SyncStatus";
 import { IconButton, Menu, type Anchor } from "./ui";
 
@@ -27,7 +27,6 @@ export function Sidebar({
   saving,
   view,
   onView,
-  onShortcuts,
   onSettings,
   badges,
   mini,
@@ -36,7 +35,6 @@ export function Sidebar({
   saving: boolean;
   view: View;
   onView: (v: View) => void;
-  onShortcuts: () => void;
   onSettings: () => void;
   badges: Partial<Record<View, number>>;
   mini: React.ReactNode;
@@ -79,7 +77,7 @@ export function Sidebar({
         <div className="mt-7 px-1">{mini}</div>
         <div className="mt-auto pt-4">
           <SyncStatus saving={saving} className="px-2.5 pb-2 empty:hidden" />
-          <AccountButton user={user} onShortcuts={onShortcuts} onSettings={onSettings} />
+          <AccountButton user={user} onSettings={onSettings} />
         </div>
       </div>
     </aside>
@@ -175,8 +173,11 @@ export function MiniMonth({
   );
 }
 
-/** `phone`: names the account (the phone header shows only the avatar) and leaves out keyboard hints. */
-function useAccountMenu(onShortcuts: () => void, onSettings: () => void, phone?: { email: string }) {
+/**
+ * The account menu: Settings (which also holds the keyboard shortcuts), the documents and signing out. `phone`: names
+ * the account (the phone header shows only the avatar) and leaves out keyboard hints.
+ */
+function useAccountMenu(onSettings: () => void, phone?: { email: string }) {
   const [anchor, setAnchor] = useState<{ rect: Anchor; el: HTMLElement } | null>(null);
   const [, startTransition] = useTransition();
   const menu = anchor && (
@@ -188,7 +189,6 @@ function useAccountMenu(onShortcuts: () => void, onSettings: () => void, phone?:
       entries={[
         ...(phone ? [{ heading: phone.email }, { separator: true as const }] : []),
         { label: "Settings", shortcut: phone ? undefined : ",", onSelect: onSettings },
-        ...(phone ? [] : [{ label: "Keyboard Shortcuts", shortcut: "?", onSelect: onShortcuts }]),
         { separator: true },
         { label: "Privacy Policy", onSelect: () => window.location.assign("/privacy") },
         { label: "Terms of Service", onSelect: () => window.location.assign("/terms") },
@@ -201,8 +201,8 @@ function useAccountMenu(onShortcuts: () => void, onSettings: () => void, phone?:
   return { menu, toggle, open: !!anchor };
 }
 
-function AccountButton({ user, onShortcuts, onSettings }: { user: AppUser; onShortcuts: () => void; onSettings: () => void }) {
-  const { menu, toggle, open } = useAccountMenu(onShortcuts, onSettings);
+function AccountButton({ user, onSettings }: { user: AppUser; onSettings: () => void }) {
+  const { menu, toggle, open } = useAccountMenu(onSettings);
   const ref = useRef<HTMLButtonElement>(null);
   return (
     <>
@@ -229,25 +229,18 @@ function AccountButton({ user, onShortcuts, onSettings }: { user: AppUser; onSho
 export function MobileHeader({
   user,
   saving,
-  onSearch,
-  onShortcuts,
   onSettings,
 }: {
   user: AppUser;
   saving: boolean;
-  onSearch: () => void;
-  onShortcuts: () => void;
   onSettings: () => void;
 }) {
-  const { menu, toggle, open } = useAccountMenu(onShortcuts, onSettings, { email: user.email });
+  const { menu, toggle, open } = useAccountMenu(onSettings, { email: user.email });
   return (
     <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between pr-4 pl-5 shadow-[0_1px_0_var(--line)] md:hidden">
       <Wordmark />
       <div className="flex items-center gap-2">
         <SyncStatus saving={saving} className="empty:hidden" />
-        <IconButton label="Search" onClick={onSearch} className="size-9 rounded-full">
-          <SearchIcon size={17} />
-        </IconButton>
         <button type="button" aria-label="Account" aria-haspopup="menu" aria-expanded={open} onClick={(e) => toggle(e.currentTarget)} className="rounded-full">
           <Avatar name={user.name} image={user.image} size={30} />
         </button>

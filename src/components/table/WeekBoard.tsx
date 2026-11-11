@@ -5,7 +5,7 @@ import { addDays, dayShort, isWeekend, parseYmd, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { useDrag } from "../drag";
 import { PlusIcon } from "../icons";
-import { Menu } from "../ui";
+import { IconButton, Menu } from "../ui";
 import { taskMenu, useFresh, type MenuState } from "./TaskTable";
 import { TaskRow } from "./TaskRow";
 import type { Composer, Section, TableActions, TableState } from "./types";
@@ -42,8 +42,9 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
 }
 
 /**
- * The week as seven columns side by side, each day's tasks as cards: what's left first, finished ones below.
- * Cards drag between days and within a day; a column takes a dropped task anywhere along it.
+ * The week as seven columns that run the height of the screen. Each day: its name and date, a thin line that fills
+ * with the accent as tasks get done, what's left as cards, Add right where a new card would appear, and what's
+ * finished below as quiet single lines. Cards drag between days and within a day; a column takes a drop anywhere.
  */
 export function WeekBoard({ sections, state, actions }: { sections: Section[]; state: TableState; actions: TableActions }) {
   const [menu, setMenu] = useState<MenuState>(null);
@@ -76,10 +77,12 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
       {sections.map((s) => {
         const d = parseYmd(s.date);
         const isToday = s.date === state.todayKey;
+        const past = s.date < state.todayKey;
         const done = s.completed ?? [];
         const all = s.tasks.length + done.length;
         const doneN = done.length + s.tasks.filter((t) => t.done).length;
         const hot = drag.target?.zone === "list" && drag.target.date === s.date;
+        const composing = state.composer?.date === s.date;
         return (
           <div
             key={s.date}
@@ -88,42 +91,57 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
             data-drop-date={s.date}
             data-drop-zone="list"
             data-drop-list=""
-            className={`flex min-h-[420px] min-w-0 flex-col rounded-[14px] p-1.5 transition-[background-color,box-shadow] duration-150 ${
+            // A double click on a column's free space adds a task to that day.
+            onDoubleClick={(e) => {
+              if (!(e.target as HTMLElement).closest("[data-task-row], [data-editing], button, textarea, input")) actions.openComposer(s.date);
+            }}
+            className={`group/col flex min-h-[max(420px,calc(100dvh-8.5rem))] min-w-0 flex-col rounded-[14px] p-1.5 transition-[background-color,box-shadow] duration-150 ${
               hot ? "bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--accent)]" : isWeekend(d) ? "bg-surface-2" : "bg-surface-2/60"
             }`}
           >
-            <div className="flex items-end justify-between gap-1 px-1.5 pt-1 pb-2">
-              <span className="flex flex-col">
-                <span className={`text-[11.5px] leading-4 font-medium ${isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(d)}</span>
-                <span
-                  className={`tabular flex h-8 items-center text-[22px] font-semibold tracking-[-0.02em] ${
-                    isToday ? "-ml-0.5 w-fit rounded-full bg-accent px-2 text-[17px] text-on-accent" : s.date < state.todayKey ? "text-ink-2" : "text-ink"
-                  }`}
-                >
-                  {d.getDate()}
+            <div className="px-1.5 pt-1">
+              <div className="flex items-end justify-between gap-1">
+                <span className="flex min-w-0 flex-col">
+                  <span className={`text-[11.5px] leading-4 font-medium ${isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(d)}</span>
+                  <span className="flex h-9 items-center">
+                    <span
+                      className={`tabular flex items-center justify-center font-semibold tracking-[-0.02em] ${
+                        isToday
+                          ? "-ml-0.5 size-[30px] rounded-full bg-accent text-[15px] text-on-accent"
+                          : `text-[22px] ${past ? "text-ink-2" : "text-ink"}`
+                      }`}
+                    >
+                      {d.getDate()}
+                    </span>
+                  </span>
                 </span>
-              </span>
-              <span className="tabular pb-1 text-[11.5px] text-ink-3">{all ? `${doneN}/${all}` : ""}</span>
+                <span className="flex items-center gap-0.5 pb-1">
+                  <span className="tabular text-[11.5px] text-ink-3">{all ? `${doneN}/${all}` : ""}</span>
+                  {/* With a mouse, + waits for the pointer on a busy day (seven of them are noise); an empty day always offers it. */}
+                  <IconButton
+                    label={`Add task to ${dayShort(d)} ${d.getDate()}`}
+                    tip="Add a task"
+                    size="sm"
+                    onClick={() => actions.openComposer(s.date)}
+                    className={`-mr-1 focus-visible:opacity-100 ${all && !composing ? "pointer-fine:opacity-0 pointer-fine:group-hover/col:opacity-100" : ""}`}
+                  >
+                    <PlusIcon size={14} strokeWidth={2} />
+                  </IconButton>
+                </span>
+              </div>
+              {/* The day's progress is its divider: a hairline that fills with the accent as tasks get done. */}
+              <div aria-hidden="true" className="mt-1 mb-2 h-[2px] overflow-hidden rounded-full bg-line">
+                <div className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out" style={{ width: all ? `${(doneN / all) * 100}%` : "0%" }} />
+              </div>
             </div>
             <div data-list="open" className="flex flex-col gap-1.5">
               {s.tasks.map((t) => card(t, "open"))}
-              {state.composer?.date === s.date && <ComposerCard composer={state.composer} actions={actions} />}
+              {composing && <ComposerCard composer={state.composer!} actions={actions} />}
             </div>
             {done.length > 0 && (
-              <div data-list="done" className="mt-2 flex flex-col gap-0.5 border-t border-line pt-2">
+              <div data-list="done" className={`${s.tasks.length || composing ? "mt-2.5" : ""} flex flex-col gap-px`}>
                 {done.map((t) => card(t, "done"))}
               </div>
-            )}
-            {state.composer?.date !== s.date && (
-              <button
-                type="button"
-                onClick={() => actions.openComposer(s.date)}
-                aria-label={`Add task to ${dayShort(d)} ${d.getDate()}`}
-                className="mt-1.5 flex h-8 items-center gap-1.5 rounded-[9px] px-2 text-[12.5px] text-ink-3 opacity-70 transition-[background-color,color,opacity] duration-150 hover:bg-surface hover:text-ink hover:opacity-100 focus-visible:opacity-100"
-              >
-                <PlusIcon size={13} strokeWidth={2} />
-                Add
-              </button>
             )}
           </div>
         );

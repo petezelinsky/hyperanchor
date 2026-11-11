@@ -1,29 +1,44 @@
 import Link from "next/link";
+import { LOGO_BOX, LOGO_SIGN_SCALE, SIGN_HEIGHT, SIGN_PATH, SIGN_WIDTH, WORD_PATH } from "./brandPaths";
 
-/** The app icon in small: an "h" on a rounded square (primary colors, so it inverts in dark mode). */
-export function Mark({ size = 22 }: { size?: number }) {
+// The logo is #111111 on light backgrounds and white on dark ones — no other colors, tiles, shadows or outlines.
+const INK = "text-[#111111] dark:text-white";
+
+/** The sign alone, "hy" in one band: `size` is its height in px (16 at the least). */
+export function Mark({ size = 24, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" className="flex-none">
-      <rect width="64" height="64" rx="16" className="fill-primary" />
-      <path
-        d="M22.25 15v34M22.25 33.5c0-6 4.4-10 10-10s9.5 4 9.5 10V49"
-        fill="none"
-        strokeWidth="6.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="stroke-on-primary"
-      />
+    <svg
+      viewBox={`0 0 ${SIGN_WIDTH} ${SIGN_HEIGHT}`}
+      height={size}
+      width={(size * SIGN_WIDTH) / SIGN_HEIGHT}
+      fill="currentColor"
+      aria-hidden="true"
+      className={`flex-none ${INK} ${className}`}
+    >
+      <path d={SIGN_PATH} />
     </svg>
   );
 }
 
-/** The logo: the mark and the lowercase name, optionally a link home. */
-export function Wordmark({ href, size = 19 }: { href?: string; size?: number }) {
+/**
+ * The logo: the sign and the name on one line, the sign on the left and as tall as the whole word (top of the h to
+ * the tail of the p). `size` is that height in px — 20 at the least. Optionally a link home.
+ */
+export function Wordmark({ href, size = 21 }: { href?: string; size?: number }) {
   const logo = (
-    <span className="inline-flex items-center gap-[0.42em] select-none" style={{ fontSize: size }}>
-      <Mark size={Math.round(size * 1.16)} />
-      <span className="font-display leading-none font-semibold tracking-[-0.045em] whitespace-nowrap text-ink">hyperanchor</span>
-    </span>
+    <svg
+      viewBox={`${LOGO_BOX.x} ${LOGO_BOX.y} ${LOGO_BOX.width} ${LOGO_BOX.height}`}
+      height={size}
+      width={(size * LOGO_BOX.width) / LOGO_BOX.height}
+      fill="currentColor"
+      role={href ? undefined : "img"}
+      aria-label={href ? undefined : "Hyperanchor"}
+      aria-hidden={href ? true : undefined}
+      className={`block flex-none select-none ${INK}`}
+    >
+      <path transform={`translate(0 -727.5) scale(${LOGO_SIGN_SCALE})`} d={SIGN_PATH} />
+      <path d={WORD_PATH} />
+    </svg>
   );
   return href ? (
     <Link href={href} aria-label="Hyperanchor home" className="no-underline">
