@@ -12,5 +12,5 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const { name, email, image } = session.user;
   const user = { name: name ?? email ?? "", email: email ?? "", image: image ?? null };
   await touchUser(session.user.id, user);
-  return <TaskAppLoader user={user} />;
+  return <TaskAppLoader user={user} account={session.user.id} />;
 }

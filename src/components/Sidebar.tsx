@@ -7,7 +7,7 @@ import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
 import { useDrag } from "./drag";
 import { CalendarIcon, ChartIcon, ChevronLeft, ChevronRight, SunIcon, WeekIcon } from "./icons";
-import { SyncStatus } from "./SyncStatus";
+import { SyncStatus, type Sync } from "./SyncStatus";
 import { IconButton } from "./ui";
 
 export type View = "day" | "week" | "month" | "analytics";
@@ -23,7 +23,7 @@ const NAV_ROW = 38; // item height (36) + gap (2): how far the selection travels
 
 export function Sidebar({
   user,
-  saving,
+  sync,
   view,
   onView,
   onSettings,
@@ -31,7 +31,7 @@ export function Sidebar({
   mini,
 }: {
   user: AppUser;
-  saving: boolean;
+  sync: Sync;
   view: View;
   onView: (v: View) => void;
   onSettings: () => void;
@@ -75,7 +75,7 @@ export function Sidebar({
         </nav>
         <div className="mt-7 px-1">{mini}</div>
         <div className="mt-auto pt-4">
-          <SyncStatus saving={saving} className="px-2.5 pb-2 empty:hidden" />
+          <SyncStatus sync={sync} className="px-2.5 pb-2 empty:hidden" />
           <AccountButton user={user} onSettings={onSettings} />
         </div>
       </div>
@@ -209,18 +209,18 @@ function AccountButton({ user, onSettings }: { user: AppUser; onSettings: () => 
 /** Phone layout, top: the wordmark and the account. */
 export function MobileHeader({
   user,
-  saving,
+  sync,
   onSettings,
 }: {
   user: AppUser;
-  saving: boolean;
+  sync: Sync;
   onSettings: () => void;
 }) {
   return (
     <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between pr-4 pl-5 shadow-[0_1px_0_var(--line)] md:hidden">
       <Wordmark />
       <div className="flex items-center gap-2">
-        <SyncStatus saving={saving} className="empty:hidden" />
+        <SyncStatus sync={sync} className="empty:hidden" />
         <button type="button" aria-label="Settings" aria-haspopup="dialog" onClick={onSettings} className="relative rounded-full before:absolute before:-inset-[7px]">
           <Avatar name={user.name} image={user.image} size={30} />
         </button>

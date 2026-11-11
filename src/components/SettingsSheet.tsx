@@ -26,6 +26,7 @@ function shortcuts(): { title: string; items: [string, string][] }[] {
         ["T", "Go to today"],
         ["← →", "Previous / next"],
         ["D W M A", "Switch view"],
+        [`${mac ? "⌘" : "Ctrl"} Z`, "Undo the last action"],
         ["?", "Keyboard shortcuts"],
         [",", "Settings"],
       ],

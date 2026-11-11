@@ -5,7 +5,8 @@ export type Field = "title" | "description";
 
 export type Editing = { id: string; field: Field; snapshot: Pick<Task, "title" | "description"> };
 
-export type Composer = { date: string; title: string; description: string; nonce: number };
+/** A new task being written on `date`; its text lives in the composer until Enter. A new nonce starts it afresh. */
+export type Composer = { date: string; nonce: number };
 
 /** A day's tasks; in the Day view `tasks` holds what's left and `completed` what's done. */
 export type Section = { date: string; tasks: Task[]; completed?: Task[] };
@@ -21,7 +22,7 @@ export type TableActions = {
   move: (task: Task, date: string) => void;
   remove: (task: Task) => void;
   openComposer: (date: string) => void;
-  composerChange: (patch: Partial<Composer>) => void;
+  composerChange: (patch: Partial<Pick<Task, "title" | "description">>) => void;
   composerSubmit: (keepOpen: boolean) => void;
   composerCancel: () => void;
   sort: (sort: Sort) => void;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addDays, dayShort, formatLong, formatMedium, MONTHS, parseYmd, relativeDay, startOfWeek, ymd, dayName } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { FocusPanel } from "./FocusPanel";
@@ -203,6 +203,8 @@ export function DayView({
   );
 }
 
+const CHUNK = 50;
+
 /** A quiet line above the list, with its actions after the words; what it opens appears below it. */
 function Notice({ children, action, more }: { children: React.ReactNode; action: React.ReactNode; more?: React.ReactNode }) {
   return (
@@ -244,6 +246,22 @@ function Swap({ on, a, b, className = "" }: { on: boolean; a: React.ReactNode; b
  */
 function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; todayKey: string; actions: TableActions; onMoveAll: () => void }) {
   const [open, setOpen] = useState(false);
+  // The list exists only while it's open (and while it closes), and grows by 50 as it's scrolled: hundreds of old tasks
+  // cost nothing until someone looks at them.
+  const [mounted, setMounted] = useState(false);
+  const [limit, setLimit] = useState(CHUNK);
+  const end = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (open) setMounted(true);
+    else setLimit(CHUNK);
+  }, [open]);
+  useEffect(() => {
+    const el = end.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && setLimit((l) => l + CHUNK), { root: el.parentElement, rootMargin: "200px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [mounted, limit, tasks.length]);
   const n = tasks.length;
   const thisYear = parseYmd(todayKey).getFullYear();
   const when = (date: string) => {
@@ -267,26 +285,32 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
         </>
       }
       more={
-        <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div
+          className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+          onTransitionEnd={(e) => e.target === e.currentTarget && !open && setMounted(false)}
+        >
           <div className="min-h-0 overflow-hidden" inert={!open}>
-            <ul className="mt-1.5 max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain rounded-[12px] shadow-[inset_0_0_0_1px_var(--line)]">
-              {tasks.map((t, i) => (
-                <li key={t.id} className={`flex items-center gap-3 py-1.5 pr-2 pl-3.5 ${i ? "border-t border-line" : ""}`}>
-                  <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13.5px] text-ink">{t.title}</span>
-                    <span className="block text-[11.5px] text-ink-3">{when(t.date)}</span>
-                  </span>
-                  <Button size="sm" variant="plain" onClick={() => actions.move(t, todayKey)} className="gap-1 text-ink!">
-                    Today
-                    <ArrowRightIcon size={12} strokeWidth={2} />
-                  </Button>
-                  <IconButton label={`Delete “${t.title}”`} tip="Delete" size="sm" onClick={() => actions.remove(t)} className="hover:text-red-ink!">
-                    <TrashIcon size={14} />
-                  </IconButton>
-                </li>
-              ))}
-            </ul>
+            {(open || mounted) && (
+              <ul className="mt-1.5 max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain rounded-[12px] shadow-[inset_0_0_0_1px_var(--line)]">
+                {tasks.slice(0, limit).map((t, i) => (
+                  <li key={t.id} className={`flex items-center gap-3 py-1.5 pr-2 pl-3.5 ${i ? "border-t border-line" : ""}`}>
+                    <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13.5px] text-ink">{t.title}</span>
+                      <span className="block text-[11.5px] text-ink-3">{when(t.date)}</span>
+                    </span>
+                    <Button size="sm" variant="plain" onClick={() => actions.move(t, todayKey)} className="gap-1 text-ink!">
+                      Today
+                      <ArrowRightIcon size={12} strokeWidth={2} />
+                    </Button>
+                    <IconButton label={`Delete “${t.title}”`} tip="Delete" size="sm" onClick={() => actions.remove(t)} className="hover:text-red-ink!">
+                      <TrashIcon size={14} />
+                    </IconButton>
+                  </li>
+                ))}
+                {limit < n && <li ref={end} aria-hidden="true" className="h-px" />}
+              </ul>
+            )}
           </div>
         </div>
       }

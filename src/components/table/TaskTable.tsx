@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, dayName, formatShort, parseYmd, startOfWeek, ymd } from "@/lib/dates";
 import { DEFAULT_SORT, type Sort } from "@/lib/tasks";
 import type { Task } from "@/lib/types";
@@ -77,7 +77,16 @@ export function SortMenu({ sort, onSort }: { sort: Sort; onSort: (s: Sort) => vo
 
 function ComposerRow({ composer, actions }: { composer: Composer; actions: TableActions }) {
   const titleRef = useRef<HTMLInputElement>(null);
-  useEffect(() => titleRef.current?.focus(), [composer.nonce]);
+  // The text lives here while it's typed, so a key press redraws this row and nothing else.
+  const [text, setText] = useState({ title: "", description: "" });
+  const change = (patch: Partial<typeof text>) => {
+    setText((t) => ({ ...t, ...patch }));
+    actions.composerChange(patch);
+  };
+  useEffect(() => {
+    setText({ title: "", description: "" });
+    titleRef.current?.focus();
+  }, [composer.nonce]);
 
   const keys = (e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return;
@@ -100,8 +109,8 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
       <div className="min-w-0 py-3 pr-3">
         <input
           ref={titleRef}
-          value={composer.title}
-          onChange={(e) => actions.composerChange({ title: e.target.value })}
+          value={text.title}
+          onChange={(e) => change({ title: e.target.value })}
           onKeyDown={keys}
           placeholder="New Task"
           aria-label="New task title"
@@ -109,8 +118,8 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
           className={`${input} text-[14px] leading-5`}
         />
         <input
-          value={composer.description}
-          onChange={(e) => actions.composerChange({ description: e.target.value })}
+          value={text.description}
+          onChange={(e) => change({ description: e.target.value })}
           onKeyDown={keys}
           placeholder="Notes"
           aria-label="New task notes"
@@ -120,8 +129,8 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
       </div>
       <div className="hidden min-w-0 py-3 pr-3 @2xl:block">
         <input
-          value={composer.description}
-          onChange={(e) => actions.composerChange({ description: e.target.value })}
+          value={text.description}
+          onChange={(e) => change({ description: e.target.value })}
           onKeyDown={keys}
           placeholder="Notes"
           aria-label="New task notes"
@@ -201,7 +210,7 @@ export function TaskTable({
     root.current?.querySelector(`[data-task-row="${state.selectedId}"]`)?.scrollIntoView({ block: "nearest" });
   }, [state.selectedId]);
 
-  const openMenu = (task: Task, anchor: Anchor, trigger?: HTMLElement) => setMenu({ task, anchor, trigger });
+  const openMenu = useCallback((task: Task, anchor: Anchor, trigger?: HTMLElement) => setMenu({ task, anchor, trigger }), []);
 
   const tomorrow = ymd(addDays(parseYmd(state.todayKey), 1));
   const row = (t: Task, list: string) => (

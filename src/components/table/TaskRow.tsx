@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
 import { AutoTextarea } from "../AutoTextarea";
 import { useDrag } from "../drag";
@@ -123,7 +123,8 @@ function SwipeActions({ dx, done }: { dx: number; done: boolean }) {
   );
 }
 
-export function TaskRow({
+/** A task in a list or on the week board. Memoized: a change to one task redraws its row, not the whole list. */
+export const TaskRow = memo(function TaskRow({
   task,
   selected,
   editingField,
@@ -341,4 +342,4 @@ export function TaskRow({
       </div>
     </div>
   );
-}
+});

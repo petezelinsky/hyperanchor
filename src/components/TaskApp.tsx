@@ -43,12 +43,29 @@ const monthOf = (key: string) => {
   return { y: d.getFullYear(), m: d.getMonth() };
 };
 
-export function TaskApp({ user }: { user: AppUser }) {
+const VIEW_NAMES: View[] = ["day", "week", "month", "analytics"];
+
+/** The view and the date in the address (?view=week&date=2026-11-12). A plain address is Day, today. */
+function fromAddress(): { view: View; date: string | null } {
+  const q = new URLSearchParams(window.location.search);
+  const view = q.get("view") as View | null;
+  const date = q.get("date");
+  return {
+    view: view && VIEW_NAMES.includes(view) ? view : "day",
+    date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) && ymd(parseYmd(date)) === date ? date : null,
+  };
+}
+
+/** One step that can be taken back: `run` says whether there was still something to take back. */
+type Undo = { run: () => boolean; done: string };
+
+export function TaskApp({ user, account }: { user: AppUser; account: string }) {
   const todayKey = useTodayKey();
-  const [view, setView] = useState<View>("day");
-  const [selected, setSelected] = useState(todayKey);
-  const [cal, setCal] = useState(() => monthOf(todayKey));
-  const [mini, setMini] = useState(() => monthOf(todayKey));
+  const [address] = useState(fromAddress);
+  const [view, setView] = useState<View>(address.view);
+  const [selected, setSelected] = useState(address.date ?? todayKey);
+  const [cal, setCal] = useState(() => monthOf(address.date ?? todayKey));
+  const [mini, setMini] = useState(() => monthOf(address.date ?? todayKey));
   const [stats, setStats] = useState<{ period: Period; offset: number }>({ period: "week", offset: 0 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -89,7 +106,24 @@ export function TaskApp({ user }: { user: AppUser }) {
     toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : 4000);
   }, []);
 
-  const { tasks, load, loadOpen, create, edit, remove, restore, merge, saving, loads } = useTasks(notify);
+  const { tasks, load, loadOpen, create, edit, remove, restore, merge, saving, waiting, trouble, loads } = useTasks(account, notify);
+
+  // ── Undo ────────────────────────────────────────────────────────────────────
+  // The last 20 actions can be taken back: ⌘Z / Ctrl Z takes back the latest, a toast's Undo its own.
+  const undos = useRef<Undo[]>([]);
+  const remember = useCallback((run: () => boolean, done: string) => {
+    const u = { run, done };
+    undos.current = [...undos.current.slice(-19), u];
+    return u;
+  }, []);
+  const undoThis = useCallback((u: Undo) => {
+    undos.current = undos.current.filter((x) => x !== u);
+    u.run();
+  }, []);
+  const undoLast = useCallback(() => {
+    // Skips steps that no longer apply (their task was deleted since, say).
+    for (let u = undos.current.pop(); u; u = undos.current.pop()) if (u.run()) return notify(u.done);
+  }, [notify]);
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const mainRange = useMemo((): [string, string] => {
@@ -120,13 +154,15 @@ export function TaskApp({ user }: { user: AppUser }) {
     if (view === "analytics") load(ymd(addDays(parseYmd(todayKey), -365)), todayKey);
   }, [load, view, todayKey]);
 
+  // Grouped by day first, then each day sorted: far less work than sorting everything, with hundreds of old tasks loaded.
   const byDateMap = useMemo(() => {
     const map = new Map<string, Task[]>();
-    for (const t of sortTasks(Object.values(tasks), DEFAULT_SORT)) {
+    for (const t of Object.values(tasks)) {
       const list = map.get(t.date);
       if (list) list.push(t);
       else map.set(t.date, [t]);
     }
+    for (const [key, list] of map) if (list.length > 1) map.set(key, sortTasks(list, DEFAULT_SORT));
     return map;
   }, [tasks]);
   const byDate = useCallback((key: string) => byDateMap.get(key) ?? [], [byDateMap]);
@@ -171,7 +207,7 @@ export function TaskApp({ user }: { user: AppUser }) {
     () =>
       Object.values(tasks)
         .filter((t) => !t.done && t.date < todayKey)
-        .sort((a, b) => b.date.localeCompare(a.date) || a.createdAt.localeCompare(b.createdAt)),
+        .sort((a, b) => (a.date !== b.date ? (a.date < b.date ? 1 : -1) : a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0)),
     [tasks, todayKey],
   );
 
@@ -190,6 +226,11 @@ export function TaskApp({ user }: { user: AppUser }) {
   const focusNext = focusQueue[1];
   const latest = useRef({ tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen, sort });
   latest.current = { tasks, editing, composer, selectedId, visibleIds, view, selected, todayKey, focusOn, focusTask, focusNext, hasOpen, sort };
+
+  /** "Today", "Tomorrow", or "Wed, Nov 18": a day as messages name it. */
+  const dayLabel = useCallback((key: string) => relativeDay(key, latest.current.todayKey) ?? formatMedium(parseYmd(key)), []);
+  // A new task's text while it's typed (the composer shows it; the app reads it on Enter).
+  const draft = useRef({ title: "", description: "" });
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const selectDate = useCallback((key: string) => {
@@ -253,6 +294,9 @@ export function TaskApp({ user }: { user: AppUser }) {
         if (title !== t.title) patch.title = title;
         if (description !== t.description) patch.description = description;
         edit(t.id, patch); // also flushes any pending debounced save
+        const { snapshot } = editing;
+        if (title !== snapshot.title || description !== snapshot.description)
+          remember(() => !!latest.current.tasks[t.id] && (edit(t.id, snapshot), true), "Edit undone");
       }
       latest.current.editing = null;
       setEditing(null);
@@ -260,9 +304,10 @@ export function TaskApp({ user }: { user: AppUser }) {
     const composerSubmit = (keepOpen: boolean) => {
       const c = latest.current.composer;
       if (!c) return;
-      const title = c.title.trim();
-      if (title) create({ title, description: c.description.trim(), date: c.date, done: false });
-      const next = title && keepOpen ? { date: c.date, title: "", description: "", nonce: Date.now() } : null;
+      const title = draft.current.title.trim();
+      if (title) create({ title, description: draft.current.description.trim(), date: c.date, done: false });
+      draft.current = { title: "", description: "" };
+      const next = title && keepOpen ? { date: c.date, nonce: Date.now() } : null;
       latest.current.composer = next;
       setComposer(next);
     };
@@ -291,6 +336,12 @@ export function TaskApp({ user }: { user: AppUser }) {
       change: (id, patch) => edit(id, patch, SAVE_DELAY),
       toggle: (task) => {
         edit(task.id, { done: !task.done });
+        remember(() => {
+          const t = latest.current.tasks[task.id];
+          if (!t || t.done === task.done) return false;
+          edit(task.id, { done: task.done });
+          return true;
+        }, `“${task.title}” is ${task.done ? "done" : "open"} again`);
         if (task.done) return;
         setSettling((s) => [...s, task.id]);
         // The tick plays before the task moves on; in focus the next card shouldn't wait long. Without motion there's
@@ -301,8 +352,8 @@ export function TaskApp({ user }: { user: AppUser }) {
       move: (task, date) => {
         const from = task.date;
         edit(task.id, { date });
-        const name = relativeDay(date, latest.current.todayKey) ?? formatMedium(parseYmd(date));
-        notify(`Moved to ${name}`, { label: "Undo", run: () => edit(task.id, { date: from }) });
+        const u = remember(() => !!latest.current.tasks[task.id] && (edit(task.id, { date: from }), true), `Moved back to ${dayLabel(from)}`);
+        notify(`Moved to ${dayLabel(date)}`, { label: "Undo", run: () => undoThis(u) });
       },
       remove: (task) => {
         const { visibleIds, editing } = latest.current;
@@ -310,23 +361,27 @@ export function TaskApp({ user }: { user: AppUser }) {
         setSelectedId(i >= 0 ? (visibleIds[i + 1] ?? visibleIds[i - 1] ?? null) : null);
         if (editing?.id === task.id) setEditing(null);
         remove(task.id);
-        notify(`Deleted “${task.title}”`, { label: "Undo", run: () => restore(task) });
+        const u = remember(() => !latest.current.tasks[task.id] && (restore(task), true), `Restored “${task.title}”`);
+        notify(`Deleted “${task.title}”`, { label: "Undo", run: () => undoThis(u) });
       },
       openComposer: (date) => {
         finishEdit();
-        const next = { date, title: "", description: "", nonce: Date.now() };
+        draft.current = { title: "", description: "" };
+        const next = { date, nonce: Date.now() };
         latest.current.composer = next;
         setComposer(next);
       },
-      composerChange: (patch) => setComposer((c) => (c ? { ...c, ...patch } : c)),
+      // What's typed into a new task stays with it: the rest of the app doesn't redraw on every key.
+      composerChange: (patch) => void Object.assign(draft.current, patch),
       composerSubmit,
       composerCancel: () => {
+        draft.current = { title: "", description: "" };
         latest.current.composer = null;
         setComposer(null);
       },
       sort: setSort,
     };
-  }, [create, edit, remove, restore, notify]);
+  }, [create, edit, remove, restore, notify, remember, undoThis, dayLabel]);
 
   const focus: Focus =
     focusOn && view === "day"
@@ -357,10 +412,12 @@ export function TaskApp({ user }: { user: AppUser }) {
 
   const moveAllToToday = (list: Task[]) => {
     for (const t of list) edit(t.id, { date: todayKey });
-    notify(list.length === 1 ? "Moved 1 task to Today" : `Moved ${list.length} tasks to Today`, {
-      label: "Undo",
-      run: () => list.forEach((t) => edit(t.id, { date: t.date })),
-    });
+    const u = remember(() => {
+      const back = list.filter((t) => latest.current.tasks[t.id]);
+      back.forEach((t) => edit(t.id, { date: t.date }));
+      return back.length > 0;
+    }, list.length === 1 ? "Moved back" : `Moved ${list.length} tasks back`);
+    notify(list.length === 1 ? "Moved 1 task to Today" : `Moved ${list.length} tasks to Today`, { label: "Undo", run: () => undoThis(u) });
   };
 
   // ── Order and drag and drop ─────────────────────────────────────────────────
@@ -390,6 +447,23 @@ export function TaskApp({ user }: { user: AppUser }) {
     [edit],
   );
 
+  /**
+   * The way back after a task changed place: to its old day, at its old place among that day's open tasks. (Its old
+   * position number may mean something else by then: a day gets renumbered when its gaps run out.)
+   */
+  const placeBack = useCallback(
+    (task: Task) => {
+      const index = openOf(task.date).findIndex((t) => t.id === task.id);
+      return () => {
+        if (!latest.current.tasks[task.id]) return false;
+        const rest = openOf(task.date, task.id);
+        edit(task.id, { date: task.date, position: index < 0 ? task.position : positionAt(rest, Math.min(index, rest.length)) });
+        return true;
+      };
+    },
+    [openOf, edit, positionAt],
+  );
+
   /** ⌥↑ / ⌥↓: nudges the selected task up or down its day. */
   const nudge = useCallback(
     (task: Task, dir: -1 | 1) => {
@@ -398,9 +472,11 @@ export function TaskApp({ user }: { user: AppUser }) {
       const j = list.findIndex((t) => t.id === task.id) + dir;
       if (j < 0 || j >= list.length) return;
       const rest = list.filter((t) => t.id !== task.id);
+      const back = placeBack(task);
       edit(task.id, { position: positionAt(rest, j) });
+      remember(back, "Order restored");
     },
-    [openOf, edit, positionAt],
+    [openOf, edit, positionAt, remember, placeBack],
   );
 
   /** A dropped task takes the place it was dropped in — another day, or another spot on its own day. */
@@ -411,13 +487,14 @@ export function TaskApp({ user }: { user: AppUser }) {
       const position =
         target.index != null ? positionAt(list, target.index) : target.date !== task.date ? placeBetween(list.at(-1), undefined) : task.position;
       if (target.date === task.date && position === task.position) return;
+      const back = placeBack(task);
       edit(task.id, { date: target.date, position });
       setSelectedId(task.id);
-      if (target.date === task.date) return;
-      const name = relativeDay(target.date, latest.current.todayKey) ?? formatMedium(parseYmd(target.date));
-      notify(`Moved to ${name}`, { label: "Undo", run: () => edit(task.id, { date: task.date, position: task.position }) });
+      if (target.date === task.date) return void remember(back, "Order restored");
+      const u = remember(back, `Moved back to ${dayLabel(task.date)}`);
+      notify(`Moved to ${dayLabel(target.date)}`, { label: "Undo", run: () => undoThis(u) });
     },
-    [openOf, edit, notify, positionAt],
+    [openOf, edit, notify, positionAt, remember, undoThis, dayLabel, placeBack],
   );
 
   // ── First visit ─────────────────────────────────────────────────────────────
@@ -493,6 +570,12 @@ export function TaskApp({ user }: { user: AppUser }) {
         if (!document.querySelector("[data-floating]")) setSearching(true);
         return;
       }
+      // ⌘Z / Ctrl Z takes back the last action; text fields keep their own undo.
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "z") {
+        if (isTyping(e.target) || document.querySelector("[data-floating]")) return;
+        e.preventDefault();
+        return undoLast();
+      }
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || isTyping(e.target)) return;
       if (document.querySelector("[data-floating]")) return; // a menu or popover handles its own keys
       const l = latest.current;
@@ -557,7 +640,35 @@ export function TaskApp({ user }: { user: AppUser }) {
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("keydown", onKey);
     };
-  }, [actions, selectDate, showView, setFocus, nudge]);
+  }, [actions, selectDate, showView, setFocus, nudge, undoLast]);
+
+  // The address follows the view and the date. A new view is a step in history, so Back returns to the last one; a new
+  // date only replaces the address. A reload or a bookmark comes back to the same place.
+  useEffect(() => {
+    const q = new URLSearchParams();
+    if (view !== "day") q.set("view", view);
+    const shownMonth = view === "month" && (cal.y !== monthOf(selected).y || cal.m !== monthOf(selected).m);
+    const date = shownMonth ? ymd(new Date(cal.y, cal.m, 1)) : selected;
+    if (view !== "analytics" && date !== todayKey) q.set("date", date);
+    const search = q.toString() ? `?${q}` : "";
+    if (search === window.location.search) return;
+    if (fromAddress().view !== view) window.history.pushState(null, "", search || window.location.pathname);
+    else window.history.replaceState(null, "", search || window.location.pathname);
+  }, [view, selected, cal, todayKey]);
+  useEffect(() => {
+    const back = () => {
+      const { view: v, date } = fromAddress();
+      const key = date ?? latest.current.todayKey;
+      if (v !== "day" && latest.current.focusOn) setFocus(false);
+      setSelected(key);
+      setMini(monthOf(key));
+      setCal(monthOf(key));
+      setSelectedId(null);
+      setView(v);
+    };
+    window.addEventListener("popstate", back);
+    return () => window.removeEventListener("popstate", back);
+  }, [setFocus]);
 
   // A new view starts at the top (the sheet scrolls on desktop, the page on phones).
   useEffect(() => {
@@ -576,6 +687,7 @@ export function TaskApp({ user }: { user: AppUser }) {
   }, []);
 
   // ── Layout ──────────────────────────────────────────────────────────────────
+  const sync = { saving, waiting, trouble };
   const tableState = { todayKey, selectedId, editing, composer, sort };
   const shownWeek = startOfWeek(parseYmd(selected));
   const weekOpen = Array.from({ length: 7 }, (_, i) => byDate(ymd(addDays(shownWeek, i)))).flat().filter((t) => !t.done).length;
@@ -586,7 +698,7 @@ export function TaskApp({ user }: { user: AppUser }) {
     <div data-focus={focusOn && view === "day" ? "on" : undefined} className="min-h-dvh md:flex md:h-dvh md:min-h-0 md:bg-canvas">
       <Sidebar
         user={user}
-        saving={saving}
+        sync={sync}
         view={view}
         onView={showView}
         onSettings={() => setSheet("general")}
@@ -608,7 +720,7 @@ export function TaskApp({ user }: { user: AppUser }) {
         }
       />
       <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
-        <MobileHeader user={user} saving={saving} onSettings={() => setSheet("general")} />
+        <MobileHeader user={user} sync={sync} onSettings={() => setSheet("general")} />
         {/* The content sheet. Desktop: an inset white sheet that scrolls inside (the toolbar sticks). Phone: the page scrolls. */}
         <div className="min-h-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+92px)] md:pb-0">
           <main ref={scroller} className="group/sheet md:h-full md:scroll-pt-32 md:overflow-y-auto md:rounded-[14px] md:bg-surface md:shadow-sheet">
@@ -682,7 +794,7 @@ export function TaskApp({ user }: { user: AppUser }) {
             key={toast.id}
             className="pointer-events-auto flex animate-rise items-center gap-3 rounded-[12px] bg-ink py-1.5 pr-1.5 pl-4 text-[13px] text-surface shadow-float"
           >
-            <span className="max-w-[60vw] truncate">{toast.message}</span>
+            <span className="line-clamp-2 max-w-[min(60vw,420px)]">{toast.message}</span>
             {toast.action && (
               <button
                 type="button"

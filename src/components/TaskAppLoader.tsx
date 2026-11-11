@@ -9,6 +9,7 @@ const TaskApp = dynamic(() => import("./TaskApp").then((m) => m.TaskApp), {
   loading: () => <div className="min-h-dvh" />,
 });
 
-export function TaskAppLoader({ user }: { user: AppUser }) {
-  return <TaskApp user={user} />;
+/** `account`: the signed-in account's id; it names this account's waiting changes in the browser. */
+export function TaskAppLoader({ user, account }: { user: AppUser; account: string }) {
+  return <TaskApp user={user} account={account} />;
 }

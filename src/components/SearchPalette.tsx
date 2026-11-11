@@ -34,6 +34,8 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Task[] | null>(null);
   const [loading, setLoading] = useState(false);
+  // The search couldn't reach the server: say so, rather than "no tasks match".
+  const [failed, setFailed] = useState(false);
   const [active, setActive] = useState(0);
   const list = useRef<HTMLDivElement>(null);
   const query = q.trim();
@@ -48,15 +50,20 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
     const ctrl = new AbortController();
     const id = setTimeout(() => {
       fetch(`/api/tasks/search?q=${encodeURIComponent(query)}&today=${todayKey}`, { signal: ctrl.signal })
-        .then((r) => (r.ok ? r.json() : { tasks: [] }))
+        .then((r) => {
+          if (!r.ok) throw new Error(String(r.status));
+          return r.json();
+        })
         .then(({ tasks }: { tasks: Task[] }) => {
           setResults(tasks);
+          setFailed(false);
           setActive(0);
           setLoading(false);
         })
         .catch((e) => {
           if (e?.name === "AbortError") return;
           setResults([]);
+          setFailed(true);
           setLoading(false);
         });
     }, 140);
@@ -131,7 +138,11 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
         {results === null ? (
           <p className="px-3 py-6 text-center text-[13.5px] text-ink-3">Find any task by its title or notes, on any day.</p>
         ) : !flat.length ? (
-          !loading && <p className="px-3 py-6 text-center text-[13.5px] text-ink-3">No tasks match “{query}”.</p>
+          !loading && (
+            <p className="px-3 py-6 text-center text-[13.5px] text-ink-3">
+              {failed ? (navigator.onLine ? "Couldn’t search just now. Try again in a moment." : "You’re offline. Search works when you’re back.") : `No tasks match “${query}”.`}
+            </p>
+          )
         ) : (
           groups.map((g) => (
             <div key={g.date} role="group" aria-label={label(g.date)}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, dayShort, parseYmd, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { useDrag } from "../drag";
@@ -13,14 +13,23 @@ import type { Composer, Section, TableActions, TableState } from "./types";
 /** A one-line composer at the bottom of a column: Enter adds and stays open, Esc closes. */
 function ComposerCard({ composer, actions }: { composer: Composer; actions: TableActions }) {
   const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => ref.current?.focus(), [composer.nonce]);
+  // The text lives here while it's typed, so a key press redraws this card and nothing else.
+  const [title, setTitle] = useState("");
+  useEffect(() => {
+    setTitle("");
+    ref.current?.focus();
+  }, [composer.nonce]);
   return (
     <div data-editing="true" className="animate-rise rounded-[8px] bg-surface-3 px-1.5 py-1.5 shadow-[0_0_0_1px_var(--line-2)]">
       <textarea
         ref={ref}
         rows={2}
-        value={composer.title}
-        onChange={(e) => actions.composerChange({ title: e.target.value.replace(/\n/g, " ") })}
+        value={title}
+        onChange={(e) => {
+          const next = e.target.value.replace(/\n/g, " ");
+          setTitle(next);
+          actions.composerChange({ title: next });
+        }}
         onKeyDown={(e) => {
           if (e.nativeEvent.isComposing) return;
           if (e.key === "Enter") {
@@ -49,6 +58,7 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
  */
 export function WeekBoard({ sections, state, actions }: { sections: Section[]; state: TableState; actions: TableActions }) {
   const [menu, setMenu] = useState<MenuState>(null);
+  const openMenu = useCallback((task: Task, anchor: DOMRect | { x: number; y: number }, trigger?: HTMLElement) => setMenu({ task, anchor, trigger }), []);
   const isFresh = useFresh();
   const drag = useDrag();
   const root = useRef<HTMLDivElement>(null);
@@ -69,7 +79,7 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
       fresh={isFresh(list, t.id)}
       tomorrow={tomorrow}
       actions={actions}
-      onMenu={(task, anchor, trigger) => setMenu({ task, anchor, trigger })}
+      onMenu={openMenu}
     />
   );
 

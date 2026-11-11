@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Task } from "@/lib/types";
 
@@ -181,6 +181,9 @@ export function DragProvider({
     };
   }, [scroller]);
 
+  // The same object until a drag changes something, so rows that don't take part needn't redraw.
+  const api = useMemo(() => ({ start, dragging, target }), [start, dragging, target]);
+
   // Place the card under the pointer as soon as it mounts.
   useEffect(() => {
     if (!dragging || !ghost.current || !press.current) return;
@@ -189,7 +192,7 @@ export function DragProvider({
   }, [dragging]);
 
   return (
-    <Ctx.Provider value={{ start, dragging, target }}>
+    <Ctx.Provider value={api}>
       {children}
       {dragging &&
         createPortal(
