@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { exitCopy } from "./motion";
 
 type Tip = { text: string; x: number; y: number; side: "top" | "bottom" | "right" };
 
@@ -15,7 +16,6 @@ const EDGE = 8;
  */
 export function Tooltips() {
   const [tip, setTip] = useState<Tip | null>(null);
-  const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -74,15 +74,22 @@ export function Tooltips() {
     };
   }, []);
 
-  // Keep it inside the window: centered over the element where there's room, nudged in at the edges.
+  return tip ? <Bubble tip={tip} /> : null;
+}
+
+/** The tooltip itself: kept inside the window (centered over the element where there's room); fades out as it goes. */
+function Bubble({ tip }: { tip: Tip }) {
+  const ref = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el || !tip || tip.side === "right") return;
+    if (!el || tip.side === "right") return;
     const w = el.offsetWidth;
     el.style.left = `${Math.min(window.innerWidth - EDGE - w, Math.max(EDGE, tip.x - w / 2))}px`;
   }, [tip]);
-
-  if (!tip) return null;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    return () => exitCopy(el, "fade");
+  }, []);
   const place =
     tip.side === "right"
       ? { left: tip.x, top: tip.y, transform: "translateY(-50%)" }
@@ -92,7 +99,7 @@ export function Tooltips() {
       ref={ref}
       role="tooltip"
       style={place}
-      className="pointer-events-none fixed z-[200] animate-[fade_0.12s_ease-out_both] rounded-[7px] bg-ink px-2 py-1 text-[12px] leading-4 font-medium whitespace-nowrap text-surface shadow-float"
+      className="pointer-events-none fixed z-[200] animate-[fade_var(--duration-fast)_var(--ease-out)_both] rounded-sm bg-ink px-2 py-1 text-caption font-medium whitespace-nowrap text-surface shadow-float"
     >
       {tip.text}
     </span>,

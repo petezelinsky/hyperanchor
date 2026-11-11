@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
 import type { WeekStart } from "@/lib/dates";
@@ -25,6 +26,7 @@ function shortcuts(): { title: string; items: [string, string][] }[] {
         ["T", "Go to today"],
         ["← →", "Previous / next"],
         ["D W M A", "Switch view"],
+        [`${mac ? "⌘" : "Ctrl"} Z`, "Undo the last action"],
         ["?", "Keyboard shortcuts"],
         [",", "Settings"],
       ],
@@ -77,7 +79,7 @@ export function SettingsSheet({
   return (
     <Modal label="Settings" onClose={onClose} top className="max-w-[560px]">
       <div className="flex items-center justify-between gap-4 px-6 pt-5">
-        <h2 className="text-[18px] font-semibold tracking-[-0.015em]">Settings</h2>
+        <h2 className="text-headline font-semibold">Settings</h2>
         <IconButton label="Close" size="sm" onClick={onClose} className="-mr-2">
           <XIcon size={14} />
         </IconButton>
@@ -133,23 +135,36 @@ export function SettingsSheet({
           <div className="flex items-center gap-3 border-b border-line py-4">
             <Avatar name={user.name} image={user.image} size={36} />
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[14px] font-medium">{user.name}</div>
-              <div className="truncate text-[12.5px] text-ink-3">{user.email}</div>
+              <div className="truncate text-body font-medium">{user.name}</div>
+              <div className="truncate text-caption text-ink-3">{user.email}</div>
             </div>
             <Button onClick={() => startSignOut(() => signOutAction())} disabled={signingOut}>
               Sign out
             </Button>
           </div>
           <DeleteAccount />
-          <p className="pt-4 text-[12px] text-ink-3">Appearance and the first day of the week are saved on this device.</p>
+          <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 pt-4 text-caption text-ink-3">
+            <p>Appearance and the first day of the week are saved on this device.</p>
+            <nav aria-label="Help and legal" className="flex gap-4">
+              {[
+                ["/privacy", "Privacy"],
+                ["/terms", "Terms"],
+                ["/support", "Support"],
+              ].map(([href, label]) => (
+                <Link key={href} href={href} className="text-ink-2 no-underline hover:underline tap relative">
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-x-8 gap-y-5 px-6 pt-4 pb-6 sm:grid-cols-2">
           {shortcuts().map((g) => (
             <div key={g.title}>
-              <div className="mb-1 text-[12px] font-medium text-ink-3">{g.title}</div>
+              <div className="mb-1 text-caption font-medium text-ink-3">{g.title}</div>
               {g.items.map(([keys, what]) => (
-                <div key={what} className="flex h-9 items-center justify-between gap-4 border-b border-line text-[13.5px] last:border-0">
+                <div key={what} className="flex h-9 items-center justify-between gap-4 border-b border-line text-footnote last:border-0">
                   <span className="text-ink-2">{what}</span>
                   <span className="flex gap-1">
                     {keys.split(" ").map((k) => (
@@ -171,8 +186,8 @@ function Row({ title, hint, children }: { title: string; hint?: string; children
   return (
     <div className="flex items-center justify-between gap-4 border-b border-line py-4">
       <div className="min-w-0">
-        <div className="text-[14px] font-medium">{title}</div>
-        {hint && <div className="mt-0.5 text-[12.5px] text-ink-3">{hint}</div>}
+        <div className="text-body font-medium">{title}</div>
+        {hint && <div className="mt-0.5 text-caption text-ink-3">{hint}</div>}
       </div>
       {children}
     </div>
@@ -206,16 +221,16 @@ function DeleteAccount() {
       </Row>
     );
   return (
-    <div role="group" aria-labelledby="delete-title" className="mt-4 animate-rise rounded-[14px] bg-red-soft p-4">
-      <div id="delete-title" className="text-[14px] font-semibold text-red-ink">
+    <div role="group" aria-labelledby="delete-title" className="mt-4 animate-[fade_var(--duration-fast)_var(--ease-out)_both] rounded-lg bg-red-soft p-4">
+      <div id="delete-title" className="text-body font-semibold text-red-ink">
         Delete your account?
       </div>
-      <p className="mt-1 text-[13px] leading-[1.5] text-ink-2">
+      <p className="mt-1 text-footnote text-ink-2">
         Every task is erased right away, here and in the iPhone app, and you’re signed out. This can’t be undone, so export your tasks
         first if you might want them.
       </p>
       {failed && (
-        <p role="alert" className="mt-2 text-[13px] font-medium text-red-ink">
+        <p role="alert" className="mt-2 text-footnote font-medium text-red-ink">
           Couldn’t delete your account. Check your connection and try again.
         </p>
       )}

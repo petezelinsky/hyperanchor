@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addDays, dayShort, formatLong, formatMedium, MONTHS, parseYmd, relativeDay, startOfWeek, ymd, dayName } from "@/lib/dates";
 import type { Task } from "@/lib/types";
-import { Mark } from "./Brand";
 import { FocusPanel } from "./FocusPanel";
-import { ArrowRightIcon, CheckIcon, ChevronDown, ChevronLeft, ChevronRight, FocusIcon, PlusIcon, SunIcon, TrashIcon } from "./icons";
+import { ArrowRightIcon, ChevronDown, ChevronLeft, ChevronRight, FocusIcon, TrashIcon } from "./icons";
 import { TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
-import { EmptyState, NavGroup, NewTaskButton, Toolbar } from "./Toolbar";
-import { Burst, Button, Checkbox, IconButton, Kbd, ProgressRing } from "./ui";
+import { NavGroup, NewTaskButton, Toolbar } from "./Toolbar";
+import { Accordion, Burst, Button, Checkbox, IconButton, Kbd, ProgressRing } from "./ui";
 
 /** Focus mode for the selected day (null when off). */
 export type Focus = {
@@ -73,7 +72,15 @@ export function DayView({
           <>
             <span>
               {/* The title already names the weekday unless it says Today / Tomorrow / Yesterday. */}
-              {relativeDay(selected, todayKey) ? formatLong(d) : `${MONTHS[d.getMonth()]} ${d.getDate()}`}
+              {relativeDay(selected, todayKey) ? (
+                <>
+                  {/* Phones get the short date, so the count beside it is never cut off. */}
+                  <span className="sm:hidden">{formatMedium(d)}</span>
+                  <span className="max-sm:hidden">{formatLong(d)}</span>
+                </>
+              ) : (
+                `${MONTHS[d.getMonth()]} ${d.getDate()}`
+              )}
               {year}
             </span>
             <span className="text-ink-4">·</span>
@@ -87,13 +94,23 @@ export function DayView({
             ) : (
               <span>No tasks</span>
             )}
+            {/* Phones: the way back to today sits on this line, so the week strip below never changes width. */}
+            {!isToday && !focus && (
+              <button
+                type="button"
+                onClick={() => onSelectDate(todayKey)}
+                className="relative ml-auto font-medium text-ink underline decoration-ink-4 underline-offset-[3px] before:absolute before:-inset-3 md:hidden"
+              >
+                Today
+              </button>
+            )}
           </>
         }
       >
         {focus ? (
           // In focus the header keeps one way out; new thoughts go into the capture field below.
           <Button onClick={onFocus} data-tip="Leave focus (Esc)" className="gap-2">
-            Exit focus
+            Leave focus
             <span className="pointer-coarse:hidden">
               <Kbd>Esc</Kbd>
             </span>
@@ -126,7 +143,7 @@ export function DayView({
         )}
       </Toolbar>
 
-      <div className="mx-auto max-w-[1184px] px-3 pb-16 md:px-8">
+      <div className="mx-auto max-w-[1184px] px-4 pb-16 md:px-8">
         {focus ? (
           <FocusPanel
             task={focus.task}
@@ -142,20 +159,13 @@ export function DayView({
           />
         ) : (
           <>
-            <div className="mb-2 flex items-center gap-2 md:hidden">
-              <div className="min-w-0 flex-1">
-                <WeekPills selected={selected} todayKey={todayKey} byDate={byDate} onSelect={onSelectDate} />
-              </div>
-              {!isToday && (
-                <Button size="sm" onClick={() => onSelectDate(todayKey)}>
-                  Today
-                </Button>
-              )}
+            <div className="mb-2 md:hidden">
+              <WeekPills selected={selected} todayKey={todayKey} byDate={byDate} onSelect={onSelectDate} />
             </div>
 
             {past && open.length > 0 && (
-              <Notice action={<MoveButton label="Move to Today" onClick={() => onMoveToToday(open)} />}>
-                {open.length === 1 ? "1 task was left open on this day." : `${open.length} tasks were left open on this day.`}
+              <Notice action={<MoveButton label="Move to today" onClick={() => onMoveToToday(open)} />}>
+                {open.length} left open on this day
               </Notice>
             )}
             {isToday && carried.length > 0 && <Carried tasks={carried} todayKey={todayKey} actions={actions} onMoveAll={() => onMoveToToday(carried)} />}
@@ -172,29 +182,17 @@ export function DayView({
                 completedOpen={completedOpen}
                 onCompletedOpen={onCompletedOpen}
                 cleared={
-                  <p className="flex h-11 animate-rise items-center gap-[11px] pl-[15px] text-[14px] text-ink-2">
-                    <span className="flex size-[18px] items-center justify-center rounded-full bg-accent text-on-accent">
-                      <CheckIcon size={10} strokeWidth={2.6} />
-                    </span>
-                    {isToday ? "All done for today. Nice work!" : "Everything on this day is done."}
+                  <p className="flex h-11 items-center pl-[15px] text-body text-ink-3">
+                    {all.length
+                      ? isToday
+                        ? "All done for today."
+                        : "Everything on this day is done."
+                      : past
+                        ? "Nothing was planned."
+                        : isToday
+                          ? "Nothing planned yet."
+                          : `Nothing planned for ${dayName(d)} yet.`}
                   </p>
-                }
-                empty={
-                  <EmptyState
-                    icon={<SunIcon size={22} />}
-                    title={past ? "Nothing was planned" : "Nothing planned yet"}
-                    action={
-                      <Button onClick={() => actions.openComposer(selected)} className="pl-2.5">
-                        <PlusIcon size={14} strokeWidth={2.2} />
-                        Add a task
-                      </Button>
-                    }
-                  >
-                    <span className="pointer-coarse:hidden">
-                      Press <Kbd>N</Kbd> anywhere to add one in a second.
-                    </span>
-                    <span className="hidden pointer-coarse:inline">Tap + to add one.</span>
-                  </EmptyState>
                 }
               />
             )}
@@ -205,13 +203,15 @@ export function DayView({
   );
 }
 
-/** A quiet notice above the list, with its actions. */
+const CHUNK = 50;
+
+/** A quiet line above the list, with its actions after the words; what it opens appears below it. */
 function Notice({ children, action, more }: { children: React.ReactNode; action: React.ReactNode; more?: React.ReactNode }) {
   return (
-    <div className="mt-1 mb-4 animate-rise rounded-[12px] bg-surface-2 text-[13px] text-ink-2 shadow-[inset_0_0_0_1px_var(--line)]">
-      <div className="flex flex-col gap-x-3 gap-y-2 py-2.5 pr-2 pl-3.5 sm:flex-row sm:items-center sm:py-2">
-        <span className="min-w-0 flex-1">{children}</span>
-        <span className="flex flex-none items-center gap-1.5 self-start sm:self-auto">{action}</span>
+    <div className="mt-1 mb-3 text-footnote text-ink-2">
+      <div className="flex min-h-8 flex-wrap items-center gap-x-1 gap-y-1">
+        <span className="min-w-0">{children}</span>
+        {action}
       </div>
       {more}
     </div>
@@ -220,9 +220,9 @@ function Notice({ children, action, more }: { children: React.ReactNode; action:
 
 function MoveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <Button size="sm" onClick={onClick} className="gap-1">
+    <Button size="sm" variant="plain" onClick={onClick} className="gap-1 text-ink!">
       {label}
-      <ArrowRightIcon size={13} strokeWidth={2} />
+      <ArrowRightIcon size={12} strokeWidth={2} />
     </Button>
   );
 }
@@ -231,8 +231,8 @@ function MoveButton({ label, onClick }: { label: string; onClick: () => void }) 
 function Swap({ on, a, b, className = "" }: { on: boolean; a: React.ReactNode; b: React.ReactNode; className?: string }) {
   return (
     <span className={`grid ${className}`}>
-      <span className={`col-start-1 row-start-1 transition-opacity duration-200 ${on ? "invisible opacity-0" : ""}`}>{a}</span>
-      <span aria-hidden={!on} className={`col-start-1 row-start-1 transition-opacity duration-200 ${on ? "" : "invisible opacity-0"}`}>
+      <span className={`col-start-1 row-start-1 transition-opacity duration-(--duration-fast) ${on ? "invisible opacity-0" : ""}`}>{a}</span>
+      <span aria-hidden={!on} className={`col-start-1 row-start-1 transition-opacity duration-(--duration-fast) ${on ? "" : "invisible opacity-0"}`}>
         {b}
       </span>
     </span>
@@ -240,11 +240,26 @@ function Swap({ on, a, b, className = "" }: { on: boolean; a: React.ReactNode; b
 }
 
 /**
- * Every task left open on an earlier day: move them all, or go through them one by one (most recent first). The header
- * keeps its size whether the list is open or not, so nothing jumps; a long list scrolls inside.
+ * Every task left open on an earlier day, as one quiet line. Review opens them most recent first, to tick off, bring to
+ * today or let go one by one, and only then offers to move them all. The line keeps its size, so nothing jumps; a long
+ * list scrolls inside.
  */
 function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; todayKey: string; actions: TableActions; onMoveAll: () => void }) {
   const [open, setOpen] = useState(false);
+  // The list exists only while it's open (and while it closes), and grows by 50 as it's scrolled: hundreds of old tasks
+  // cost nothing until someone looks at them.
+  const [limit, setLimit] = useState(CHUNK);
+  const end = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (!open) setLimit(CHUNK);
+  }, [open]);
+  useEffect(() => {
+    const el = end.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && setLimit((l) => l + CHUNK), { root: el.parentElement, rootMargin: "200px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [open, limit, tasks.length]);
   const n = tasks.length;
   const thisYear = parseYmd(todayKey).getFullYear();
   const when = (date: string) => {
@@ -257,48 +272,46 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
         <>
           <Button size="sm" variant="plain" onClick={() => setOpen(!open)} aria-expanded={open} className="gap-1">
             <Swap on={open} a="Review" b="Hide" className="justify-items-end" />
-            <ChevronDown size={12} strokeWidth={2} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+            <ChevronDown size={12} strokeWidth={2} className={`transition-transform duration-(--duration-base) ${open ? "rotate-180" : ""}`} />
           </Button>
-          <MoveButton label={n === 1 ? "Move to Today" : "Move all to Today"} onClick={onMoveAll} />
+          {/* Bringing everything along is a choice made while looking at the list, not a button that's always there. */}
+          {open && (
+            <span className="ml-auto">
+              <MoveButton label={n === 1 ? "Move to today" : "Move all to today"} onClick={onMoveAll} />
+            </span>
+          )}
         </>
       }
       more={
-        <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-          <div className="min-h-0 overflow-hidden" inert={!open}>
-            <ul className="max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain border-t border-line">
-              {tasks.map((t, i) => (
-                <li key={t.id} className={`flex items-center gap-3 py-1.5 pr-2 pl-3.5 ${i ? "border-t border-line" : ""}`}>
-                  <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13.5px] text-ink">{t.title}</span>
-                    <span className="block text-[11.5px] text-ink-3">{when(t.date)}</span>
-                  </span>
-                  <Button size="sm" variant="plain" onClick={() => actions.move(t, todayKey)} className="gap-1 text-ink!">
-                    Today
-                    <ArrowRightIcon size={12} strokeWidth={2} />
-                  </Button>
-                  <IconButton label={`Delete “${t.title}”`} tip="Delete" size="sm" onClick={() => actions.remove(t)} className="hover:text-red-ink!">
-                    <TrashIcon size={14} />
-                  </IconButton>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        <Accordion open={open}>
+          <ul className="mt-1.5 max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain rounded-lg border border-line">
+            {tasks.slice(0, limit).map((t, i) => (
+              <li key={t.id} data-flip={t.id} className={`flex items-center gap-3 py-1.5 pr-2 pl-3.5 ${i ? "border-t border-line" : ""}`}>
+                <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-body text-ink">{t.title}</span>
+                  <span className="block text-caption text-ink-3">{when(t.date)}</span>
+                </span>
+                <Button size="sm" variant="plain" onClick={() => actions.move(t, todayKey)} className="gap-1 text-ink!">
+                  Today
+                  <ArrowRightIcon size={12} strokeWidth={2} />
+                </Button>
+                <IconButton label={`Delete “${t.title}”`} tip="Delete" size="sm" onClick={() => actions.remove(t)} className="hover:text-red-ink!">
+                  <TrashIcon size={14} />
+                </IconButton>
+              </li>
+            ))}
+            {limit < n && <li ref={end} aria-hidden="true" className="h-px" />}
+          </ul>
+        </Accordion>
       }
     >
-      <span className="block text-ink">{n === 1 ? "1 task is still open from earlier days" : `${n} tasks are still open from earlier days`}</span>
-      <Swap
-        on={open}
-        a={<span className="block truncate">{tasks.map((t) => t.title).join(", ")}</span>}
-        b={<span className="block truncate">{n === 1 ? "Tick it off, bring it to today, or let it go." : "Tick each off, bring it to today, or let it go."}</span>}
-        className="grid-cols-[minmax(0,1fr)] text-[12px] text-ink-3"
-      />
+      {n} open from earlier days
     </Notice>
   );
 }
 
-/** First visit: what Hyperanchor is for, the four moves that matter, and a way to try them on examples. */
+/** First visit: what Hyperanchor is for, the four moves that matter (keys on the left, as a legend), and a way to try them. */
 function WelcomeCard({ welcome, onAdd }: { welcome: NonNullable<Welcome>; onAdd: () => void }) {
   const steps: { title: string; key: string; touch: string }[] = [
     { title: "Add what’s on your mind", key: "N", touch: "Tap +" },
@@ -307,34 +320,32 @@ function WelcomeCard({ welcome, onAdd }: { welcome: NonNullable<Welcome>; onAdd:
     { title: "Plans change: move a task to another day", key: "Drag it", touch: "Swipe left for tomorrow" },
   ];
   return (
-    <div className="mx-auto mt-6 max-w-[540px] animate-rise rounded-[22px] bg-surface p-7 shadow-float max-sm:p-5">
-      <Mark size={40} />
-      <h2 className="mt-5 font-display text-[24px] leading-8 font-semibold tracking-[-0.02em]">Welcome, {welcome.name}</h2>
-      <p className="mt-1 text-[15px] leading-relaxed text-ink-2">Hyperanchor keeps your day calm: one list, one clear next step.</p>
-      <ol className="mt-6 space-y-1">
-        {steps.map((s, i) => (
-          <li key={s.title} className="flex items-center gap-3 rounded-[12px] px-1 py-2">
-            <span className="tabular flex size-7 flex-none items-center justify-center rounded-full bg-accent-soft text-[13px] font-semibold text-accent-ink">{i + 1}</span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[14.5px] text-ink">{s.title}</span>
-              {/* Phones: the gesture under the step, so the step keeps its line. */}
-              <span className="hidden text-[12.5px] text-ink-3 pointer-coarse:block">{s.touch}</span>
-            </span>
-            <span className="pointer-coarse:hidden">{s.key === "Drag it" ? <span className="text-[12.5px] text-ink-3">Drag it</span> : <Kbd>{s.key}</Kbd>}</span>
-          </li>
+    // A note on the page, not a card over it: the same left edge as the list it stands in for.
+    <div className="mt-4 max-w-[520px]">
+      <h2 className="font-display text-title-2 font-semibold">Welcome, {welcome.name}.</h2>
+      <p className="mt-1 text-body text-ink-2">Hyperanchor keeps your day calm: one list, one clear next step. Four things are enough to start.</p>
+      <dl className="mt-5 border-t border-line">
+        {steps.map((s) => (
+          <div key={s.title} className="flex min-h-11 items-center gap-4 border-b border-line py-2">
+            <dt className="w-14 flex-none pointer-coarse:hidden">{s.key === "Drag it" ? <span className="text-caption text-ink-3">Drag</span> : <Kbd>{s.key}</Kbd>}</dt>
+            <dd className="min-w-0 flex-1">
+              <span className="block text-body text-ink">{s.title}</span>
+              {/* Phones: the gesture under the step. */}
+              <span className="hidden text-caption text-ink-3 pointer-coarse:block">{s.touch}</span>
+            </dd>
+          </div>
         ))}
-      </ol>
+      </dl>
       <div className="mt-6 flex flex-wrap gap-2">
-        <Button variant="primary" size="lg" onClick={welcome.onExamples} className="h-10 px-4 text-[14px]">
-          Try it with examples
+        <Button variant="primary" onClick={welcome.onExamples}>
+          Try it with three examples
         </Button>
         <Button
-          size="lg"
+          variant="plain"
           onClick={() => {
             welcome.onDismiss();
             onAdd();
           }}
-          className="h-10 px-4 text-[14px]"
         >
           Start with my own
         </Button>
@@ -369,16 +380,16 @@ function WeekPills({ selected, todayKey, byDate, onSelect }: { selected: string;
               onClick={() => onSelect(key)}
               aria-pressed={on}
               aria-label={`${formatLong(day)}: ${tasks.length ? `${done} of ${tasks.length} done` : "no tasks"}`}
-              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-[11px] transition-colors duration-150 ${
-                on && isToday ? "bg-accent text-on-accent" : on ? "bg-primary text-on-primary" : "hover:bg-surface-3"
+              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-lg transition-colors duration-(--duration-fast) ${
+                on && isToday ? "bg-accent-solid text-on-accent" : on ? "bg-primary text-on-primary" : "hover:bg-surface-3"
               }`}
             >
               {/* Today is the accent; another selected day is black (as in Calendar). */}
-              <span className={`text-[10.5px] leading-[13px] font-medium ${on ? "opacity-75" : isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(day)}</span>
-              <span className={`tabular text-[15px] leading-5 font-semibold ${on ? "" : isToday ? "text-accent-ink" : key < todayKey ? "text-ink-2" : "text-ink"}`}>
+              <span className={`text-caption-2 font-medium ${on ? "opacity-75" : isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(day)}</span>
+              <span className={`tabular text-callout font-semibold ${on ? "" : isToday ? "text-accent-ink" : key < todayKey ? "text-ink-2" : "text-ink"}`}>
                 {day.getDate()}
               </span>
-              <span className={`mt-px size-1 rounded-full ${dot ? (on ? "bg-current opacity-60" : dot) : ""}`} />
+              <span data-day-dot={key} className={`mt-px size-1 rounded-full ${dot ? (on ? "bg-current opacity-60" : dot) : ""}`} />
             </button>
           );
         })}

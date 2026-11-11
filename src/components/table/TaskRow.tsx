@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
 import { AutoTextarea } from "../AutoTextarea";
 import { useDrag } from "../drag";
@@ -97,20 +97,20 @@ function useSwipe(onRight: () => void, onLeft: () => void) {
   };
 }
 
-/** What sits under a row while it's swiped: Done (or Not done) on the left, Tomorrow on the right. */
+/** What sits under a row while it's swiped: Done (or Open) on the left, Tomorrow on the right. */
 function SwipeActions({ dx, done }: { dx: number; done: boolean }) {
   const past = Math.abs(dx) > SWIPE;
   const right = dx > 0;
   return (
     <div
       aria-hidden="true"
-      className={`absolute inset-0 flex items-center px-5 text-[13px] font-semibold ${right ? "justify-start bg-accent text-on-accent" : "justify-end bg-primary text-on-primary"}`}
+      className={`absolute inset-0 flex items-center px-5 text-footnote font-semibold ${right ? "justify-start bg-accent-solid text-on-accent" : "justify-end bg-primary text-on-primary"}`}
     >
-      <span className={`flex items-center gap-2 transition-transform duration-150 ${past ? "scale-110" : "scale-90 opacity-80"}`}>
+      <span className={`flex items-center gap-2 transition-transform duration-(--duration-fast) ${past ? "scale-110" : "scale-90 opacity-80"}`}>
         {right ? (
           <>
             <CheckIcon size={13} strokeWidth={2.4} />
-            {done ? "Not done" : "Done"}
+            {done ? "Open" : "Done"}
           </>
         ) : (
           <>
@@ -123,11 +123,11 @@ function SwipeActions({ dx, done }: { dx: number; done: boolean }) {
   );
 }
 
-export function TaskRow({
+/** A task in a list or on the week board. Memoized: a change to one task redraws its row, not the whole list. */
+export const TaskRow = memo(function TaskRow({
   task,
   selected,
   editingField,
-  fresh = false,
   variant = "row",
   tomorrow,
   actions,
@@ -136,8 +136,6 @@ export function TaskRow({
   task: Task;
   selected: boolean;
   editingField: Field | null;
-  /** Just arrived in this list (added, completed or reopened): eases in. */
-  fresh?: boolean;
   /** A list row, or a card in a week column. */
   variant?: "row" | "card";
   /** The date a left swipe moves the task to. */
@@ -173,39 +171,34 @@ export function TaskRow({
 
   // A finished task on the week board steps back to one quiet line (picking it shows it whole again).
   const compact = card && task.done && !selected && !editing;
-  const titleText = compact ? "text-[13px] leading-[18px]" : card ? "text-[13.5px] leading-[18px]" : "text-[14px] leading-5";
+  const titleText = compact ? "text-footnote" : card ? "text-footnote" : "text-footnote";
   // Cards are narrow: long words hyphenate rather than break mid-word.
   // (line-clamp brings its own display, so it never goes with `block`.)
-  const titleCls = `w-full ${card && !compact ? "line-clamp-3 break-words hyphens-auto" : "block truncate"} ${titleText} transition-colors duration-300 ${task.done ? "text-ink-3" : "text-ink"}`;
-  const notesText = card ? "text-[12px] leading-4" : "text-[13px] leading-[19px]";
-  // A selected task shows its notes in full; otherwise one quiet line (two on a card).
-  const notesCls = `w-full ${notesText} text-ink-2 ${selected && !editing ? "block break-words whitespace-pre-line" : card ? "line-clamp-2 break-words hyphens-auto" : "block truncate"}`;
+  // A picked task shows its title whole; otherwise one line in lists, three on cards.
+  const titleFit = selected ? "block break-words hyphens-calm" : card && !compact ? "line-clamp-3 break-words hyphens-calm" : "block truncate";
+  const titleCls = `w-full ${titleFit} ${titleText} transition-colors duration-(--duration-base) ${task.done ? "text-ink-3" : "text-ink"}`;
+  const notesText = card ? "text-caption" : "text-footnote";
+  // A picked task shows its notes in full (while its title is edited too); otherwise one quiet line.
+  const notesCls = `w-full ${notesText} ${selected ? "block break-words whitespace-pre-line text-ink-2" : card ? "block truncate text-ink-3" : "block truncate text-ink-2"}`;
 
+  // The first click picks a task and shows it whole; a click on the picked task, Enter or a double click edits it.
+  const editOnClick = (field: Field) => () => {
+    if (selected) actions.startEdit(task.id, field);
+  };
   const title =
     editingField === "title" ? (
-      card ? (
-        <AutoTextarea
-          ref={titleRef}
-          value={task.title}
-          onChange={(e) => actions.change(task.id, { title: e.target.value.replace(/\n/g, " ") })}
-          onKeyDown={keys("title")}
-          aria-label="Task title"
-          maxLength={500}
-          className={`${titleText} text-ink`}
-        />
-      ) : (
-        <input
-          ref={titleRef}
-          value={task.title}
-          onChange={(e) => actions.change(task.id, { title: e.target.value })}
-          onKeyDown={keys("title")}
-          aria-label="Task title"
-          maxLength={500}
-          className={`${titleCls} m-0 bg-transparent p-0 text-ink outline-none`}
-        />
-      )
+      <AutoTextarea
+        ref={titleRef}
+        value={task.title}
+        onChange={(e) => actions.change(task.id, { title: e.target.value.replace(/\n/g, " ") })}
+        onKeyDown={keys("title")}
+        aria-label="Task title"
+        maxLength={500}
+        dir="auto"
+        className={`${titleText} text-ink`}
+      />
     ) : (
-      <span className={titleCls} onClick={() => actions.startEdit(task.id, "title")}>
+      <span dir="auto" className={titleCls} onClick={editOnClick("title")} onDoubleClick={() => actions.startEdit(task.id, "title")}>
         {task.title}
       </span>
     );
@@ -223,10 +216,11 @@ export function TaskRow({
         placeholder="Notes"
         aria-label="Notes"
         maxLength={5000}
+        dir="auto"
         className={`${notesText} text-ink`}
       />
     ) : task.description ? (
-      <span className={notesCls} onClick={() => actions.startEdit(task.id, "description")}>
+      <span dir="auto" className={notesCls} onClick={editOnClick("description")} onDoubleClick={() => actions.startEdit(task.id, "description")}>
         {selected ? task.description : task.description.replace(/\s*\n\s*/g, " · ")}
       </span>
     ) : (
@@ -237,13 +231,13 @@ export function TaskRow({
 
   const checkbox = (
     <Checkbox
-      size={compact ? 16 : card ? 18 : 20}
+      size={card ? 16 : 20}
       checked={task.done}
       onToggle={() => {
         actions.select(task.id);
         actions.toggle(task);
       }}
-      label={task.done ? `Mark “${task.title}” as not done` : `Mark “${task.title}” as done`}
+      label={task.done ? `Mark “${task.title}” as open` : `Mark “${task.title}” as done`}
       className={card ? "mt-px" : ""}
     />
   );
@@ -256,7 +250,7 @@ export function TaskRow({
         actions.select(task.id);
         onMenu(task, e.currentTarget.getBoundingClientRect(), e.currentTarget);
       }}
-      className={`${card ? "size-6 rounded-[7px] bg-surface hover:bg-surface-3 " : ""}${selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}`}
+      className={`${card ? "size-6 rounded-sm bg-surface-2 group-aria-selected/row:bg-surface-3 hover:bg-surface-3 after:pointer-events-none after:absolute after:inset-y-0 after:right-full after:w-3 after:bg-linear-to-l after:from-surface-2 after:to-transparent group-aria-selected/row:after:from-surface-3 " : ""}${selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}`}
     >
       <EllipsisIcon size={card ? 14 : 16} />
     </IconButton>
@@ -280,15 +274,10 @@ export function TaskRow({
       <div
         {...common}
         onPointerDown={(e) => !editing && drag.start(e, task)}
-        className={`group/row relative rounded-[10px] ${compact ? "py-[5px]" : "py-2"} pr-2 pl-2.5 transition-[background-color,box-shadow,opacity] duration-150 ${
+        // A line of the day, like a row in the Day list: no card until it's picked up.
+        className={`group/row relative rounded-sm ${compact ? "py-[5px]" : "py-1.5"} px-1.5 transition-[background-color,box-shadow,opacity] duration-(--duration-fast) ${
           lifted ? "opacity-35" : ""
-        } ${
-          selected || editing
-            ? "bg-surface shadow-[0_0_0_1.5px_var(--accent),0_4px_12px_-4px_rgba(0,0,0,0.12)]"
-            : task.done
-              ? "hover:bg-surface"
-              : "bg-surface shadow-lift hover:shadow-[0_0_0_1px_var(--line-2),0_6px_16px_-6px_rgba(0,0,0,0.14)]"
-        } ${fresh ? "animate-rise" : ""}`}
+        } ${selected || editing ? "bg-surface-3 shadow-ring-line-2" : "hover:bg-surface-2 hover:shadow-ring-line"}`}
       >
         <div className="flex items-start gap-2">
           <div role="gridcell" className="flex-none">
@@ -300,7 +289,7 @@ export function TaskRow({
             {showNotes && <div className="mt-0.5">{notes}</div>}
           </div>
         </div>
-        <div role="gridcell" className="absolute top-1.5 right-1.5">
+        <div role="gridcell" className="absolute top-1 right-1">
           {menu}
         </div>
       </div>
@@ -318,19 +307,20 @@ export function TaskRow({
       style={{ touchAction: "pan-y" }}
       // Rows are divided by hairlines. A hovered or picked row becomes a rounded box outlined in the same line color: its
       // 1px ring sits over the hairlines above and below, so they turn into the box's edges instead of breaking off at
-      // its corners. The first row hangs from the section's line, so its top corners stay square.
-      className={`group/row relative overflow-hidden rounded-[10px] transition-[background-color,box-shadow,opacity] duration-150 first:rounded-t-none after:pointer-events-none after:absolute after:right-3 after:bottom-0 after:left-12 after:h-px after:bg-line ${
+      // its corners. The first row hangs from the section's line, so its top corners stay square. It clips only while
+      // swiped (so the menu button's touch area can reach past its edge).
+      className={`group/row relative rounded-sm transition-[background-color,box-shadow,opacity] duration-(--duration-fast) first:rounded-t-none ${dx !== 0 ? "overflow-hidden" : ""} after:pointer-events-none after:absolute after:right-3.5 after:bottom-0 after:left-11 after:h-px after:bg-line ${
         selected || editing
-          ? "bg-surface-3 shadow-[0_0_0_1px_var(--line-2)] after:opacity-0"
-          : "hover:bg-surface-2 hover:shadow-[0_0_0_1px_var(--line)] hover:after:opacity-0"
-      } ${lifted ? "opacity-35" : ""} ${fresh ? "animate-rise" : ""}`}
+          ? "bg-surface-3 shadow-ring-line-2 after:opacity-0"
+          : "hover:bg-surface-2 hover:shadow-ring-line hover:after:opacity-0"
+      } ${lifted ? "opacity-35" : ""}`}
     >
       {dx !== 0 && <SwipeActions dx={dx} done={task.done} />}
       <div
-        className={`relative ${COLS} min-h-11 items-start px-1 ${dx !== 0 ? "rounded-[10px] bg-surface" : ""}`}
+        className={`relative ${COLS} min-h-11 items-start px-1 ${dx !== 0 ? "rounded-sm bg-surface" : ""}`}
         style={{
           transform: dx ? `translateX(${dx}px)` : undefined,
-          transition: back ? "transform 0.26s var(--ease-out)" : undefined,
+          transition: back ? "transform var(--duration-base) var(--ease-out)" : undefined,
         }}
       >
         <div role="gridcell" className="col-start-1 row-start-1 flex h-11 items-center justify-center">
@@ -350,4 +340,4 @@ export function TaskRow({
       </div>
     </div>
   );
-}
+});

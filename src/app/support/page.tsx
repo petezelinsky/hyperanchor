@@ -32,7 +32,7 @@ export default function SupportPage() {
 
       <LegalSection n={3} title="Deleting your account">
         <p>
-          Open Settings and choose Delete Account, on the website or in the app. This deletes all of your tasks and can’t be undone. If you signed
+          Open Settings and choose Delete account, on the website or in the app. This deletes all of your tasks and can’t be undone. If you signed
           in with Apple, Hyperanchor’s access to your Apple ID is revoked as well.
         </p>
       </LegalSection>

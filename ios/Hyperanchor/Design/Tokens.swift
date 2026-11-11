@@ -33,6 +33,27 @@ struct ShadowLayer: Sendable, Hashable {
     let color: RGBA
 }
 
+/// Dynamic Type styles by name; the app maps each to `Font.TextStyle` where it makes the font.
+enum TextStyleName: String, Sendable {
+    case caption2, caption, footnote, subheadline, callout, body, title3, title
+}
+
+/// A step of the type scale: size and line height in points, tracking in em, and the Dynamic Type style it scales with.
+struct TypeStep: Sendable, Hashable {
+    let size: CGFloat
+    let lineHeight: CGFloat
+    let tracking: CGFloat
+    let style: TextStyleName
+}
+
+/// A cubic-bezier timing curve, as in CSS.
+struct CubicCurve: Sendable, Hashable {
+    let x1: Double
+    let y1: Double
+    let x2: Double
+    let y2: Double
+}
+
 struct ThemeShadow: Sendable, Hashable {
     let light: [ShadowLayer]
     let dark: [ShadowLayer]
@@ -42,6 +63,8 @@ struct ThemeShadow: Sendable, Hashable {
 struct AccentPalette: Sendable, Hashable {
     /// Today, completion, progress, data.
     let accent: ThemeColor
+    /// Accent behind white text: dark enough for 4.5:1.
+    let accentSolid: ThemeColor
     let accentHover: ThemeColor
     /// Accent as text (small labels only).
     let accentInk: ThemeColor
@@ -86,6 +109,7 @@ enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
         case .blue:
             AccentPalette(
                 accent: ThemeColor(light: RGBA(hex: 0x2563EB), dark: RGBA(hex: 0x3B82F6)),
+                accentSolid: ThemeColor(light: RGBA(hex: 0x2563EB), dark: RGBA(hex: 0x2563EB)),
                 accentHover: ThemeColor(light: RGBA(hex: 0x1D4ED8), dark: RGBA(hex: 0x5591F7)),
                 accentInk: ThemeColor(light: RGBA(hex: 0x1D4ED8), dark: RGBA(hex: 0x82AEFC)),
                 accentSoft: ThemeColor(light: RGBA(hex: 0xEFF4FF), dark: RGBA(hex: 0x0F1D38)),
@@ -98,6 +122,7 @@ enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
         case .orange:
             AccentPalette(
                 accent: ThemeColor(light: RGBA(hex: 0xF4511E), dark: RGBA(hex: 0xFF6A2B)),
+                accentSolid: ThemeColor(light: RGBA(hex: 0xC84A16), dark: RGBA(hex: 0xC84A16)),
                 accentHover: ThemeColor(light: RGBA(hex: 0xE0461A), dark: RGBA(hex: 0xFF7A3D)),
                 accentInk: ThemeColor(light: RGBA(hex: 0xC84A16), dark: RGBA(hex: 0xFF8A52)),
                 accentSoft: ThemeColor(light: RGBA(hex: 0xFFF2EC), dark: RGBA(hex: 0x2A1610)),
@@ -110,6 +135,7 @@ enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
         case .green:
             AccentPalette(
                 accent: ThemeColor(light: RGBA(hex: 0x16A34A), dark: RGBA(hex: 0x22C55E)),
+                accentSolid: ThemeColor(light: RGBA(hex: 0x15803D), dark: RGBA(hex: 0x15803D)),
                 accentHover: ThemeColor(light: RGBA(hex: 0x15803D), dark: RGBA(hex: 0x3AD270)),
                 accentInk: ThemeColor(light: RGBA(hex: 0x15803D), dark: RGBA(hex: 0x4ADE80)),
                 accentSoft: ThemeColor(light: RGBA(hex: 0xEDFAF2), dark: RGBA(hex: 0x0D2316)),
@@ -149,8 +175,8 @@ enum Tokens {
     static let ink4 = ThemeColor(light: RGBA(hex: 0xD4D4D4), dark: RGBA(hex: 0x3D3D3D))
     static let line = ThemeColor(light: RGBA(hex: 0xEDEDED), dark: RGBA(hex: 0x242424))
     static let line2 = ThemeColor(light: RGBA(hex: 0xE2E2E2), dark: RGBA(hex: 0x2E2E2E))
-    /// An open checkbox.
-    static let checkRing = ThemeColor(light: RGBA(hex: 0xB8B8B8), dark: RGBA(hex: 0x555555))
+    /// An open checkbox: 3:1 against every surface it sits on.
+    static let checkRing = ThemeColor(light: RGBA(hex: 0x8A8A8A), dark: RGBA(hex: 0x707070))
 
     // MARK: Primary buttons
 
@@ -174,17 +200,61 @@ enum Tokens {
 
     // MARK: Radii (points)
 
+    /// Four steps and a circle (rounded-full). A box inside a rounded box takes the outer radius minus the padding between them.
     enum Radius {
+        /// Chart bars, key caps, small marks.
+        static let xs: CGFloat = 4
+        /// Buttons, fields, rows.
         static let sm: CGFloat = 8
-        static let md: CGFloat = 9
-        static let row: CGFloat = 10
-        static let pill: CGFloat = 11
+        /// Menus, popovers, toasts.
         static let lg: CGFloat = 12
-        static let sheet: CGFloat = 14
+        /// The sheet, dialogs, the focus card.
         static let card: CGFloat = 16
-        static let dialog: CGFloat = 18
-        static let focus: CGFloat = 20
-        static let tabBar: CGFloat = 22
+    }
+
+    // MARK: Type scale
+
+    /// The type scale: size and line height in px, tracking in em; the iOS app scales each with the Dynamic Type style beside it.
+    enum Typography {
+        static let caption2 = TypeStep(size: 11, lineHeight: 14, tracking: 0, style: .caption2)
+        static let caption = TypeStep(size: 12, lineHeight: 16, tracking: 0, style: .caption)
+        static let footnote = TypeStep(size: 13, lineHeight: 18, tracking: 0, style: .footnote)
+        static let body = TypeStep(size: 14, lineHeight: 20, tracking: 0, style: .subheadline)
+        static let callout = TypeStep(size: 15, lineHeight: 22, tracking: 0, style: .callout)
+        static let headline = TypeStep(size: 17, lineHeight: 24, tracking: -0.01, style: .body)
+        static let title2 = TypeStep(size: 20, lineHeight: 28, tracking: -0.01, style: .title3)
+        static let title = TypeStep(size: 26, lineHeight: 32, tracking: -0.02, style: .title)
+    }
+
+    // MARK: Motion
+
+    /// One family of movements. Durations in ms; curves as cubic-bezier control points. Exits take about 70% of the entrance and ease in.
+    enum Motion {
+        /// A press, a tick.
+        static let press: Double = 0.1
+        /// Menus, popovers, a new field appearing.
+        static let fast: Double = 0.16
+        /// Neighbours making room, lists opening, a row folding away.
+        static let base: Double = 0.24
+        /// A task travelling to its new place.
+        static let move: Double = 0.36
+        /// Charts and rings filling.
+        static let data: Double = 0.6
+        /// With reduced motion, a move becomes a fade this long; waits in code stay under 150 ms.
+        static let reduced: Double = 0.12
+        /// Things arriving.
+        static let outCurve = CubicCurve(x1: 0.2, y1: 0.8, x2: 0.2, y2: 1)
+        /// Things leaving.
+        static let inCurve = CubicCurve(x1: 0.4, y1: 0, x2: 1, y2: 1)
+        /// A task landing in its new place; SwiftUI .spring(duration: 0.36, bounce: 0.15).
+        static let springCurve = CubicCurve(x1: 0.3, y1: 1.25, x2: 0.5, y2: 1)
+    }
+
+    // MARK: Rings
+
+    /// A 1px outline drawn as a shadow, so it takes no room: a hovered or picked row, a drop target, a focused field.
+    enum Ring {
+        static let width: CGFloat = 1
     }
 
     // MARK: Shadows

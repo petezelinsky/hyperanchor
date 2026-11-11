@@ -2,13 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 import { fmt1, pct, type Period, type Summary } from "@/lib/stats";
-import { FlameIcon } from "../icons";
 
-export function Card({ title, aside, className = "", children }: { title: string; aside?: React.ReactNode; className?: string; children: React.ReactNode }) {
+/** A section of the page: a heading over a hairline, like "To do" in Day, and no box around it. */
+export function Card({
+  title,
+  count,
+  aside,
+  className = "",
+  children,
+}: {
+  title: string;
+  /** Shown beside the title, quietly, like the count after "To do". */
+  count?: number;
+  aside?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className={`min-w-0 animate-rise rounded-[16px] bg-surface p-4 shadow-lift md:p-5 ${className}`}>
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
+    <section className={`min-w-0 pt-5 ${className}`}>
+      <header className="mb-4 flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line pb-2">
+        <h2 className="text-footnote font-semibold text-ink">
+          {title}
+          {!!count && <span className="tabular ml-1.5 font-normal text-ink-3">{count}</span>}
+        </h2>
         {aside}
       </header>
       {children}
@@ -46,7 +62,7 @@ function Delta({ value, digits, suffix = "", vs }: { value: number; digits: numb
   const tone = r > 0 ? "text-green-ink" : r < 0 ? "text-red-ink" : "text-ink-2";
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={`tabular inline-flex items-center gap-0.5 text-[12px] font-semibold ${tone}`}>
+      <span className={`tabular inline-flex items-center gap-0.5 text-caption font-semibold ${tone}`}>
         {r > 0 ? "▲" : r < 0 ? "▼" : "="} {r === 0 ? "0" : Math.abs(r).toFixed(digits).replace(/\.0$/, "")}
         {r !== 0 && suffix}
       </span>
@@ -55,146 +71,81 @@ function Delta({ value, digits, suffix = "", vs }: { value: number; digits: numb
   );
 }
 
-export type SparkPoint = { value: number; current: boolean; elapsed: boolean };
-
-/** Tiny columns of the period's trend: de-emphasized, the current day or month in the accent. */
-function Sparkline({ points }: { points: SparkPoint[] }) {
-  const max = Math.max(1, ...points.map((p) => p.value));
+/**
+ * One figure: what it is, the number, and one line of context. Phones read them as rows (number on the right); wider
+ * screens set them side by side between hairlines.
+ */
+function Figure({ label, value, unit, foot, tip }: { label: string; value: React.ReactNode; unit?: string; foot?: React.ReactNode; tip?: string }) {
   return (
-    <span aria-hidden="true" className="flex h-7 w-[84px] items-end gap-[2px]">
-      {points.map((p, i) => (
-        <span
-          key={i}
-          className={`min-w-0 flex-1 rounded-t-[2px] ${p.current ? "bg-accent" : p.elapsed ? "bg-ink-4" : "bg-line"}`}
-          style={{ height: p.elapsed ? `${Math.max(8, (p.value / max) * 100)}%` : "8%" }}
-        />
-      ))}
-    </span>
-  );
-}
-
-/** A ratio against its limit: accent fill on a lighter accent track. */
-export function Meter({ value, className = "" }: { value: number | null; className?: string }) {
-  return (
-    <span aria-hidden="true" className={`block h-1.5 overflow-hidden rounded-full bg-accent-track ${className}`}>
-      <span className="block h-full rounded-full bg-accent transition-[width] duration-700 ease-out" style={{ width: `${Math.round((value ?? 0) * 100)}%` }} />
-    </span>
-  );
-}
-
-function Tile({
-  label,
-  tip,
-  value,
-  unit,
-  visual,
-  foot,
-}: {
-  label: string;
-  /** What the number means, on hover. */
-  tip?: string;
-  value: React.ReactNode;
-  unit?: string;
-  visual?: React.ReactNode;
-  foot: React.ReactNode;
-}) {
-  return (
-    <div data-tip={tip} className="flex min-w-0 animate-rise flex-col rounded-[16px] bg-surface p-4 shadow-lift">
-      <div className="flex h-7 items-center justify-between gap-2">
-        <span className="truncate text-[12.5px] font-medium text-ink-2">{label}</span>
-        {visual && <span className="flex-none max-sm:hidden">{visual}</span>}
+    <div data-tip={tip} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-4 py-3 sm:grid-cols-1 sm:px-5 sm:py-1 sm:first:pl-0 sm:last:pr-0">
+      <div className="col-start-1 row-start-1 text-caption text-ink-3">{label}</div>
+      <div className="col-start-2 row-span-2 row-start-1 flex items-baseline gap-1.5 self-center sm:col-start-1 sm:row-span-1 sm:row-start-2 sm:mt-1">
+        <span className="tabular font-display text-title font-semibold">{value}</span>
+        {unit && <span className="text-footnote text-ink-3">{unit}</span>}
       </div>
-      <div className="mt-1.5 flex items-baseline gap-1">
-        <span className="font-display text-[30px] leading-9 font-semibold tracking-[-0.03em]">{value}</span>
-        {unit && <span className="text-[13px] text-ink-3">{unit}</span>}
-      </div>
-      <div className="mt-1.5 flex min-h-5 flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-ink-3">{foot}</div>
+      <div className="col-start-1 row-start-2 mt-0.5 min-h-4 text-caption text-ink-3 sm:row-start-3 sm:mt-1">{foot}</div>
     </div>
   );
 }
 
 export function Kpis({
   sum,
-  prev,
+  settled,
+  prevSettled,
+  throughYesterday,
   period,
-  current,
-  spark,
-  streak,
-  streakSince,
-  recent,
+  yearNote,
 }: {
   sum: Summary;
-  prev: Summary;
+  /** The period without today: a day still in progress isn't a result yet. */
+  settled: Summary;
+  /** The same stretch of the previous period. */
+  prevSettled: Summary;
+  /** Today falls in this period, so rates and averages stop at yesterday. */
+  throughYesterday: boolean;
   period: Period;
-  /** Viewing the current period (vs an earlier one). */
-  current: boolean;
-  spark: SparkPoint[];
-  /** Current streak (current period) or the longest one in the period. */
-  streak: number;
-  /** When the current streak began, e.g. "Sep 18" or "today" (current period, with a streak going). */
-  streakSince: string | null;
-  /** Whether each of the last 7 days had something completed, oldest first. */
-  recent: boolean[];
+  /** Days with something done in the year so far, e.g. "67 this year" (a count that never resets). */
+  yearNote?: string;
 }) {
-  // The current period is compared with the same stretch of the previous one (this point last week), not all of it.
-  const vs = current ? `vs this time last ${period}` : `vs previous ${period}`;
-  const prevHas = prev.planned > 0;
-  const completed = useCountUp(sum.completed);
-  const rate = useCountUp(sum.rate ?? 0);
-  const avg = useCountUp(sum.avg);
-  const streakN = useCountUp(streak);
-  const none = <span>No data for the previous {period}</span>;
+  const vs = `vs last ${period}`;
+  const prevHas = prevSettled.planned > 0;
+  const rate = useCountUp(settled.rate ?? 0);
+  const avg = useCountUp(settled.avg);
+  const active = useCountUp(sum.activeDays);
+  // Today joins the count once something in it is done; until then it isn't held against anyone.
+  const activeOf = settled.elapsedDays + (sum.activeDays - settled.activeDays);
+  const suffix = throughYesterday ? ", through yesterday" : "";
+  const none = `No last ${period} to compare with`;
+  // The first day of a period has nothing finished to count yet.
+  const waiting = throughYesterday && !settled.elapsedDays ? "Counts finished days only" : null;
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Tile
-        label="Completed"
-        value={Math.round(completed)}
-        visual={<Sparkline points={spark} />}
+    <div className="grid grid-cols-1 max-sm:divide-y max-sm:divide-line sm:grid-cols-3 sm:divide-x sm:divide-line">
+      <Figure
+        label={`Completion${suffix}`}
+        value={settled.rate == null ? "—" : pct(rate)}
         foot={
-          <>
-            <span>{sum.planned ? `of ${sum.planned} planned` : "Nothing planned yet"}</span>
-            {prevHas && <Delta value={sum.completed - prev.completed} digits={0} vs={vs} />}
-          </>
+          waiting ??
+          (settled.rate == null ? (
+            "Nothing planned yet"
+          ) : prevHas && prevSettled.rate != null ? (
+            <Delta value={(settled.rate - prevSettled.rate) * 100} digits={0} suffix=" pts" vs={vs} />
+          ) : (
+            none
+          ))
         }
       />
-      <Tile
-        label="Completion rate"
-        value={sum.rate == null ? "—" : pct(rate)}
-        visual={<Meter value={sum.rate} className="w-[84px]" />}
-        foot={sum.rate == null ? <span>Plan tasks to see your rate</span> : prevHas && prev.rate != null ? <Delta value={(sum.rate - prev.rate) * 100} digits={0} suffix=" pts" vs={vs} /> : none}
+      <Figure
+        label={`Per day${suffix}`}
+        value={settled.elapsedDays ? fmt1(avg) : "—"}
+        foot={waiting ?? (prevHas ? <Delta value={settled.avg - prevSettled.avg} digits={1} vs={vs} /> : none)}
       />
-      <Tile
-        label="Daily average"
-        value={fmt1(avg)}
-        unit="per day"
-        foot={
-          <>
-            <span>
-              {sum.activeDays}/{sum.elapsedDays} days active
-            </span>
-            {prevHas && <Delta value={sum.avg - prev.avg} digits={1} vs={vs} />}
-          </>
-        }
-      />
-      <Tile
-        label={current ? "Current streak" : "Longest streak"}
-        tip="Days in a row with at least one task done"
-        value={Math.round(streakN)}
-        unit={streak === 1 ? "day" : "days"}
-        visual={
-          <span aria-hidden="true" className="flex items-center gap-[3px]">
-            {recent.map((on, i) => (
-              <span key={i} className={`size-[7px] rounded-full ${on ? "bg-accent" : "bg-line-2"}`} />
-            ))}
-            <FlameIcon size={15} className={`ml-1 ${streak > 0 ? "text-accent" : "text-ink-4"}`} />
-          </span>
-        }
-        foot={
-          <span>
-            {!current ? "Days in a row with something done" : streakSince ? `Since ${streakSince}` : "Finish a task today to start one"}
-          </span>
-        }
+      <Figure
+        label="Days with something done"
+        tip="A count that only grows: a day without anything done takes nothing away."
+        value={Math.round(active)}
+        unit={`of ${activeOf}`}
+        foot={yearNote}
       />
     </div>
   );

@@ -55,15 +55,33 @@ function themeLines(theme) {
     }
     out.push("");
   }
-  if (theme === "light") {
-    for (const [k, v] of Object.entries(tokens.radius)) out.push(`--radius-${k}: ${v}px;`);
-    out.push("");
-  }
   for (const [k, s] of Object.entries(tokens.shadow)) out.push(`--shadow-${k}: ${cssShadow(s[theme])};`);
+  if (theme === "light") {
+    // Motion: plain variables (the same in both themes), read by CSS and by the scripts that move rows.
+    out.push("", `/* Motion. ${tokens.motion.note} */`);
+    for (const [k, d] of Object.entries(tokens.motion.duration)) out.push(`--duration-${k}: ${d.ms}ms; /* ${d.note} */`);
+    out.push(`--duration-reduced: ${tokens.motion.reduced.ms}ms; /* ${tokens.motion.reduced.note} */`);
+    for (const [k, c] of Object.entries(tokens.motion.curve)) out.push(`--ease-${k}: cubic-bezier(${c.points.join(", ")}); /* ${c.note} */`);
+  }
   return out;
 }
 
 const accentLines = (name, theme) => accentKeys.map((k) => `--${k}: ${accents[name][theme][k]};`);
+
+const radii = Object.entries(tokens.radius).filter(([k]) => k !== "note");
+const steps = Object.entries(tokens.type.steps);
+const em = (n) => (n === 0 ? "0" : `${n}em`);
+
+/** The scales, as Tailwind theme values: rounded-xs…card, text-caption-2…title (size, line height, tracking), shadow-ring-*. */
+function themeScale() {
+  const out = [`/* Radii. ${tokens.radius.note} */`];
+  for (const [k, v] of radii) out.push(`--radius-${k}: ${v}px;${tokens["radius-notes"][k] ? ` /* ${tokens["radius-notes"][k]} */` : ""}`);
+  out.push("", `/* Type. ${tokens.type.note} */`);
+  for (const [k, t] of steps) out.push(`--text-${k}: ${t.size}px;`, `--text-${k}--line-height: ${t.line}px;`, `--text-${k}--letter-spacing: ${em(t.tracking)};`);
+  out.push("", `/* Rings. ${tokens.ring.note} */`);
+  for (const c of tokens.ring.colors) out.push(`--shadow-ring-${c}: 0 0 0 ${px(tokens.ring.width)} var(--${c});`);
+  return out;
+}
 
 function css() {
   const blocks = [cssBlock(":root", themeLines("light"))];
@@ -71,6 +89,7 @@ function css() {
   blocks.push(cssBlock(':root[data-theme="dark"]', themeLines("dark")));
   for (const name of Object.keys(accents))
     if (name !== tokens.accent.default) blocks.push(cssBlock(`:root[data-theme="dark"][data-accent="${name}"]`, accentLines(name, "dark")));
+  blocks.push(cssBlock("@theme", themeScale()));
   return `${START}\n${blocks.join("\n\n")}\n${END}`;
 }
 
@@ -134,6 +153,27 @@ function swift() {
   p("    let color: RGBA");
   p("}");
   p();
+  p("/// Dynamic Type styles by name; the app maps each to `Font.TextStyle` where it makes the font.");
+  p("enum TextStyleName: String, Sendable {");
+  p(`    case ${[...new Set(steps.map(([, t]) => t.ios))].join(", ")}`);
+  p("}");
+  p();
+  p("/// A step of the type scale: size and line height in points, tracking in em, and the Dynamic Type style it scales with.");
+  p("struct TypeStep: Sendable, Hashable {");
+  p("    let size: CGFloat");
+  p("    let lineHeight: CGFloat");
+  p("    let tracking: CGFloat");
+  p("    let style: TextStyleName");
+  p("}");
+  p();
+  p("/// A cubic-bezier timing curve, as in CSS.");
+  p("struct CubicCurve: Sendable, Hashable {");
+  p("    let x1: Double");
+  p("    let y1: Double");
+  p("    let x2: Double");
+  p("    let y2: Double");
+  p("}");
+  p();
   p("struct ThemeShadow: Sendable, Hashable {");
   p("    let light: [ShadowLayer]");
   p("    let dark: [ShadowLayer]");
@@ -189,8 +229,28 @@ function swift() {
   }
   p("    // MARK: Radii (points)");
   p();
-  p("    enum Radius {");
-  for (const [k, v] of Object.entries(tokens.radius)) p(`        static let ${camel(k)}: CGFloat = ${v}`);
+  p(`${doc(tokens.radius.note.replace(/\.$/, ""), "    ")}    enum Radius {`);
+  for (const [k, v] of radii) p(`${doc(tokens["radius-notes"][k], "        ")}        static let ${camel(k)}: CGFloat = ${v}`);
+  p("    }");
+  p();
+  p("    // MARK: Type scale");
+  p();
+  p(`${doc(tokens.type.note.replace(/\.$/, ""), "    ")}    enum Typography {`);
+  for (const [k, t] of steps) p(`        static let ${camel(k)} = TypeStep(size: ${num(t.size)}, lineHeight: ${num(t.line)}, tracking: ${num(t.tracking)}, style: .${t.ios})`);
+  p("    }");
+  p();
+  p("    // MARK: Motion");
+  p();
+  p(`${doc(tokens.motion.note.replace(/\.$/, ""), "    ")}    enum Motion {`);
+  for (const [k, d] of Object.entries(tokens.motion.duration)) p(`${doc(d.note, "        ")}        static let ${camel(k)}: Double = ${num(d.ms / 1000)}`);
+  p(`${doc(tokens.motion.reduced.note, "        ")}        static let reduced: Double = ${num(tokens.motion.reduced.ms / 1000)}`);
+  for (const [k, c] of Object.entries(tokens.motion.curve)) p(`${doc(c.note, "        ")}        static let ${camel(k)}Curve = CubicCurve(x1: ${num(c.points[0])}, y1: ${num(c.points[1])}, x2: ${num(c.points[2])}, y2: ${num(c.points[3])})`);
+  p("    }");
+  p();
+  p("    // MARK: Rings");
+  p();
+  p(`${doc(tokens.ring.note.replace(/\.$/, ""), "    ")}    enum Ring {`);
+  p(`        static let width: CGFloat = ${num(tokens.ring.width)}`);
   p("    }");
   p();
   p("    // MARK: Shadows");

@@ -1,26 +1,39 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { addDays, dayShort, isWeekend, parseYmd, ymd } from "@/lib/dates";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { addDays, dayShort, parseYmd, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { useDrag } from "../drag";
 import { PlusIcon } from "../icons";
+import { motion } from "../motion";
 import { IconButton, Menu } from "../ui";
-import { taskMenu, useFresh, type MenuState } from "./TaskTable";
+import { taskMenu, type MenuState } from "./TaskTable";
 import { TaskRow } from "./TaskRow";
 import type { Composer, Section, TableActions, TableState } from "./types";
 
 /** A one-line composer at the bottom of a column: Enter adds and stays open, Esc closes. */
 function ComposerCard({ composer, actions }: { composer: Composer; actions: TableActions }) {
   const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => ref.current?.focus(), [composer.nonce]);
+  // The text lives here while it's typed, so a key press redraws this card and nothing else.
+  const [title, setTitle] = useState("");
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setTitle("");
+    ref.current?.focus();
+    // The field that was here just became the task; a new one appears in its place.
+    box.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: motion().fast, easing: motion().out });
+  }, [composer.nonce]);
   return (
-    <div data-editing="true" className="animate-rise rounded-[10px] bg-surface px-2.5 py-2 shadow-[0_0_0_1.5px_var(--accent),0_4px_12px_-4px_rgba(0,0,0,0.12)]">
+    <div ref={box} data-editing="true" className="rounded-sm bg-surface-3 px-1.5 py-1.5 shadow-ring-line-2">
       <textarea
         ref={ref}
         rows={2}
-        value={composer.title}
-        onChange={(e) => actions.composerChange({ title: e.target.value.replace(/\n/g, " ") })}
+        value={title}
+        onChange={(e) => {
+          const next = e.target.value.replace(/\n/g, " ");
+          setTitle(next);
+          actions.composerChange({ title: next });
+        }}
         onKeyDown={(e) => {
           if (e.nativeEvent.isComposing) return;
           if (e.key === "Enter") {
@@ -32,23 +45,24 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
             actions.composerCancel();
           }
         }}
-        placeholder="New Task"
+        placeholder="New task"
         aria-label="New task title"
         maxLength={500}
-        className="block w-full resize-none bg-transparent text-[13.5px] leading-[18px] text-ink outline-none"
+        className="block w-full resize-none bg-transparent text-footnote text-ink outline-none"
       />
     </div>
   );
 }
 
 /**
- * The week as seven columns that run the height of the screen. Each day: its name and date, a thin line that fills
- * with the accent as tasks get done, what's left as cards, Add right where a new card would appear, and what's
- * finished below as quiet single lines. Cards drag between days and within a day; a column takes a drop anywhere.
+ * The week as seven lanes that run the height of the screen, split by hairlines. Each day: its name and date, a thin
+ * line that fills with the accent as tasks get done, what's left as rows, Add right where a new one would appear, and
+ * what's finished below as quiet single lines. A task looks like a card only while it's dragged; a lane takes a drop
+ * anywhere.
  */
 export function WeekBoard({ sections, state, actions }: { sections: Section[]; state: TableState; actions: TableActions }) {
   const [menu, setMenu] = useState<MenuState>(null);
-  const isFresh = useFresh();
+  const openMenu = useCallback((task: Task, anchor: DOMRect | { x: number; y: number }, trigger?: HTMLElement) => setMenu({ task, anchor, trigger }), []);
   const drag = useDrag();
   const root = useRef<HTMLDivElement>(null);
   const tomorrow = ymd(addDays(parseYmd(state.todayKey), 1));
@@ -65,15 +79,16 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
       task={t}
       selected={state.selectedId === t.id}
       editingField={state.editing?.id === t.id ? state.editing.field : null}
-      fresh={isFresh(list, t.id)}
       tomorrow={tomorrow}
       actions={actions}
-      onMenu={(task, anchor, trigger) => setMenu({ task, anchor, trigger })}
+      onMenu={openMenu}
     />
   );
 
   return (
-    <div ref={root} role="grid" aria-label="Tasks" className="grid grid-cols-7 gap-2">
+    // Pulled out by the lanes' and rows' padding: day names and checkboxes line up with the page title, and a hovered
+    // row's box hangs just outside that line, as in Day.
+    <div ref={root} role="grid" aria-label="Tasks" className="-mx-3 grid grid-cols-7">
       {sections.map((s) => {
         const d = parseYmd(s.date);
         const isToday = s.date === state.todayKey;
@@ -95,20 +110,21 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
             onDoubleClick={(e) => {
               if (!(e.target as HTMLElement).closest("[data-task-row], [data-editing], button, textarea, input")) actions.openComposer(s.date);
             }}
-            className={`group/col flex min-h-[max(420px,calc(100dvh-8.5rem))] min-w-0 flex-col rounded-[14px] p-1.5 transition-[background-color,box-shadow] duration-150 ${
-              hot ? "bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--accent)]" : isWeekend(d) ? "bg-surface-2" : "bg-surface-2/60"
+            // Lanes, not boxes: a hairline between days and nothing behind them.
+            className={`group/col flex min-h-[max(420px,calc(100dvh-8.5rem))] min-w-0 flex-col border-l border-line px-1.5 transition-colors duration-(--duration-fast) first:border-l-0 ${
+              hot ? "bg-accent-soft/60" : ""
             }`}
           >
-            <div className="px-1.5 pt-1">
+            <div className="px-1.5">
               <div className="flex items-end justify-between gap-1">
                 <span className="flex min-w-0 flex-col">
-                  <span className={`text-[11.5px] leading-4 font-medium ${isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(d)}</span>
+                  <span className={`text-caption font-medium ${isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(d)}</span>
                   <span className="flex h-9 items-center">
                     <span
-                      className={`tabular flex items-center justify-center font-semibold tracking-[-0.02em] ${
+                      className={`tabular flex items-center justify-center font-semibold ${
                         isToday
-                          ? "-ml-0.5 size-[30px] rounded-full bg-accent text-[15px] text-on-accent"
-                          : `text-[22px] ${past ? "text-ink-2" : "text-ink"}`
+                          ? "-ml-0.5 size-[30px] rounded-full bg-accent-solid text-callout text-on-accent"
+                          : `text-title-2 ${past ? "text-ink-2" : "text-ink"}`
                       }`}
                     >
                       {d.getDate()}
@@ -116,11 +132,11 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
                   </span>
                 </span>
                 <span className="flex items-center gap-0.5 pb-1">
-                  <span className="tabular text-[11.5px] text-ink-3">{all ? `${doneN}/${all}` : ""}</span>
+                  <span className="tabular text-caption text-ink-3">{all ? `${doneN} of ${all}` : ""}</span>
                   {/* With a mouse, + waits for the pointer on a busy day (seven of them are noise); an empty day always offers it. */}
                   <IconButton
-                    label={`Add task to ${dayShort(d)} ${d.getDate()}`}
-                    tip="Add a task"
+                    label={`New task on ${dayShort(d)} ${d.getDate()}`}
+                    tip="New task"
                     size="sm"
                     onClick={() => actions.openComposer(s.date)}
                     className={`-mr-1 focus-visible:opacity-100 ${all && !composing ? "pointer-fine:opacity-0 pointer-fine:group-hover/col:opacity-100" : ""}`}
@@ -131,10 +147,10 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
               </div>
               {/* The day's progress is its divider: a hairline that fills with the accent as tasks get done. */}
               <div aria-hidden="true" className="mt-1 mb-2 h-[2px] overflow-hidden rounded-full bg-line">
-                <div className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out" style={{ width: all ? `${(doneN / all) * 100}%` : "0%" }} />
+                <div className="h-full origin-left rounded-full bg-accent transition-transform duration-(--duration-data) ease-out" style={{ transform: `scaleX(${all ? doneN / all : 0})` }} />
               </div>
             </div>
-            <div data-list="open" className="flex flex-col gap-1.5">
+            <div data-list="open" className="flex flex-col gap-px">
               {s.tasks.map((t) => card(t, "open"))}
               {composing && <ComposerCard composer={state.composer!} actions={actions} />}
             </div>
