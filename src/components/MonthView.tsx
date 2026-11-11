@@ -261,9 +261,9 @@ function DayPopover({
           className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none"
         />
       </form>
-      <div className="mt-3 flex justify-end">
-        <Button variant="primary" onClick={onOpenDay} className="pr-3">
-          Open Day <ArrowRightIcon size={12} strokeWidth={2.2} />
+      <div className="mt-2 -mr-2 flex justify-end">
+        <Button size="sm" variant="plain" onClick={onOpenDay} className="gap-1 text-ink!">
+          Open day <ArrowRightIcon size={12} />
         </Button>
       </div>
     </Popover>

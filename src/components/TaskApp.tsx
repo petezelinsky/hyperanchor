@@ -115,7 +115,7 @@ export function TaskApp({ user }: { user: AppUser }) {
   useEffect(() => {
     if (view === "day") loadOpen(todayKey);
   }, [loadOpen, view, todayKey]);
-  // Analytics shows the current streak, which can reach further back than the period on screen.
+  // Analytics counts the days with something done this year, which reaches further back than the period on screen.
   useEffect(() => {
     if (view === "analytics") load(ymd(addDays(parseYmd(todayKey), -365)), todayKey);
   }, [load, view, todayKey]);
@@ -211,7 +211,7 @@ export function TaskApp({ user }: { user: AppUser }) {
   const setFocus = useCallback(
     (on: boolean) => {
       const n = focusDone.current;
-      if (!on && latest.current.focusOn && n > 0) notify(n === 1 ? "1 task done in focus. Nice." : `${n} tasks done in focus. Nice.`);
+      if (!on && latest.current.focusOn && n > 0) notify(`${n} done in focus.`);
       focusDone.current = 0;
       setFocusOn(on);
       setLater([]);
@@ -582,7 +582,8 @@ export function TaskApp({ user }: { user: AppUser }) {
 
   return (
     <DragProvider ordered={sort.key === "manual"} scroller={scroller} onDrop={dropTask}>
-    <div className="min-h-dvh md:flex md:h-dvh md:min-h-0 md:bg-canvas">
+    {/* In focus everything but the task steps back (globals.css); it comes back under the pointer or the keyboard. */}
+    <div data-focus={focusOn && view === "day" ? "on" : undefined} className="min-h-dvh md:flex md:h-dvh md:min-h-0 md:bg-canvas">
       <Sidebar
         user={user}
         saving={saving}

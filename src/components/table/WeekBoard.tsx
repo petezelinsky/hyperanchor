@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { addDays, dayShort, isWeekend, parseYmd, ymd } from "@/lib/dates";
+import { addDays, dayShort, parseYmd, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { useDrag } from "../drag";
 import { PlusIcon } from "../icons";
@@ -15,7 +15,7 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => ref.current?.focus(), [composer.nonce]);
   return (
-    <div data-editing="true" className="animate-rise rounded-[10px] bg-surface px-2.5 py-2 shadow-[0_0_0_1.5px_var(--accent),0_4px_12px_-4px_rgba(0,0,0,0.12)]">
+    <div data-editing="true" className="animate-rise rounded-[8px] bg-surface-3 px-1.5 py-1.5 shadow-[0_0_0_1px_var(--line-2)]">
       <textarea
         ref={ref}
         rows={2}
@@ -42,9 +42,10 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
 }
 
 /**
- * The week as seven columns that run the height of the screen. Each day: its name and date, a thin line that fills
- * with the accent as tasks get done, what's left as cards, Add right where a new card would appear, and what's
- * finished below as quiet single lines. Cards drag between days and within a day; a column takes a drop anywhere.
+ * The week as seven lanes that run the height of the screen, split by hairlines. Each day: its name and date, a thin
+ * line that fills with the accent as tasks get done, what's left as rows, Add right where a new one would appear, and
+ * what's finished below as quiet single lines. A task looks like a card only while it's dragged; a lane takes a drop
+ * anywhere.
  */
 export function WeekBoard({ sections, state, actions }: { sections: Section[]; state: TableState; actions: TableActions }) {
   const [menu, setMenu] = useState<MenuState>(null);
@@ -73,7 +74,9 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
   );
 
   return (
-    <div ref={root} role="grid" aria-label="Tasks" className="grid grid-cols-7 gap-2">
+    // Pulled out by the lanes' and rows' padding: day names and checkboxes line up with the page title, and a hovered
+    // row's box hangs just outside that line, as in Day.
+    <div ref={root} role="grid" aria-label="Tasks" className="-mx-3 grid grid-cols-7">
       {sections.map((s) => {
         const d = parseYmd(s.date);
         const isToday = s.date === state.todayKey;
@@ -95,11 +98,12 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
             onDoubleClick={(e) => {
               if (!(e.target as HTMLElement).closest("[data-task-row], [data-editing], button, textarea, input")) actions.openComposer(s.date);
             }}
-            className={`group/col flex min-h-[max(420px,calc(100dvh-8.5rem))] min-w-0 flex-col rounded-[14px] p-1.5 transition-[background-color,box-shadow] duration-150 ${
-              hot ? "bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--accent)]" : isWeekend(d) ? "bg-surface-2" : "bg-surface-2/60"
+            // Lanes, not boxes: a hairline between days and nothing behind them.
+            className={`group/col flex min-h-[max(420px,calc(100dvh-8.5rem))] min-w-0 flex-col border-l border-line px-1.5 transition-colors duration-150 first:border-l-0 ${
+              hot ? "bg-accent-soft/60" : ""
             }`}
           >
-            <div className="px-1.5 pt-1">
+            <div className="px-1.5">
               <div className="flex items-end justify-between gap-1">
                 <span className="flex min-w-0 flex-col">
                   <span className={`text-[11.5px] leading-4 font-medium ${isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(d)}</span>
@@ -134,7 +138,7 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
                 <div className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out" style={{ width: all ? `${(doneN / all) * 100}%` : "0%" }} />
               </div>
             </div>
-            <div data-list="open" className="flex flex-col gap-1.5">
+            <div data-list="open" className="flex flex-col gap-px">
               {s.tasks.map((t) => card(t, "open"))}
               {composing && <ComposerCard composer={state.composer!} actions={actions} />}
             </div>

@@ -180,8 +180,8 @@ export function TaskRow({
   const titleFit = selected ? "block break-words hyphens-calm" : card && !compact ? "line-clamp-3 break-words hyphens-calm" : "block truncate";
   const titleCls = `w-full ${titleFit} ${titleText} transition-colors duration-300 ${task.done ? "text-ink-3" : "text-ink"}`;
   const notesText = card ? "text-[12px] leading-4" : "text-[13px] leading-[19px]";
-  // A picked task shows its notes in full (while its title is edited too); otherwise one quiet line (two on a card).
-  const notesCls = `w-full ${notesText} text-ink-2 ${selected ? "block break-words whitespace-pre-line" : card ? "line-clamp-2 break-words hyphens-calm" : "block truncate"}`;
+  // A picked task shows its notes in full (while its title is edited too); otherwise one quiet line.
+  const notesCls = `w-full ${notesText} ${selected ? "block break-words whitespace-pre-line text-ink-2" : card ? "block truncate text-ink-3" : "block truncate text-ink-2"}`;
 
   // The first click picks a task and shows it whole; a click on the picked task, Enter or a double click edits it.
   const editOnClick = (field: Field) => () => {
@@ -233,7 +233,7 @@ export function TaskRow({
 
   const checkbox = (
     <Checkbox
-      size={compact ? 16 : card ? 18 : 20}
+      size={card ? 16 : 20}
       checked={task.done}
       onToggle={() => {
         actions.select(task.id);
@@ -252,7 +252,7 @@ export function TaskRow({
         actions.select(task.id);
         onMenu(task, e.currentTarget.getBoundingClientRect(), e.currentTarget);
       }}
-      className={`${card ? "size-6 rounded-[7px] bg-surface hover:bg-surface-3 " : ""}${selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}`}
+      className={`${card ? "size-6 rounded-[8px] bg-surface-2 shadow-[-6px_0_6px_var(--surface-2)] group-aria-selected/row:bg-surface-3 group-aria-selected/row:shadow-[-6px_0_6px_var(--surface-3)] hover:bg-surface-3 " : ""}${selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}`}
     >
       <EllipsisIcon size={card ? 14 : 16} />
     </IconButton>
@@ -276,15 +276,10 @@ export function TaskRow({
       <div
         {...common}
         onPointerDown={(e) => !editing && drag.start(e, task)}
-        className={`group/row relative rounded-[10px] ${compact ? "py-[5px]" : "py-2"} pr-2 pl-2.5 transition-[background-color,box-shadow,opacity] duration-150 ${
+        // A line of the day, like a row in the Day list: no card until it's picked up.
+        className={`group/row relative rounded-[8px] ${compact ? "py-[5px]" : "py-1.5"} px-1.5 transition-[background-color,box-shadow,opacity] duration-150 ${
           lifted ? "opacity-35" : ""
-        } ${
-          selected || editing
-            ? "bg-surface shadow-[0_0_0_1.5px_var(--accent),0_4px_12px_-4px_rgba(0,0,0,0.12)]"
-            : task.done
-              ? "hover:bg-surface"
-              : "bg-surface shadow-lift hover:shadow-[0_0_0_1px_var(--line-2),0_6px_16px_-6px_rgba(0,0,0,0.14)]"
-        } ${fresh ? "animate-rise" : ""}`}
+        } ${selected || editing ? "bg-surface-3 shadow-[0_0_0_1px_var(--line-2)]" : "hover:bg-surface-2 hover:shadow-[0_0_0_1px_var(--line)]"} ${fresh ? "animate-rise" : ""}`}
       >
         <div className="flex items-start gap-2">
           <div role="gridcell" className="flex-none">
@@ -296,7 +291,7 @@ export function TaskRow({
             {showNotes && <div className="mt-0.5">{notes}</div>}
           </div>
         </div>
-        <div role="gridcell" className="absolute top-1.5 right-1.5">
+        <div role="gridcell" className="absolute top-1 right-1">
           {menu}
         </div>
       </div>
@@ -315,7 +310,7 @@ export function TaskRow({
       // Rows are divided by hairlines. A hovered or picked row becomes a rounded box outlined in the same line color: its
       // 1px ring sits over the hairlines above and below, so they turn into the box's edges instead of breaking off at
       // its corners. The first row hangs from the section's line, so its top corners stay square.
-      className={`group/row relative overflow-hidden rounded-[10px] transition-[background-color,box-shadow,opacity] duration-150 first:rounded-t-none after:pointer-events-none after:absolute after:right-3 after:bottom-0 after:left-12 after:h-px after:bg-line ${
+      className={`group/row relative overflow-hidden rounded-[10px] transition-[background-color,box-shadow,opacity] duration-150 first:rounded-t-none after:pointer-events-none after:absolute after:right-3.5 after:bottom-0 after:left-11 after:h-px after:bg-line ${
         selected || editing
           ? "bg-surface-3 shadow-[0_0_0_1px_var(--line-2)] after:opacity-0"
           : "hover:bg-surface-2 hover:shadow-[0_0_0_1px_var(--line)] hover:after:opacity-0"

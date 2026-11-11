@@ -190,18 +190,6 @@ export function PlayIcon({ size = 12, className }: IconProps) {
   );
 }
 
-/** A flame with a small inner flame cut out, so it doesn't read as a drop at small sizes. */
-export function FlameIcon({ size = 16, className }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" className={className}>
-      <path
-        fillRule="evenodd"
-        d="M8.2 1C8.5 3.1 10.1 4.6 11.4 6.1 12.5 7.4 13.2 8.8 13.2 10.4 13.2 13.1 10.9 15 8 15 5.1 15 2.8 13.1 2.8 10.4 2.8 8.6 3.6 7.1 4.7 6 4.8 7.2 5.3 8.1 6.1 8.6 6.1 6 6.7 3.1 8.2 1ZM8.1 9.4C9 10.3 10 11.1 10 12.4 10 13.5 9.1 14.2 8 14.2 6.9 14.2 6 13.5 6 12.4 6 11.4 6.9 10.5 8.1 9.4Z"
-      />
-    </svg>
-  );
-}
-
 export const SortIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M5 2.5v11M2.5 11 5 13.5 7.5 11M11 13.5v-11M8.5 5 11 2.5 13.5 5" />

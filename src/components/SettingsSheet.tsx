@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
 import type { WeekStart } from "@/lib/dates";
@@ -141,7 +142,20 @@ export function SettingsSheet({
             </Button>
           </div>
           <DeleteAccount />
-          <p className="pt-4 text-[12px] text-ink-3">Appearance and the first day of the week are saved on this device.</p>
+          <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 pt-4 text-[12px] text-ink-3">
+            <p>Appearance and the first day of the week are saved on this device.</p>
+            <nav aria-label="Help and legal" className="flex gap-4">
+              {[
+                ["/privacy", "Privacy"],
+                ["/terms", "Terms"],
+                ["/support", "Support"],
+              ].map(([href, label]) => (
+                <Link key={href} href={href} className="text-ink-2 no-underline hover:underline pointer-coarse:-my-2.5 pointer-coarse:py-2.5">
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-x-8 gap-y-5 px-6 pt-4 pb-6 sm:grid-cols-2">

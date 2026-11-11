@@ -321,6 +321,16 @@
   opacity: 1;
 }
 
+/* Focus: the sidebar and the tab bar step back while one task is on screen, and return under the pointer or keyboard. */
+[data-focus] aside,
+[data-focus] nav[aria-label="Views"] {
+  transition: opacity 0.4s var(--ease-out);
+}
+[data-focus="on"] aside:not(:hover, :focus-within),
+[data-focus="on"] nav[aria-label="Views"]:not(:hover, :focus-within) {
+  opacity: 0.28;
+}
+
 /* Numbers that line up in columns (tables, axes, counters) — not for big standalone figures. */
 @utility tabular {
   font-variant-numeric: tabular-nums;
@@ -406,12 +416,6 @@
 
 /* ── Landing ────────────────────────────────────────────────────────────────── */
 
-/* A faint dot grid behind showcase art; set --dot to recolor it, mask it to fade the edges. */
-@utility dot-grid {
-  background-image: radial-gradient(circle, var(--dot, var(--ink-4)) 1px, transparent 1.25px);
-  background-size: 24px 24px;
-}
-
 /* Showcase slides cross-fade: the new one slides in from the right as the old one leaves to the left. */
 @keyframes slide-in {
   from {
@@ -423,11 +427,6 @@
   to {
     opacity: 0;
     transform: translateX(-28px);
-  }
-}
-@keyframes float-y {
-  50% {
-    transform: translateY(-8px);
   }
 }
 @keyframes word-cycle {
@@ -450,22 +449,6 @@
 @keyframes caret {
   50% {
     opacity: 0;
-  }
-}
-@keyframes key-press {
-  0%,
-  14%,
-  100% {
-    transform: translateY(0);
-    box-shadow:
-      0 0 0 1px var(--line-2),
-      0 3px 0 var(--line-2);
-  }
-  6% {
-    transform: translateY(2px);
-    box-shadow:
-      0 0 0 1px var(--ink),
-      0 1px 0 var(--ink);
   }
 }
 @keyframes grow-y {

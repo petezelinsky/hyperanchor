@@ -81,14 +81,3 @@ export function NewTaskButton({ onClick }: { onClick: () => void }) {
     </Button>
   );
 }
-
-export function EmptyState({ icon, title, children, action }: { icon: React.ReactNode; title: string; children?: React.ReactNode; action?: React.ReactNode }) {
-  return (
-    <div className="flex animate-rise flex-col items-center px-6 py-16 text-center">
-      <div className="flex size-14 items-center justify-center rounded-[18px] bg-accent-soft text-accent-ink">{icon}</div>
-      <p className="mt-4 text-[16px] font-semibold tracking-[-0.01em] text-ink">{title}</p>
-      {children && <p className="mt-1.5 max-w-xs text-[13.5px] leading-relaxed text-ink-2">{children}</p>}
-      {action && <div className="mt-5">{action}</div>}
-    </div>
-  );
-}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { formatShort, weekdayNames } from "@/lib/dates";
 import { fmt1, pct, type DayStat, type Summary, weekdayStats } from "@/lib/stats";
 import type { Task } from "@/lib/types";
+import { ArrowRightIcon } from "../icons";
 import { Button, Checkbox } from "../ui";
 import { Card } from "./parts";
 
@@ -54,53 +55,40 @@ export function OpenCard({
   todayKey,
   onToggle,
   onMove,
-  onOpenDay,
   className = "",
 }: {
   open: Summary["open"];
   todayKey: string;
   onToggle: (t: Task) => void;
   onMove: (t: Task, date: string) => void;
-  onOpenDay: (key: string) => void;
   className?: string;
 }) {
   const [all, setAll] = useState(false);
   const shown = all ? open : open.slice(0, 6);
 
   return (
-    <Card
-      title="Left open"
-      aside={<span className="tabular text-[12px] text-ink-3">{open.length ? `${open.length} not completed` : ""}</span>}
-      className={className}
-    >
+    <Card title="Left open" count={open.length} className={className}>
       {open.length === 0 ? (
-        <p className="flex items-center justify-center gap-2 py-6 text-center text-[13px] text-ink-2">
-          <span className="size-1.5 rounded-full bg-accent" />
-          Nothing left open — everything planned was completed.
-        </p>
+        <p className="pb-2 text-[13px] leading-[18px] text-ink-3">Nothing from earlier days is waiting.</p>
       ) : (
         <>
           <ul>
             {shown.map(({ task, day }) => (
               <li key={task.id} className="flex items-center gap-3 border-b border-line py-2 last:border-0">
                 <Checkbox size={18} checked={false} onToggle={() => onToggle(task)} label={`Mark “${task.title}” as done`} />
-                <button type="button" onClick={() => onOpenDay(day.key)} className="min-w-0 flex-1 truncate text-left text-[13.5px] underline-offset-2 hover:underline">
+                <span dir="auto" className="min-w-0 flex-1 truncate text-[13.5px]">
                   {task.title}
-                </button>
-                <span className={`tabular flex-none text-[12px] ${day.isToday ? "text-ink-3" : "font-medium text-ink-2"}`}>
-                  {day.isToday ? "Today" : formatShort(day.date)}
                 </span>
-                {!day.isToday && (
-                  <Button size="sm" onClick={() => onMove(task, todayKey)} aria-label="Move to Today" className="flex-none">
-                    <span className="max-sm:hidden">Move to Today</span>
-                    <span className="sm:hidden">Today</span>
-                  </Button>
-                )}
+                <span className="tabular flex-none text-[12px] text-ink-3">{formatShort(day.date)}</span>
+                <Button size="sm" variant="plain" onClick={() => onMove(task, todayKey)} aria-label={`Move “${task.title}” to today`} className="flex-none gap-1 text-ink!">
+                  Today
+                  <ArrowRightIcon size={12} />
+                </Button>
               </li>
             ))}
           </ul>
           {open.length > 6 && (
-            <button type="button" onClick={() => setAll((a) => !a)} className="mt-3 text-[12.5px] font-medium text-accent-ink hover:underline">
+            <button type="button" onClick={() => setAll((a) => !a)} className="mt-3 text-[12px] leading-4 font-medium text-ink-2 underline decoration-ink-4 underline-offset-[3px] hover:text-ink hover:decoration-current">
               {all ? "Show less" : `Show all ${open.length}`}
             </button>
           )}

@@ -1,7 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { signOutAction } from "@/app/actions";
+import { useRef, useState } from "react";
 import { addDays, formatLong, monthGrid, MONTHS, weekdayNames, ymd } from "@/lib/dates";
 import type { AppUser, Task } from "@/lib/types";
 import { Avatar } from "./Avatar";
@@ -9,7 +8,7 @@ import { Wordmark } from "./Brand";
 import { useDrag } from "./drag";
 import { CalendarIcon, ChartIcon, ChevronLeft, ChevronRight, SunIcon, WeekIcon } from "./icons";
 import { SyncStatus } from "./SyncStatus";
-import { IconButton, Menu, type Anchor } from "./ui";
+import { IconButton } from "./ui";
 
 export type View = "day" | "week" | "month" | "analytics";
 
@@ -188,55 +187,22 @@ export function MiniMonth({
   );
 }
 
-/**
- * The account menu: Settings (which also holds the keyboard shortcuts), the documents and signing out. `phone`: names
- * the account (the phone header shows only the avatar) and leaves out keyboard hints.
- */
-function useAccountMenu(onSettings: () => void, phone?: { email: string }) {
-  const [anchor, setAnchor] = useState<{ rect: Anchor; el: HTMLElement } | null>(null);
-  const [, startTransition] = useTransition();
-  const menu = anchor && (
-    <Menu
-      anchor={anchor.rect}
-      trigger={anchor.el}
-      label="Account"
-      onClose={() => setAnchor(null)}
-      entries={[
-        ...(phone ? [{ heading: phone.email }, { separator: true as const }] : []),
-        { label: "Settings", shortcut: phone ? undefined : ",", onSelect: onSettings },
-        { separator: true },
-        { label: "Privacy Policy", onSelect: () => window.location.assign("/privacy") },
-        { label: "Terms of Service", onSelect: () => window.location.assign("/terms") },
-        { separator: true },
-        { label: "Sign Out", onSelect: () => startTransition(() => signOutAction()) },
-      ]}
-    />
-  );
-  const toggle = (el: HTMLElement) => setAnchor((a) => (a ? null : { rect: el.getBoundingClientRect(), el }));
-  return { menu, toggle, open: !!anchor };
-}
-
+/** The account: the avatar, the name and the address. It opens Settings, which holds the account and signing out. */
 function AccountButton({ user, onSettings }: { user: AppUser; onSettings: () => void }) {
-  const { menu, toggle, open } = useAccountMenu(onSettings);
-  const ref = useRef<HTMLButtonElement>(null);
   return (
-    <>
-      <button
-        ref={ref}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => ref.current && toggle(ref.current)}
-        className={`flex w-full items-center gap-2.5 rounded-[12px] p-2 text-left transition-colors duration-150 ${open ? "bg-line-2" : "hover:bg-line"}`}
-      >
-        <Avatar name={user.name} image={user.image} size={30} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-medium">{user.name}</span>
-          <span className="block truncate text-[11.5px] text-ink-3">{user.email}</span>
-        </span>
-      </button>
-      {menu}
-    </>
+    <button
+      type="button"
+      aria-haspopup="dialog"
+      aria-label={`${user.name}, settings`}
+      onClick={onSettings}
+      className="flex w-full items-center gap-2.5 rounded-[12px] p-2 text-left transition-colors duration-150 hover:bg-line"
+    >
+      <Avatar name={user.name} image={user.image} size={30} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px] font-medium">{user.name}</span>
+        <span className="block truncate text-[11.5px] text-ink-3">{user.email}</span>
+      </span>
+    </button>
   );
 }
 
@@ -250,17 +216,15 @@ export function MobileHeader({
   saving: boolean;
   onSettings: () => void;
 }) {
-  const { menu, toggle, open } = useAccountMenu(onSettings, { email: user.email });
   return (
     <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between pr-4 pl-5 shadow-[0_1px_0_var(--line)] md:hidden">
       <Wordmark />
       <div className="flex items-center gap-2">
         <SyncStatus saving={saving} className="empty:hidden" />
-        <button type="button" aria-label="Account" aria-haspopup="menu" aria-expanded={open} onClick={(e) => toggle(e.currentTarget)} className="rounded-full">
+        <button type="button" aria-label="Settings" aria-haspopup="dialog" onClick={onSettings} className="relative rounded-full before:absolute before:-inset-[7px]">
           <Avatar name={user.name} image={user.image} size={30} />
         </button>
       </div>
-      {menu}
     </div>
   );
 }

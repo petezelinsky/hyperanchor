@@ -1,16 +1,15 @@
 "use client";
 
 import { addDays, dayShort, formatLong, formatMedium, MONTHS, MONTHS_SHORT, parseYmd, rangeLabel, relativeDay, ymd } from "@/lib/dates";
-import { currentStreak, dayStats, longestStreak, monthStats, periodBounds, summarize, type DayStat, type Period } from "@/lib/stats";
+import { dayStats, monthStats, periodBounds, summarize, type DayStat, type Period } from "@/lib/stats";
 import type { Task } from "@/lib/types";
-import { ChartIcon } from "../icons";
-import { EmptyState, NavGroup, Toolbar } from "../Toolbar";
-import { Button, SegmentedControl } from "../ui";
+import { NavGroup, Toolbar } from "../Toolbar";
+import { SegmentedControl } from "../ui";
 import { BarChart, type Bar } from "./BarChart";
 import { OpenCard, WeekdayCard } from "./Breakdown";
 import { Heatmap } from "./Heatmap";
 import { HistoryCard, type HistoryRow } from "./History";
-import { Card, Kpis, type SparkPoint } from "./parts";
+import { Card, Kpis } from "./parts";
 
 const NOW: Record<Period, string> = { week: "This Week", month: "This Month", year: "This Year" };
 
@@ -64,7 +63,6 @@ export function AnalyticsView({
 
   let bars: Bar[];
   let history: HistoryRow[];
-  let spark: SparkPoint[];
   if (period === "year") {
     const months = monthStats(days);
     const monthOffset = (m: number) => (year - today.getFullYear()) * 12 + (m - today.getMonth());
@@ -78,7 +76,6 @@ export function AnalyticsView({
       elapsed: m.elapsedDays > 0,
       current: isNow(m.month),
     }));
-    spark = months.map((m) => ({ value: m.done, current: isNow(m.month), elapsed: m.elapsedDays > 0 }));
     history = months
       .filter((m) => m.planned > 0)
       .map((m) => ({
@@ -103,7 +100,6 @@ export function AnalyticsView({
       current: d.isToday,
       tasks: d.tasks,
     }));
-    spark = days.map((d) => ({ value: d.done, current: d.isToday, elapsed: d.elapsed }));
     history = days
       .filter((d) => d.elapsed && d.total > 0)
       .map((d) => ({
@@ -121,19 +117,11 @@ export function AnalyticsView({
   // The average line, like the figures, counts finished days only (and, for a year, the months since the person started).
   const settledMonths = period === "year" ? monthStats(settledDays).filter((m) => m.elapsedDays > 0).length : 0;
   const avg = period === "year" ? (settledMonths ? settled.completed / settledMonths : elapsedBars ? sum.completed / elapsedBars : 0) : settled.elapsedDays ? settled.avg : sum.avg;
-  const longest = longestStreak(days);
-  // The current streak counts back from today (or from yesterday, while today has nothing done yet).
-  const streak = current ? currentStreak(todayKey, byDate) : longest;
-  const streakSince = (() => {
-    if (!current || !streak) return null;
-    const last = byDate(todayKey).some((t) => t.done) ? today : addDays(today, -1);
-    const first = addDays(last, -(streak - 1));
-    const key = ymd(first);
-    return key === todayKey ? "today" : key === ymd(addDays(today, -1)) ? "yesterday" : formatMedium(first).replace(/^\w+, /, "");
-  })();
-  // The last seven days up to today (or up to the end of an earlier period).
-  const end = current ? today : b.end;
-  const recent = Array.from({ length: 7 }, (_, i) => byDate(ymd(addDays(end, i - 6))).some((t) => t.done));
+  // Days with something done this year so far: a count that only grows (nothing resets it). Shown beside the figure for
+  // the current week or month; for the current year it is the figure itself.
+  let thisYear = 0;
+  if (current && period !== "year") for (let d = new Date(today.getFullYear(), 0, 1); d <= today; d = addDays(d, 1)) if (byDate(ymd(d)).some((t) => t.done)) thisYear++;
+  const quiet = "font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-current";
 
   return (
     <>
@@ -160,33 +148,31 @@ export function AnalyticsView({
         />
       </Toolbar>
 
-      {!sum.planned && !sum.upcoming && !prevDays.some((d) => d.total) ? (
-        // Nothing to measure yet: one calm line instead of empty charts.
-        <div className="mx-auto max-w-[1240px] px-3 pb-10 md:px-8">
-          {current ? (
-            <EmptyState icon={<ChartIcon size={22} />} title={`Nothing planned this ${period} yet`} action={<Button onClick={onPlan}>{period === "week" ? "Plan your week" : "Plan your month"}</Button>}>
-              Your progress shows up here as you add and finish tasks.
-            </EmptyState>
-          ) : (
-            <EmptyState icon={<ChartIcon size={22} />} title={`Nothing was planned in ${label}`} action={<Button onClick={() => onOffset(0)}>{`Back to ${NOW[period].toLowerCase()}`}</Button>}>
-              There’s nothing to measure for this {period}.
-            </EmptyState>
-          )}
-        </div>
-      ) : (
-      <div className="mx-auto max-w-[1240px] space-y-3 px-3 pb-10 md:space-y-4 md:px-8">
-        <Kpis
-          sum={sum}
-          settled={settled}
-          prevSettled={prevSettled}
-          throughYesterday={throughYesterday}
-          period={period}
-          current={current}
-          spark={spark}
-          streak={streak}
-          streakSince={streakSince}
-          recent={recent}
-        />
+      <div className="mx-auto max-w-[1240px] space-y-4 px-4 pb-10 md:px-8">
+        {!sum.planned && !sum.upcoming && !prevDays.some((d) => d.total) ? (
+          // Nothing to measure yet: a sentence where the summary goes, instead of empty charts.
+          <p className="text-[15px] leading-[22px] text-ink-2">
+            {current ? `Nothing planned this ${period} yet. ` : `Nothing was planned in ${label}. `}
+            <button type="button" onClick={current ? onPlan : () => onOffset(0)} className={quiet}>
+              {current ? (period === "week" ? "Plan your week" : "Plan your month") : `Back to ${NOW[period].toLowerCase()}`}
+            </button>
+          </p>
+        ) : (
+          <>
+            <p className="text-[15px] leading-[22px] text-ink-2">
+              <span className="text-ink">
+                {sum.completed} of {sum.planned} done{current ? " so far" : ""}.
+              </span>
+              {sum.upcoming > 0 && ` ${sum.upcoming} more planned for the rest of this ${period}.`}
+            </p>
+            <Kpis
+              sum={sum}
+              settled={settled}
+              prevSettled={prevSettled}
+              throughYesterday={throughYesterday}
+              period={period}
+              yearNote={current && period !== "year" ? `${thisYear} this year` : undefined}
+            />
 
         <Card
           title={period === "year" ? "Completed per month" : "Completed per day"}
@@ -213,11 +199,6 @@ export function AnalyticsView({
             avgLabel="avg"
             onPick={(bar) => (period === "year" ? history.find((h) => h.key === bar.key)?.onPick() : onOpenDay(bar.key))}
           />
-          {sum.upcoming > 0 && (
-            <p className="mt-3 text-[12px] text-ink-3">
-              {sum.upcoming === 1 ? "1 more task is" : `${sum.upcoming} more tasks are`} planned for the rest of this {period}.
-            </p>
-          )}
         </Card>
 
         {period === "year" && (
@@ -226,21 +207,21 @@ export function AnalyticsView({
           </Card>
         )}
 
-        <div className="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-10 lg:grid-cols-2">
           {period !== "week" && <WeekdayCard days={days} />}
           <OpenCard
             open={throughYesterday ? sum.open.filter((o) => !o.day.isToday) : sum.open}
             todayKey={todayKey}
             onToggle={onToggle}
             onMove={onMove}
-            onOpenDay={onOpenDay}
             className={period === "week" ? "lg:col-span-2" : ""}
           />
         </div>
 
         <HistoryCard rows={history} unit={period === "year" ? "months" : "days"} />
+          </>
+        )}
       </div>
-      )}
     </>
   );
 }

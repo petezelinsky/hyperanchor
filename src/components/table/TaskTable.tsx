@@ -176,7 +176,6 @@ export function TaskTable({
   completedOpen = true,
   onCompletedOpen,
   cleared,
-  empty,
 }: {
   sections: Section[];
   state: TableState;
@@ -188,9 +187,8 @@ export function TaskTable({
   /** Day view: whether the Completed group is expanded. */
   completedOpen?: boolean;
   onCompletedOpen?: (open: boolean) => void;
-  /** Day view: shown in place of the list once everything is completed. */
+  /** Day view: one quiet line under "To do" when nothing is left to do (or nothing was planned). */
   cleared?: React.ReactNode;
-  empty?: React.ReactNode;
 }) {
   const [menu, setMenu] = useState<MenuState>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -204,9 +202,6 @@ export function TaskTable({
   }, [state.selectedId]);
 
   const openMenu = (task: Task, anchor: Anchor, trigger?: HTMLElement) => setMenu({ task, anchor, trigger });
-  const total = sections.reduce((n, s) => n + s.tasks.length + (s.completed?.length ?? 0), 0);
-  // Nothing to list: the empty state alone.
-  if (!total && !state.composer && empty) return <div ref={root}>{empty}</div>;
 
   const tomorrow = ymd(addDays(parseYmd(state.todayKey), 1));
   const row = (t: Task, list: string) => (
@@ -224,7 +219,9 @@ export function TaskTable({
   const sort = <SortMenu sort={state.sort} onSort={actions.sort} />;
 
   return (
-    <div ref={root} className="@container">
+    // The Day list reaches 15px past the column on each side, so its checkboxes and headings line up with the page title
+    // and a hovered row's box sits just outside that line.
+    <div ref={root} className={grouped ? "@container" : "@container -mx-[15px]"}>
       <div role="grid" aria-label="Tasks">
         {grouped && <div className="flex justify-end">{sort}</div>}
         {sections.map((s, i) => {
@@ -249,25 +246,25 @@ export function TaskTable({
                 <div className={`flex items-center gap-2.5 pr-1 pl-3 ${free ? "" : "border-b border-line"} ${i === 0 ? "pt-2" : free ? "pt-4" : "pt-7"} pb-2`}>
                   <span className={`text-[15px] font-semibold tracking-[-0.015em] ${free ? "text-ink-2" : "text-ink"}`}>{dayName(d)}</span>
                   <span className="text-[13px] text-ink-3">{formatShort(d)}</span>
-                  {isToday && <span className="rounded-full bg-accent-soft px-2 py-px text-[11px] font-semibold text-accent-ink">Today</span>}
+                  {isToday && <span className="text-[12px] font-medium text-accent-ink">Today</span>}
                   <span className="tabular ml-auto text-[12px] text-ink-3">{all ? `${doneN} of ${all}` : "Free"}</span>
                   <IconButton label={`Add task to ${dayName(d)}`} size="sm" onClick={() => actions.openComposer(s.date)}>
                     <PlusIcon size={14} strokeWidth={2} />
                   </IconButton>
                 </div>
               ) : (
-                <div className="flex h-9 items-center justify-between border-b border-line pr-1 pl-3">
+                <div className="mx-[15px] flex h-9 items-center justify-between border-b border-line">
                   <span className="text-[13px] font-semibold text-ink">
-                    To do <span className="tabular ml-1 font-normal text-ink-3">{s.tasks.filter((t) => !t.done).length}</span>
+                    To do <span className="tabular ml-1 font-normal text-ink-3">{s.tasks.filter((t) => !t.done).length || ""}</span>
                   </span>
                   {sort}
                 </div>
               )}
               {/* Flush with the section's line: the first row's hover box hangs right from it. */}
-              {/* 1px in from the sides: a hovered row's outline then lines up with the ends of the section's line. */}
+              {/* 1px in from the sides, so a hovered row's 1px outline stays inside the list. */}
               <div data-list="open" className="mx-px pb-1">
                 {s.tasks.map((t) => row(t, "open"))}
-                {!s.tasks.length && !!s.completed?.length && cleared}
+                {!s.tasks.length && state.composer?.date !== s.date && cleared}
                 {state.composer?.date === s.date ? (
                   <ComposerRow composer={state.composer} actions={actions} />
                 ) : placeholderRow ? (
@@ -281,7 +278,7 @@ export function TaskTable({
                     type="button"
                     aria-expanded={completedOpen}
                     onClick={() => onCompletedOpen?.(!completedOpen)}
-                    className="group flex h-9 w-full items-center gap-1.5 border-b border-line pr-1 pl-3 text-left text-[13px] font-semibold text-ink"
+                    className="group mx-[15px] flex h-9 w-[calc(100%-30px)] items-center gap-1.5 border-b border-line text-left text-[13px] font-semibold text-ink"
                   >
                     Completed <span className="tabular ml-1 font-normal text-ink-3">{s.completed.length}</span>
                     <ChevronDown

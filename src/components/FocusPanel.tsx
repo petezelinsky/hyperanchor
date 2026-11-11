@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
 import { CheckIcon, PlusIcon, TimerIcon } from "./icons";
-import { Burst, Button, Checkbox, Kbd, ProgressRing } from "./ui";
+import { Button, Checkbox, Kbd, ProgressRing } from "./ui";
 
 /**
  * Focus mode: one task at a time, on the top card of a small stack — the edges peeking out below are what's left.
@@ -184,7 +184,7 @@ function FocusTimer() {
         onClick={() => setEnd(null)}
         aria-label={`Stop the timer, ${Math.ceil(secs / 60)} minutes left`}
         data-tip="Stop the timer"
-        className="group flex h-7 items-center gap-1.5 rounded-full bg-accent-soft pr-2.5 pl-2 text-[12.5px] font-medium text-accent-ink transition-colors duration-150 hover:bg-accent-track/60"
+        className="group flex h-7 items-center gap-1.5 rounded-full px-2 text-[12.5px] font-medium text-accent-ink transition-colors duration-150 hover:bg-surface-3"
       >
         <ProgressRing value={1 - left / total} size={14} stroke={2.2} />
         <span className="tabular min-w-[34px] text-left">{clock}</span>
@@ -193,9 +193,8 @@ function FocusTimer() {
   }
   if (over)
     return (
-      <span role="status" className="flex h-7 animate-pop-in items-center gap-1.5 rounded-full bg-accent-soft px-2.5 text-[12.5px] font-medium text-accent-ink">
-        <CheckIcon size={11} strokeWidth={2.4} />
-        Time’s up. Take a breath.
+      <span role="status" className="flex h-7 animate-pop-in items-center px-2 text-[12.5px] font-medium text-accent-ink">
+        {TIMER_MINUTES} minutes are up.
       </span>
     );
   return (
@@ -320,21 +319,11 @@ function useLeaving(task: Task | undefined, hasNext: boolean) {
 }
 
 function AllDone({ isToday, onExit }: { isToday: boolean; onExit: () => void }) {
-  // Burst fires on a change, so switch it on just after mounting.
-  const [cheer, setCheer] = useState(false);
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setCheer(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
+  // The ring in the header has just filled and thrown its confetti; this only says where things stand.
   return (
-    <div className="flex animate-rise flex-col items-center text-center">
-      <Burst active={cheer}>
-        <span className="flex size-16 items-center justify-center rounded-full bg-accent text-on-accent shadow-[0_0_0_8px_var(--accent-soft)]">
-          <CheckIcon size={24} strokeWidth={2.4} />
-        </span>
-      </Burst>
-      <p className="mt-7 text-[22px] font-semibold tracking-[-0.02em]">{isToday ? "All done for today." : "Everything on this day is done."}</p>
-      <p className="mt-1.5 text-[14.5px] text-ink-2">Nice work. Take a breath.</p>
+    <div className="flex flex-col items-center text-center">
+      <p className="text-[20px] leading-7 font-semibold tracking-[-0.01em]">{isToday ? "That was the last one." : "Everything on this day is done."}</p>
+      <p className="mt-1 text-[14px] leading-5 text-ink-2">{isToday ? "Today’s list is finished." : "Nothing is left open here."}</p>
       <Button onClick={onExit} className="mt-6">
         Back to the list
       </Button>
