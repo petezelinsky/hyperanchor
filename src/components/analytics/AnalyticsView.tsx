@@ -3,8 +3,6 @@
 import { addDays, dayShort, formatLong, formatMedium, MONTHS, MONTHS_SHORT, parseYmd, relativeDay, ymd } from "@/lib/dates";
 import { dayStats, monthStats, periodBounds, summarize, type DayStat, type Period } from "@/lib/stats";
 import type { Task } from "@/lib/types";
-import { Stepper, ViewHead } from "../Toolbar";
-import { SegmentedControl } from "../ui";
 import { shortRange } from "../WeekView";
 import { BarChart, type Bar } from "./BarChart";
 import { OpenCard, WeekdayCard } from "./Breakdown";
@@ -20,7 +18,6 @@ export function AnalyticsView({
   todayKey,
   firstDay,
   byDate,
-  onPeriod,
   onOffset,
   onDrill,
   onOpenDay,
@@ -34,7 +31,6 @@ export function AnalyticsView({
   /** The earliest day the person has a task on: days before it don't count against them. */
   firstDay: string | null;
   byDate: (key: string) => Task[];
-  onPeriod: (p: Period) => void;
   onOffset: (o: number) => void;
   onDrill: (p: Period, offset: number) => void;
   onOpenDay: (key: string) => void;
@@ -124,43 +120,10 @@ export function AnalyticsView({
   if (current && period !== "year") for (let d = new Date(today.getFullYear(), 0, 1); d <= today; d = addDays(d, 1)) if (byDate(ymd(d)).some((t) => t.done)) thisYear++;
   const quiet = "tap relative font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-current";
 
-  const periods = (
-    <SegmentedControl
-      label="Period"
-      value={period}
-      onChange={onPeriod}
-      options={[
-        { value: "week", label: "Week" },
-        { value: "month", label: "Month" },
-        { value: "year", label: "Year" },
-      ]}
-      className="max-md:w-full"
-    />
-  );
-
+  // The page's name, its dates, the period switch and the arrows are in the bar above; here are the numbers.
   return (
     <div className="mx-auto w-full max-w-[888px] md:px-6">
-      <ViewHead
-        title="Progress"
-        soft={label}
-        right={
-          <>
-            <span className="max-md:hidden">{periods}</span>
-            <Stepper
-              prevLabel={`Previous ${period}`}
-              nextLabel={`Next ${period}`}
-              onPrev={() => onOffset(offset - 1)}
-              onNext={() => onOffset(offset + 1)}
-              todayLabel={offset === 0 ? null : NOW[period]}
-              onToday={() => onOffset(0)}
-              nextDisabled={offset === 0}
-            />
-          </>
-        }
-        below={<div className="px-4 pt-3 md:hidden">{periods}</div>}
-      />
-
-      <div className="space-y-4 px-4 pt-6 pb-10 md:px-3 md:pt-8">
+      <div className="space-y-4 px-4 pt-5 pb-10 md:px-3 md:pt-7">
         {!sum.planned && !sum.upcoming && !prevDays.some((d) => d.total) ? (
           // Nothing to measure yet: a sentence where the summary goes, instead of empty charts.
           <p className="text-callout text-ink-2">

@@ -145,6 +145,8 @@ export function Checkbox({
   size?: number;
   className?: string;
 }) {
+  // The tick keeps the same weight on screen (about 1.6px) in a box of any size.
+  const tick = (1.6 * 12) / (size * 0.72);
   // Animate only a change the user just made, not tasks that were already done when they rendered.
   const [celebrate, setCelebrate] = useState(false);
   const prev = useRef(checked);
@@ -167,7 +169,7 @@ export function Checkbox({
       style={{
         width: size,
         height: size,
-        borderRadius: size <= 16 ? 5 : 6,
+        borderRadius: size <= 16 ? 5 : size <= 20 ? 6 : 8,
         animation: celebrate ? "check-pop var(--duration-move) var(--ease-out)" : undefined,
       }}
       className={`group/check relative flex flex-none items-center justify-center border-[1.5px] transition-[background-color,border-color] duration-(--duration-fast) before:absolute before:-inset-1.5 before:content-[''] pointer-coarse:before:inset-auto pointer-coarse:before:top-1/2 pointer-coarse:before:left-1/2 pointer-coarse:before:size-11 pointer-coarse:before:-translate-1/2 ${
@@ -180,7 +182,7 @@ export function Checkbox({
       {/* Under the pointer an open box shows the tick it would get. */}
       {!checked && (
         <svg width={size * 0.72} height={size * 0.72} viewBox="0 0 12 12" fill="none" aria-hidden="true" className="opacity-0 transition-opacity duration-(--duration-fast) pointer-fine:group-hover/check:opacity-100">
-          <path d="M2.6 6.3 5 8.6 9.4 3.7" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M2.6 6.3 5 8.6 9.4 3.7" stroke="currentColor" strokeWidth={tick} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
       {checked && (
@@ -188,7 +190,7 @@ export function Checkbox({
           <path
             d="M2.6 6.3 5 8.6 9.4 3.7"
             stroke="currentColor"
-            strokeWidth="1.9"
+            strokeWidth={tick}
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeDasharray="16"
@@ -307,9 +309,14 @@ function useFloating(anchor: Anchor, align: "start" | "end") {
   };
 }
 
+/** Everything that's open and can be dismissed, in the order it opened: only the last one answers Escape and clicks. */
+const layers: object[] = [];
+
 /**
  * Closes on Escape and on pointer down outside `ref` (and outside `ignore`, usually the trigger that toggles it).
- * Anchored panels (menus, popovers) also close on resize and when the page scrolls under them; modals don't.
+ * Layers close one at a time, the top one first: a menu opened from a window takes the Escape (or the click outside)
+ * and the window stays. Anchored panels (menus, popovers) also close on resize and when the page scrolls under them;
+ * modals don't.
  */
 export function useDismiss(
   ref: React.RefObject<HTMLElement | null>,
@@ -318,15 +325,24 @@ export function useDismiss(
   ignore?: HTMLElement | null,
   anchored = true,
 ) {
+  // Its place among the layers is taken once, when it opens (not again whenever a handler changes).
+  const self = useRef({});
+  useEffect(() => {
+    if (!enabled) return;
+    const layer = self.current;
+    layers.push(layer);
+    return () => void layers.splice(layers.indexOf(layer), 1);
+  }, [enabled]);
   useEffect(() => {
     if (!enabled) return;
     const opened = performance.now();
+    const onTop = () => layers[layers.length - 1] === self.current;
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node;
-      if (ref.current && !ref.current.contains(t) && !ignore?.contains(t)) onClose();
+      if (onTop() && ref.current && !ref.current.contains(t) && !ignore?.contains(t)) onClose();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && onTop()) {
         e.stopPropagation();
         onClose();
       }
@@ -469,7 +485,7 @@ export function Menu({
       data-floating=""
       onKeyDown={onKeyDown}
       style={style}
-      className={`fixed z-[100] animate-pop-in rounded-lg bg-elevated p-1 text-footnote shadow-float outline-none ${className}`}
+      className={`fixed z-[140] animate-pop-in rounded-lg bg-elevated p-1 text-footnote shadow-float outline-none ${className}`}
     >
       {header}
       {entries.map((e, i) => {
@@ -499,7 +515,7 @@ export function Menu({
             <span className="flex-1">{e.label}</span>
             {e.checked ? (
               <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="ml-6 text-ink-2">
-                <path d="M2.5 6.2 4.9 8.6 9.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2.5 6.2 4.9 8.6 9.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             ) : e.hint ? (
               <span className="pl-6 text-caption text-ink-3">{e.hint}</span>

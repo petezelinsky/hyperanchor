@@ -3,6 +3,22 @@ import { getToken } from "next-auth/jwt";
 import { currentUserId, unauthorized } from "@/lib/api";
 import { sql } from "@/lib/db";
 import { exchangeAppleCode, revokeAppleToken, appleBundleId } from "@/lib/identity";
+import { asProInterest, setProInterest } from "@/lib/users";
+
+/**
+ * Pro isn't open yet. `{ proInterest: "yearly" | "monthly" }` notes that the signed-in person wants to hear when it is
+ * (and which billing they'd pick); `{ proInterest: null }` takes the note back.
+ */
+export async function PUT(req: NextRequest) {
+  const userId = await currentUserId();
+  if (!userId) return unauthorized();
+  const body = await req.json().catch(() => null);
+  if (!body || !("proInterest" in body) || (body.proInterest !== null && !asProInterest(body.proInterest)))
+    return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+  const proInterest = asProInterest(body.proInterest);
+  await setProInterest(userId, proInterest);
+  return NextResponse.json({ proInterest });
+}
 
 /**
  * Deletes the account: every task of the signed-in user, their profile and their voice usage counts. For Sign in with Apple the token is revoked too

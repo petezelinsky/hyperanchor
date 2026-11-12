@@ -138,7 +138,7 @@ function Tooltip({ bar, index, n }: { bar: Bar; index: number; n: number }) {
               <span
                 className={`flex size-3 flex-none items-center justify-center rounded-full ${t.done ? "bg-accent text-on-accent" : "border border-check-ring"}`}
               >
-                {t.done && <CheckIcon size={7} strokeWidth={2.4} />}
+                {t.done && <CheckIcon size={7} />}
               </span>
               <span className="truncate">{t.title}</span>
             </li>

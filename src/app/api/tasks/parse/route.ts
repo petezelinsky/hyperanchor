@@ -32,14 +32,21 @@ export async function POST(req: NextRequest) {
   if (!draftsConfigured()) return failure("not_configured", 503);
 
   // Counted before the call, so the allowance holds even when requests arrive side by side.
-  const [usage] = await sql<{ requests: number }[]>`
+  const [usage] = await sql<{ requests: number; day: string }[]>`
     insert into ai_usage (user_id, day, requests, chars) values (${userId}, current_date, 1, ${text.length})
     on conflict (user_id, day) do update set requests = ai_usage.requests + 1, chars = ai_usage.chars + excluded.chars
-    returning requests`;
+    returning requests, day::text as day`;
   if (usage.requests > DAILY_REQUESTS) return failure("limit", 429);
 
+  // What the call cost in tokens goes on the same day's line (the account menu's Usage adds them up).
+  const count = async ({ input, output }: { input: number; output: number }) => {
+    await sql`
+      update ai_usage set input_tokens = input_tokens + ${input}, output_tokens = output_tokens + ${output}
+      where user_id = ${userId} and day = ${usage.day}`;
+  };
+
   try {
-    return NextResponse.json({ tasks: await draftTasks(text, today, weekStart) });
+    return NextResponse.json({ tasks: await draftTasks(text, today, weekStart, count) });
   } catch (e) {
     if (!(e instanceof DraftError)) throw e;
     return failure(e.kind, e.kind === "refused" ? 422 : e.kind === "failed" ? 502 : 503);

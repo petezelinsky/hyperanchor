@@ -111,11 +111,11 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
               if (!(e.target as HTMLElement).closest("[data-task-row], [data-editing], button, textarea, input")) actions.openComposer(s.date);
             }}
             // Lanes, not boxes: a hairline between days; only today's is shaded.
-            className={`group/col flex min-h-[max(420px,calc(100dvh-141px))] min-w-0 flex-col border-l border-line px-1.5 pb-3 transition-colors duration-(--duration-fast) first:border-l-0 ${
+            className={`group/col flex min-h-[max(420px,calc(100dvh-56px))] min-w-0 flex-col border-l border-line px-2 pb-3 transition-colors duration-(--duration-fast) first:border-l-0 ${
               hot ? "bg-accent-soft" : isToday ? "bg-surface-2" : ""
             }`}
           >
-            <div className="px-1.5 pt-3.5">
+            <div className="px-1.5 pt-4">
               <div className="flex h-[18px] items-center justify-between gap-1">
                 <span className={`text-footnote font-medium ${isToday ? "text-ink" : "text-ink-3"}`}>{dayShort(d)}</span>
                 <span className="tabular text-caption text-ink-3">{all ? `${doneN} of ${all}` : ""}</span>
@@ -136,7 +136,7 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
                     onClick={() => actions.openComposer(s.date)}
                     className="tap relative flex size-6 flex-none items-center justify-center rounded-[7px] bg-surface text-ink-2 shadow-[inset_0_0_0_1px_var(--line-2)] transition-colors duration-(--duration-fast) hover:text-ink focus-visible:opacity-100"
                   >
-                    <PlusIcon size={13} strokeWidth={1.9} />
+                    <PlusIcon size={13} />
                   </button>
                 )}
               </div>
