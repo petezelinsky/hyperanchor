@@ -42,7 +42,7 @@ export function HistoryCard({ rows, unit }: { rows: HistoryRow[]; unit: "days" |
           className={`tap relative inline-flex items-center gap-1 hover:text-ink ${on ? "text-ink" : ""}`}
         >
           {label}
-          {on && (sort.dir === 1 ? <ChevronUp size={11} strokeWidth={2} /> : <ChevronDown size={11} strokeWidth={2} />)}
+          {on && (sort.dir === 1 ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}
         </button>
       </th>
     );

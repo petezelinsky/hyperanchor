@@ -166,7 +166,7 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
                         t.done ? "bg-accent text-on-accent" : "border-[1.5px] border-check-ring"
                       }`}
                     >
-                      {t.done && <CheckIcon size={9} strokeWidth={2.6} />}
+                      {t.done && <CheckIcon size={9} />}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className={`block truncate text-body ${t.done ? "text-ink-3" : "text-ink"}`}>

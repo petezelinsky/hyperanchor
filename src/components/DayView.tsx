@@ -1,19 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { addDays, formatMedium, formatShort, parseYmd, relativeDay, ymd, dayName } from "@/lib/dates";
+import { formatMedium, parseYmd, relativeDay, dayName } from "@/lib/dates";
 import type { Task } from "@/lib/types";
-import { ArrowRightIcon, FocusIcon, TrashIcon } from "./icons";
+import { ArrowRightIcon, TrashIcon } from "./icons";
 import { FoldRow, TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
-import { Stepper, ViewHead } from "./Toolbar";
-import { Accordion, Button, Checkbox, IconButton, Kbd, Modal } from "./ui";
+import { Accordion, Button, Checkbox, IconButton, Kbd } from "./ui";
 
-/** Focus mode for the selected day (null when off). */
+/** Focus mode for the selected day (null when off): what's left, in the order it will come up. */
 export type Focus = {
-  task?: Task;
-  next?: Task;
-  after: number;
+  queue: Task[];
   onDone: (t: Task) => void;
   onLater: (t: Task) => void;
   onExit: () => void;
@@ -23,6 +20,11 @@ export type Focus = {
 /** First visit: a short welcome instead of an empty list. */
 export type Welcome = { name: string; onExamples: () => void; onDismiss: () => void } | null;
 
+/**
+ * The day: nothing but its tasks, in a column in the middle. A new task (or speaking them) starts at the top; what's
+ * left follows; earlier days and what's done fold away under it. The day's name, date, count and controls live in the
+ * bar above.
+ */
 export function DayView({
   selected,
   section,
@@ -31,13 +33,10 @@ export function DayView({
   completedOpen,
   onCompletedOpen,
   byDate,
-  onSelectDate,
   onMoveToToday,
   carried,
-  onFocus,
+  onSpeak,
   welcome,
-  calendar,
-  calendarFromTitle,
 }: {
   selected: string;
   section: Section;
@@ -46,16 +45,12 @@ export function DayView({
   completedOpen: boolean;
   onCompletedOpen: (open: boolean) => void;
   byDate: (key: string) => Task[];
-  onSelectDate: (key: string) => void;
   onMoveToToday: (tasks: Task[]) => void;
   /** Today only: tasks still open from earlier days. */
   carried: Task[];
-  onFocus: () => void;
+  /** Opens the voice screen; absent where the server can't sort speech into tasks. */
+  onSpeak?: () => void;
   welcome: Welcome;
-  /** The month to pick a day from, opened from the title (phones, and computers with the sidebar hidden). */
-  calendar: (close: () => void) => React.ReactNode;
-  /** "always" while the sidebar (and its month) is hidden. */
-  calendarFromTitle: "always" | "phone";
 }) {
   const { todayKey } = state;
   const d = parseYmd(selected);
@@ -63,81 +58,40 @@ export function DayView({
   const open = all.filter((t) => !t.done);
   const past = selected < todayKey;
   const isToday = selected === todayKey;
-  const year = d.getFullYear() !== parseYmd(todayKey).getFullYear() ? `, ${d.getFullYear()}` : "";
-  const relative = relativeDay(selected, todayKey);
-  const [picking, setPicking] = useState(false);
 
   return (
-    <div className="mx-auto w-full max-w-[792px] md:px-6">
-      {/* The day itself is the title ("Today", "Friday"), its date beside it; how much is done lives in the sidebar. */}
-      <ViewHead
-        title={relative ?? dayName(d)}
-        soft={`${relative ? formatMedium(d) : formatShort(d)}${year}`}
-        onTitle={() => setPicking(true)}
-        titleOpen={picking}
-        titleButton={calendarFromTitle}
-        right={
-          <>
-            <Stepper
-              prevLabel="Previous day"
-              nextLabel="Next day"
-              onPrev={() => onSelectDate(ymd(addDays(d, -1)))}
-              onNext={() => onSelectDate(ymd(addDays(d, 1)))}
-              todayLabel={isToday ? null : "Today"}
-              onToday={() => onSelectDate(todayKey)}
-            />
-            <Button
-              onClick={onFocus}
-              disabled={!open.length}
-              aria-label="Focus"
-              data-tip="Focus on one task at a time (F)"
-              className="max-sm:w-8 max-sm:px-0 sm:pr-3 sm:pl-2.5"
-            >
-              <FocusIcon size={15} strokeWidth={1.7} />
-              <span className="max-sm:hidden">Focus</span>
-            </Button>
-          </>
-        }
-      />
+    <div className="mx-auto w-full max-w-[792px] pt-1 pb-6 md:px-6 md:pt-3 md:pb-16">
+      {past && open.length > 0 && (
+        <Notice action={<MoveButton label="Move to today" onClick={() => onMoveToToday(open)} />}>{open.length} left open on this day</Notice>
+      )}
 
-      <div className="pb-6 md:pt-2 md:pb-16">
-        {past && open.length > 0 && (
-          <Notice action={<MoveButton label="Move to today" onClick={() => onMoveToToday(open)} />}>{open.length} left open on this day</Notice>
-        )}
-
-        {welcome && !all.length && !carried.length ? (
-          <WelcomeCard welcome={welcome} onAdd={() => actions.openComposer(selected)} />
-        ) : (
-          <TaskTable
-            key={selected}
-            sections={[section]}
-            state={state}
-            actions={actions}
-            placeholderRow
-            completedOpen={completedOpen}
-            onCompletedOpen={onCompletedOpen}
-            between={isToday && carried.length > 0 && <Carried tasks={carried} todayKey={todayKey} actions={actions} onMoveAll={() => onMoveToToday(carried)} />}
-            cleared={
-              <p className="flex h-12 items-center pl-[46px] text-body text-ink-3 md:pl-[42px]">
-                {all.length
-                  ? isToday
-                    ? "All done for today."
-                    : "Everything on this day is done."
-                  : past
-                    ? "Nothing was planned."
-                    : isToday
-                      ? "Nothing planned yet."
-                      : `Nothing planned for ${dayName(d)} yet.`}
-              </p>
-            }
-          />
-        )}
-      </div>
-
-      {picking && (
-        <Modal label="Pick a day" sheet onClose={() => setPicking(false)} className="max-w-[400px] p-3 pt-3.5">
-          {calendar(() => setPicking(false))}
-        </Modal>
+      {welcome && !all.length && !carried.length ? (
+        <WelcomeCard welcome={welcome} onAdd={() => actions.openComposer(selected)} />
+      ) : (
+        <TaskTable
+          key={selected}
+          sections={[section]}
+          state={state}
+          actions={actions}
+          placeholderRow
+          onSpeak={onSpeak}
+          completedOpen={completedOpen}
+          onCompletedOpen={onCompletedOpen}
+          between={isToday && carried.length > 0 && <Carried tasks={carried} todayKey={todayKey} actions={actions} onMoveAll={() => onMoveToToday(carried)} />}
+          cleared={
+            <p className="flex h-12 items-center pl-[46px] text-body text-ink-3 md:pl-[42px]">
+              {all.length
+                ? isToday
+                  ? "All done for today."
+                  : "Everything on this day is done."
+                : past
+                  ? "Nothing was planned."
+                  : isToday
+                    ? "Nothing planned yet."
+                    : `Nothing planned for ${dayName(d)} yet.`}
+            </p>
+          }
+        />
       )}
     </div>
   );
@@ -162,7 +116,7 @@ function MoveButton({ label, onClick }: { label: string; onClick: () => void }) 
   return (
     <Button size="sm" variant="plain" onClick={onClick} className="gap-1 text-ink!">
       {label}
-      <ArrowRightIcon size={12} strokeWidth={2} />
+      <ArrowRightIcon size={12} />
     </Button>
   );
 }
@@ -214,7 +168,7 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
                 </span>
                 <Button size="sm" variant="plain" onClick={() => actions.move(t, todayKey)} className="gap-1 text-ink!">
                   Today
-                  <ArrowRightIcon size={12} strokeWidth={2} />
+                  <ArrowRightIcon size={12} />
                 </Button>
                 <IconButton label={`Delete “${t.title}”`} tip="Delete" size="sm" onClick={() => actions.remove(t)} className="hover:text-red-ink!">
                   <TrashIcon size={14} />

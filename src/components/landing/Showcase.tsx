@@ -66,7 +66,7 @@ const ADDED_AT = ENTER_AT + 320;
 function Tick({ done = false }: { done?: boolean }) {
   return (
     <span className={`flex size-[18px] flex-none items-center justify-center rounded-[6px] ${done ? "bg-accent text-on-accent" : "border-[1.5px] border-check-ring"}`}>
-      {done && <CheckIcon size={9} strokeWidth={2.6} />}
+      {done && <CheckIcon size={9} />}
     </span>
   );
 }
@@ -165,7 +165,7 @@ function FocusScene({ t }: { t: number }) {
                 pressed ? "scale-95 bg-primary-hover" : "bg-primary"
               }`}
             >
-              <CheckIcon size={11} strokeWidth={2.2} />
+              <CheckIcon size={11} />
               Done
               <span className={`${key} bg-on-primary/15 text-on-primary/75`}>Space</span>
             </span>

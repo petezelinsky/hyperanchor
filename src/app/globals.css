@@ -346,6 +346,11 @@
   }
 }
 
+/* Icons are one family: the same hairline on screen at every size (the stroke doesn't scale with the icon). */
+svg[data-icon] * {
+  vector-effect: non-scaling-stroke;
+}
+
 /* While a task is dragged: the grabbing hand everywhere, and no text gets selected along the way. */
 :root[data-dragging],
 :root[data-dragging] * {
@@ -469,7 +474,7 @@
   }
 }
 
-/* Focus mode's card stack: the next card rises into place; a finished one lifts away, a deferred one sinks to the back. */
+/* Focus mode's deck: a finished card lifts away, one put off sinks to the back; the cards under it move up by themselves. */
 @keyframes focus-in {
   from {
     opacity: 0;
@@ -477,15 +482,55 @@
   }
 }
 @keyframes focus-done {
-  to {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  /* Still whole while it comes off the deck (so the next card's words aren't read through it), then gone. */
+  50% {
+    opacity: 1;
+    transform: translateY(-20px) scale(1.01);
+  }
+  100% {
     opacity: 0;
-    transform: translateY(-28px) scale(0.98);
+    transform: translateY(-44px) scale(1.02);
   }
 }
 @keyframes focus-later {
-  to {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
     opacity: 0;
-    transform: translateY(16px) scale(0.94);
+    transform: translateY(22px) scale(0.9);
+  }
+}
+
+/* A finished task's words are crossed out by a line that draws itself along them, one line of text after another. */
+.strike {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 58%;
+  background-size: 0% 1.5px;
+  transition: background-size var(--duration-move) var(--ease-out);
+}
+.strike[data-done="true"] {
+  background-size: 100% 1.5px;
+}
+
+/* A line that's on its way (tasks being sorted): a soft band of light passes over it. */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-3) 0%, var(--line-2) 45%, var(--surface-3) 90%);
+  background-size: 220% 100%;
+  animation: skeleton 1.3s ease-in-out infinite;
+}
+@keyframes skeleton {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -100% 0;
   }
 }
 

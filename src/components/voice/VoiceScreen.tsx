@@ -6,15 +6,18 @@ import { addDays, formatMedium, parseYmd, relativeDay, startOfWeek, ymd, type We
 import type { TaskDraft } from "@/lib/types";
 import { DRAFT_TEXT_MAX as TEXT_MAX } from "@/lib/validate";
 import { AutoTextarea } from "../AutoTextarea";
-import { ChevronDown, StopIcon, XIcon } from "../icons";
+import { ChevronDown, XIcon } from "../icons";
 import { reducedMotion } from "../motion";
 import { Button, IconButton, Kbd, Menu, type MenuEntry } from "../ui";
-import { canListen, Dictation, readSpokenLanguage, saveSpokenLanguage, spokenLanguages, type StopReason } from "./dictation";
+import { canListen, Dictation, spokenLanguage, type StopReason } from "./dictation";
+import { canMeter, Meter } from "./meter";
 import { Orb } from "./Orb";
 import { ParticleRing, type RingMode } from "./ParticleRing";
+import { soundAdded, soundListening, soundReady } from "./sound";
 
 type Draft = TaskDraft & { key: number };
-type Phase = "listening" | "sorting" | "ready";
+/** Listening; waiting for the tasks to come back; or at rest (something to read, or to decide). */
+type Phase = "listening" | "sorting" | "idle";
 /** Something went wrong, in words; `again` is the text to send once more when trying again makes sense. */
 type Problem = { message: string; again?: string } | null;
 
@@ -27,57 +30,71 @@ const PROBLEMS: Record<string, string> = {
 };
 
 /**
- * Speak your tasks: the whole screen, plain. The sphere listens in the middle, the words appear under it, and when the
- * person stops, what they said comes back as tasks on their days — to look over, fix a day, drop one, and add. Typing
- * (or pasting) works the same way, and takes over where the browser can't listen. The buttons sit at the foot, on the
- * same white, with no bar behind them.
+ * Speak your tasks: the whole screen, plain. The sphere listens in the middle and moves to every sound, the words appear
+ * under it, and the language is worked out without asking (Settings can name one). When the person stops, a window comes
+ * up at once, with lines filling in while the words are sorted, then the tasks on their days: each can be reworded, moved
+ * to another day or left out. From there it's one step to add them, to speak some more, or to leave. Typing (or pasting)
+ * works the same way, and takes over where the browser can't listen.
  */
 export function VoiceScreen({
   todayKey,
   weekStart,
+  sample,
   onAdd,
   onClose,
 }: {
   todayKey: string;
   weekStart: WeekStart;
+  /** The person's latest task titles: what the spoken language is guessed from. */
+  sample: string[];
   onAdd: (drafts: TaskDraft[]) => void;
   onClose: () => void;
 }) {
   const hears = useMemo(canListen, []);
-  const languages = useMemo(spokenLanguages, []);
-  const [language, setLanguage] = useState(readSpokenLanguage);
+  const language = useMemo(() => spokenLanguage(sample), []); // for this opening of the screen
   const [typing, setTyping] = useState(!hears);
-  const [phase, setPhase] = useState<Phase>(hears ? "listening" : "ready");
+  const [phase, setPhase] = useState<Phase>(hears ? "listening" : "idle");
   const [said, setSaid] = useState("");
   const [saying, setSaying] = useState("");
   const [speaking, setSpeaking] = useState(false);
   const [text, setText] = useState("");
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [problem, setProblem] = useState<Problem>(null);
+  // The window with the tasks: up from the moment sorting starts.
+  const [review, setReview] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [dayMenu, setDayMenu] = useState<{ key: number; anchor: DOMRect; trigger: HTMLElement } | null>(null);
-  const [languageMenu, setLanguageMenu] = useState<{ anchor: DOMRect; trigger: HTMLElement } | null>(null);
 
   const dialog = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const ring = useRef<ParticleRing | null>(null);
   const dictation = useRef<Dictation | null>(null);
+  const meter = useRef<Meter | null>(null);
   const alive = useRef(true);
   const nextKey = useRef(1);
   // Latest values for handlers that outlive a render (recognition callbacks, key listeners).
-  const latest = useRef({ language, todayKey, weekStart, drafts, phase, typing, text, problem });
-  latest.current = { language, todayKey, weekStart, drafts, phase, typing, text, problem };
+  const latest = useRef({ todayKey, weekStart, drafts, phase, typing, text, problem, review, confirming });
+  latest.current = { todayKey, weekStart, drafts, phase, typing, text, problem, review, confirming };
 
-  /** Sends `words` to be sorted; the tasks that come back join the ones already here. */
+  const hush = useCallback(() => {
+    meter.current?.stop();
+    meter.current = null;
+  }, []);
+
+  /** Sends `words` to be sorted; the window comes up at once, and the tasks that come back join the ones already there. */
   const sort = useCallback(async (words: string) => {
     const clean = words.trim();
     if (!clean) return;
     if (clean.length > TEXT_MAX) {
-      setPhase("ready");
+      setPhase("idle");
+      setReview(true);
       return setProblem({ message: "That’s too much for one go. Sort it in two or three parts." });
     }
     setPhase("sorting");
     setProblem(null);
+    setConfirming(false);
+    setReview(true);
     try {
       const res = await fetch("/api/tasks/parse", {
         method: "POST",
@@ -94,19 +111,22 @@ export function VoiceScreen({
         if (!alive.current) return;
         setSaid("");
         setText("");
-        if (tasks.length) setDrafts((list) => [...list, ...tasks.map((t) => ({ ...t, key: nextKey.current++ }))]);
-        else setProblem({ message: "No tasks in that. Say what you need to do, and when." });
+        if (tasks.length) {
+          setDrafts((list) => [...list, ...tasks.map((t) => ({ ...t, key: nextKey.current++ }))]);
+          soundReady();
+        } else setProblem({ message: "No tasks in that. Say what you need to do, and when." });
       }
     } catch {
       if (!alive.current) return;
       setProblem({ message: "You’re offline. What you said is kept: try again when you’re back.", again: clean });
     }
-    if (alive.current) setPhase("ready");
+    if (alive.current) setPhase("idle");
   }, []);
 
   const heard = useCallback(
     (reason: StopReason, words: string) => {
       dictation.current = null;
+      hush();
       setSaying("");
       setSpeaking(false);
       // Whatever ended the listening, words that were heard are sorted: nothing said is lost to a late hiccup.
@@ -114,7 +134,7 @@ export function VoiceScreen({
         setSaid(words);
         return void sort(words);
       }
-      setPhase("ready");
+      setPhase("idle");
       setProblem({
         message:
           reason === "denied"
@@ -128,16 +148,19 @@ export function VoiceScreen({
                   : "Nothing was heard. Try again a little closer to the microphone.",
       });
     },
-    [sort],
+    [sort, hush],
   );
 
   const listen = useCallback(() => {
     dictation.current?.cancel();
+    hush();
     setProblem(null);
+    setReview(false);
+    setConfirming(false);
     setSaid("");
     setSaying("");
     setPhase("listening");
-    const d = new Dictation(latest.current.language, {
+    const d = new Dictation(language, {
       onText: (a, b) => {
         setSaid(a);
         setSaying(b);
@@ -147,24 +170,56 @@ export function VoiceScreen({
     });
     dictation.current = d;
     d.start();
-  }, [heard]);
+    soundListening();
+    // Computers: the microphone's level moves the sphere (the same permission the recognition has just asked for).
+    if (canMeter()) {
+      const m = new Meter();
+      meter.current = m;
+      void m.start().then((ok) => {
+        if (!ok && meter.current === m) meter.current = null;
+      });
+    }
+  }, [heard, hush, language]);
 
   const stop = useCallback(() => dictation.current?.stop(), []);
 
   const close = useCallback(() => {
     dictation.current?.cancel();
     dictation.current = null;
+    hush();
     onClose();
-  }, [onClose]);
+  }, [onClose, hush]);
+
+  /** Leaving the stage: with tasks waiting, they're shown first, so nothing said is lost to a slip of the hand. */
+  const leave = useCallback(() => {
+    if (!latest.current.drafts.length) return close();
+    dictation.current?.cancel();
+    dictation.current = null;
+    hush();
+    setSaying("");
+    setSpeaking(false);
+    if (latest.current.phase === "listening") setPhase("idle");
+    setReview(true);
+  }, [close, hush]);
+
+  /** Closing the window: with tasks in it, only after a second, deliberate step. */
+  const discard = useCallback(() => {
+    const { drafts, confirming, phase } = latest.current;
+    if (drafts.length && !confirming && phase !== "sorting") return setConfirming(true);
+    close();
+  }, [close]);
 
   const add = useCallback(() => {
     const { drafts, phase } = latest.current;
-    if (!drafts.length || phase === "sorting") return;
+    const ready = drafts.map(({ title, description, date }) => ({ title: title.replace(/\s+/g, " ").trim(), description, date })).filter((d) => d.title);
+    if (!ready.length || phase === "sorting") return;
     dictation.current?.cancel();
     dictation.current = null;
-    onAdd(drafts.map(({ title, description, date }) => ({ title, description, date })));
+    hush();
+    soundAdded();
+    onAdd(ready);
     onClose();
-  }, [onAdd, onClose]);
+  }, [onAdd, onClose, hush]);
 
   // Opens listening (the press that opened this screen is the gesture browsers ask for).
   useEffect(() => {
@@ -175,6 +230,8 @@ export function VoiceScreen({
       alive.current = false;
       dictation.current?.cancel();
       dictation.current = null;
+      meter.current?.stop();
+      meter.current = null;
     };
     // Once, on opening.
   }, []);
@@ -200,6 +257,11 @@ export function VoiceScreen({
     if (!el || !showRing) return;
     const size = el.clientWidth || 280;
     const r = new ParticleRing(el, { count: Math.round((5200 * size) / 280), dotSize: 706 / size, reduced: reducedMotion(), color: getComputedStyle(el).color });
+    // What the microphone hears, when there is a meter: the sphere moves to that.
+    r.listen = () => {
+      const m = meter.current;
+      return m && m.read() ? m : null;
+    };
     ring.current = r;
     r.start();
     const resized = new ResizeObserver(() => r.resize());
@@ -223,48 +285,59 @@ export function VoiceScreen({
     r.o.color = getComputedStyle(r.canvas).color;
   }, [mode, speaking, showRing]);
 
-  // Esc leaves; Enter adds what's ready (in the text field Enter is a new line, ⌘/Ctrl Enter sorts).
+  // Esc steps back (the day menu, the question, the window, the screen); Enter is the next step: done speaking, or add.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const l = latest.current;
       if (e.key === "Escape") {
         e.preventDefault();
-        return close();
+        if (l.confirming) return setConfirming(false);
+        return l.review ? discard() : leave();
       }
       if (e.key !== "Enter" || e.shiftKey || e.altKey) return;
-      const inField = e.target instanceof HTMLTextAreaElement;
-      if (inField) {
-        if (!(e.metaKey || e.ctrlKey)) return;
+      const target = e.target as HTMLElement;
+      if (target instanceof HTMLTextAreaElement) {
+        // In the box for typing, Enter is a new line and ⌘/Ctrl Enter sorts; in a task's title it finishes the edit.
+        if (target === field.current) {
+          if (!(e.metaKey || e.ctrlKey)) return;
+          e.preventDefault();
+          return void sort(l.text);
+        }
         e.preventDefault();
-        return void sort(latest.current.text);
+        return target.blur();
       }
       // A focused button answers Enter by itself.
-      if (e.target instanceof HTMLButtonElement) return;
+      if (target instanceof HTMLButtonElement) return;
       e.preventDefault();
-      add();
+      if (l.review) add();
+      else if (l.phase === "listening") stop();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [add, close, sort]);
+  }, [add, discard, leave, sort, stop]);
 
   const type = (on: boolean) => {
     dictation.current?.cancel();
     dictation.current = null;
+    hush();
     setSpeaking(false);
     setSaying("");
     setSaid("");
     setProblem(null);
     setTyping(on);
     if (on) {
-      setPhase("ready");
+      setPhase("idle");
       requestAnimationFrame(() => field.current?.focus());
     } else listen();
   };
 
-  const chooseLanguage = (tag: string) => {
-    saveSpokenLanguage(tag);
-    setLanguage(tag);
-    latest.current.language = tag;
-    if (latest.current.phase === "listening") listen();
+  /** From the window back to the stage, for more: listening again, or the box to type in. */
+  const more = () => {
+    if (typing) {
+      setReview(false);
+      setProblem(null);
+      requestAnimationFrame(() => field.current?.focus());
+    } else listen();
   };
 
   const today = parseYmd(todayKey);
@@ -279,38 +352,11 @@ export function VoiceScreen({
   };
   const openDayMenu = dayMenu && drafts.find((d) => d.key === dayMenu.key);
 
-  const n = drafts.length;
+  const n = drafts.filter((d) => d.title.trim()).length;
   const busy = phase === "sorting";
+  const tasks = (count: number) => `${count} ${count === 1 ? "task" : "tasks"}`;
   const caption = phase === "listening" ? "Listening" : busy ? "Sorting into tasks…" : "";
-  const hint =
-    phase === "listening"
-      ? "Say what you need to do, and when."
-      : n
-        ? typing
-          ? "Anything else? Type more, or add what you have."
-          : "Anything else? Speak again, or add what you have."
-        : typing
-          ? ""
-          : "Press Speak again and say what you need to do.";
-  const languageName = languages.find((l) => l.tag === language)?.name ?? "";
-
-  const languageButton = !typing && (
-    <Button
-      variant="plain"
-      aria-haspopup="menu"
-      aria-label={`Spoken language: ${languageName}`}
-      onClick={(e) => setLanguageMenu({ anchor: e.currentTarget.getBoundingClientRect(), trigger: e.currentTarget })}
-      className="gap-1 pr-1.5"
-    >
-      {languageName}
-      <ChevronDown size={12} strokeWidth={2} className="text-ink-3" />
-    </Button>
-  );
-  const typeButton = hears && (
-    <Button variant="plain" onClick={() => type(!typing)}>
-      {typing ? "Speak instead" : "Type instead"}
-    </Button>
-  );
+  const hint = phase === "listening" ? "Say what you need to do, and when." : typing ? "" : n ? "Anything else? Speak again, or add what you have." : "Press Speak again and say what you need to do.";
 
   return createPortal(
     <div
@@ -323,20 +369,21 @@ export function VoiceScreen({
       className="fixed inset-0 z-[90] flex animate-[fade_var(--duration-base)_var(--ease-out)_both] flex-col bg-surface outline-none"
     >
       <header className="flex h-[52px] flex-none items-center justify-between gap-2 px-3 md:h-14 md:px-4">
-        <Button onClick={close} className="gap-2 pl-2.5">
-          <XIcon size={14} strokeWidth={1.8} />
+        <Button onClick={leave} className="gap-2 pl-2.5">
+          <XIcon size={14} />
           Cancel
           <span className="pointer-coarse:hidden">
             <Kbd>Esc</Kbd>
           </span>
         </Button>
-        <div className="flex items-center gap-1 max-sm:hidden">
-          {languageButton}
-          {typeButton}
-        </div>
+        {hears && (
+          <Button variant="plain" onClick={() => type(!typing)} disabled={busy}>
+            {typing ? "Speak instead" : "Type instead"}
+          </Button>
+        )}
       </header>
 
-      {/* The middle: centered while it fits, scrolling from the top once the list grows long. */}
+      {/* The stage: the sphere and the words, or a box to type into, in the middle of the screen. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
         <div className="my-auto flex w-full flex-col items-center px-4 pt-2 pb-4 md:px-6 md:pb-6">
           {typing ? (
@@ -356,17 +403,16 @@ export function VoiceScreen({
                 placeholder="Tomorrow morning call the bank. On Friday book the dentist…"
                 className="mt-4 max-h-[36dvh] min-h-[112px] overflow-y-auto! rounded-lg bg-surface-2 p-3.5! text-[16px] leading-6 shadow-ring-line focus-visible:shadow-ring-line-2 md:text-callout"
               />
-              {(problem || hint) && <p className="mt-3 text-footnote text-ink-2">{problem ? problem.message : hint}</p>}
             </div>
           ) : (
             <>
               <canvas ref={canvas} aria-hidden="true" className="size-[240px] flex-none text-ink md:size-[300px]" />
-              <p className="-mt-1.5 min-h-[18px] text-caption text-ink-3">{caption}</p>
+              <p className="mt-1 min-h-[18px] text-caption text-ink-3">{caption}</p>
               <p
                 aria-live="off"
-                className="mt-2.5 line-clamp-4 min-h-[52px] w-full max-w-[560px] text-center text-headline font-medium text-balance md:min-h-[60px] md:text-[20px] md:leading-[30px] md:tracking-[-0.014em]"
+                className="mt-2 line-clamp-4 min-h-[52px] w-full max-w-[560px] text-center text-headline font-medium text-balance md:min-h-[60px] md:text-[20px] md:leading-[30px] md:tracking-[-0.014em]"
               >
-                {problem && phase !== "listening" ? (
+                {problem && phase !== "listening" && !review ? (
                   <span className="font-normal text-ink-2">{problem.message}</span>
                 ) : said || saying ? (
                   <>
@@ -379,98 +425,142 @@ export function VoiceScreen({
               </p>
             </>
           )}
+        </div>
+      </div>
 
-          {/* What came back: tasks on their days. */}
-          {drafts.length > 0 && (
-            <ul aria-label="Tasks to add" className="mt-4 w-full max-w-[600px] border-t border-line md:mt-6">
-              {drafts.map((d) => (
-                <li key={d.key} className="flex animate-rise items-center gap-3 pl-1">
-                  <span aria-hidden="true" className="size-[18px] flex-none rounded-[6px] border-[1.5px] border-check-ring" />
-                  {/* One line under the whole row, from where the text starts to the edge. */}
-                  <div className="flex min-h-12 min-w-0 flex-1 items-center gap-2 border-b border-line">
-                    <span className="flex min-w-0 flex-1 items-baseline gap-2.5">
-                      <span className="min-w-0 py-2 text-[16px] leading-[22px] text-ink max-sm:line-clamp-2 sm:truncate sm:py-0 md:text-callout">{d.title}</span>
-                      {d.description && <span className="min-w-0 flex-1 truncate text-body text-ink-3 max-sm:hidden">{d.description}</span>}
-                    </span>
+      {/* The foot: the next step, in the middle, on the same white. */}
+      <div className="flex flex-none items-center justify-center gap-2 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:pt-3 md:pb-9">
+        {n > 0 && !review && (
+          <Button size="lg" onClick={() => setReview(true)} className="max-sm:flex-1 md:h-10 md:rounded-[10px]">
+            Review {tasks(n)}
+          </Button>
+        )}
+        {typing ? (
+          <Button size="lg" variant="primary" disabled={busy || !text.trim()} onClick={() => sort(text)} className="max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
+            Sort into tasks
+          </Button>
+        ) : phase === "listening" ? (
+          <Button size="lg" variant="primary" onClick={stop} aria-label="Done speaking" className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
+            Done
+            <span className="pointer-coarse:hidden">
+              <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] bg-on-primary/18 px-1.5 font-sans text-caption-2 font-medium">↵</kbd>
+            </span>
+          </Button>
+        ) : (
+          <Button size="lg" variant="primary" disabled={busy} onClick={listen} className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
+            <Orb size={20} />
+            Speak again
+          </Button>
+        )}
+      </div>
+
+      {/* The window: up as soon as sorting starts. Lines fill in while it works; then the tasks, each one editable. */}
+      {review && (
+        <div
+          className="absolute inset-0 z-10 flex animate-[fade_var(--duration-fast)_var(--ease-out)_both] items-end justify-center bg-[var(--scrim)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:items-center md:p-6"
+          onPointerDown={(e) => e.target === e.currentTarget && discard()}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="Tasks to add"
+            aria-busy={busy}
+            className="flex max-h-full w-full max-w-[560px] animate-rise flex-col overflow-hidden rounded-card bg-elevated shadow-float"
+          >
+            <header className="flex h-14 flex-none items-center gap-3 border-b border-line pr-3 pl-5">
+              {busy && <span aria-hidden="true" className="size-4 flex-none animate-spin rounded-full border-[1.5px] border-line-2 border-t-ink" />}
+              <h2 className="min-w-0 flex-1 truncate text-headline font-semibold">
+                {busy ? "Sorting into tasks…" : n ? `${tasks(n)} to add` : "Nothing to add yet"}
+              </h2>
+              <IconButton label="Close" onClick={discard} className="shadow-[inset_0_0_0_1px_var(--line-2)]">
+                <XIcon size={14} />
+              </IconButton>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <ul aria-label="Tasks to add">
+                {drafts.map((d) => (
+                  <li key={d.key} className="flex min-h-[52px] animate-rise items-center gap-2 border-b border-line pr-3 pl-5">
+                    <AutoTextarea
+                      value={d.title}
+                      onChange={(e) => setDrafts((list) => list.map((x) => (x.key === d.key ? { ...x, title: e.target.value.replace(/\n/g, " ") } : x)))}
+                      maxLength={500}
+                      aria-label="Task"
+                      dir="auto"
+                      className="-ml-2 min-w-0 flex-1 rounded-sm px-2! py-1.5! text-[16px] leading-[22px] text-ink transition-shadow duration-(--duration-fast) hover:shadow-ring-line focus-visible:bg-surface-2 focus-visible:shadow-ring-line-2 md:text-callout"
+                    />
                     <Button
                       size="sm"
                       aria-haspopup="menu"
                       aria-label={`Day: ${dayLabel(d.date)}. Change`}
                       onClick={(e) => setDayMenu({ key: d.key, anchor: e.currentTarget.getBoundingClientRect(), trigger: e.currentTarget })}
-                      className="gap-1 pr-2"
+                      className="flex-none gap-1 pr-2"
                     >
                       {dayLabel(d.date)}
-                      <ChevronDown size={11} strokeWidth={2} className="text-ink-3" />
+                      <ChevronDown size={11} className="text-ink-3" />
                     </Button>
-                    <IconButton size="sm" label={`Leave out “${d.title}”`} tip="Leave out" onClick={() => setDrafts((list) => list.filter((x) => x.key !== d.key))}>
+                    <IconButton size="sm" label={`Leave out “${d.title}”`} tip="Leave out" onClick={() => setDrafts((list) => list.filter((x) => x.key !== d.key))} className="flex-none">
                       <XIcon size={13} />
                     </IconButton>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+                  </li>
+                ))}
+                {/* While it sorts: lines where the tasks will be. */}
+                {busy &&
+                  [72, 54, 63].map((w, i) => (
+                    <li key={`wait-${i}`} aria-hidden="true" className="flex h-[52px] items-center justify-between gap-6 border-b border-line pr-5 pl-5 last:border-0">
+                      <span className="skeleton h-3 rounded-full" style={{ width: `${w}%`, animationDelay: `${i * 140}ms` }} />
+                      <span className="skeleton h-3 w-14 flex-none rounded-full" style={{ animationDelay: `${i * 140 + 70}ms` }} />
+                    </li>
+                  ))}
+              </ul>
+              {problem && !busy && <p className="px-5 py-4 text-body text-ink-2">{problem.message}</p>}
+            </div>
 
-      {/* The foot: the two next steps, side by side in the middle, on the same white. */}
-      <div className="flex flex-none items-center justify-center gap-2 px-4 pt-2 pb-3 md:px-6 md:pt-3 md:pb-9">
-        {problem?.again ? (
-          <Button size="lg" disabled={busy} onClick={() => sort(problem.again!)} className="max-sm:flex-1 md:h-10 md:min-w-[120px] md:rounded-[10px]">
-            Try again
-          </Button>
-        ) : typing ? (
-          <Button size="lg" disabled={busy || !text.trim()} onClick={() => sort(text)} className="max-sm:flex-1 md:h-10 md:rounded-[10px]">
-            {busy ? "Sorting…" : "Sort into tasks"}
-          </Button>
-        ) : phase === "listening" ? (
-          <Button size="lg" onClick={stop} aria-label="Stop listening" className="max-sm:flex-1 md:h-10 md:min-w-[120px] md:rounded-[10px]">
-            <StopIcon size={14} />
-            Stop
-          </Button>
-        ) : (
-          <Button size="lg" disabled={busy} onClick={listen} className="gap-2 max-sm:flex-1 md:h-10 md:rounded-[10px]">
-            <Orb size={20} />
-            Speak again
-          </Button>
-        )}
-        <Button size="lg" variant="primary" disabled={!n || busy} onClick={add} className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
-          {n ? `Add ${n} ${n === 1 ? "task" : "tasks"}` : "Add tasks"}
-          {n > 0 && !busy && (
-            <span className="pointer-coarse:hidden">
-              <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] bg-on-primary/18 px-1.5 font-sans text-caption-2 font-medium">↵</kbd>
-            </span>
-          )}
-        </Button>
-      </div>
-      {/* Phones: the language and typing, quietly under the buttons. */}
-      {(languageButton || typeButton) && (
-        <div className="flex flex-none justify-center gap-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
-          {languageButton}
-          {typeButton}
+            <footer className="flex min-h-16 flex-none items-center gap-2 border-t border-line px-5 py-3">
+              {confirming ? (
+                <>
+                  <span className="min-w-0 flex-1 text-body text-ink">Leave without adding {n === 1 ? "this task" : `these ${n} tasks`}?</span>
+                  <Button size="lg" autoFocus onClick={() => setConfirming(false)} className="md:h-10 md:rounded-[10px]">
+                    Keep
+                  </Button>
+                  <Button size="lg" variant="danger-quiet" onClick={close} className="md:h-10 md:rounded-[10px]">
+                    Leave
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {problem?.again && !busy ? (
+                    <Button size="lg" onClick={() => sort(problem.again!)} className="max-sm:flex-1 md:h-10 md:rounded-[10px]">
+                      Try again
+                    </Button>
+                  ) : (
+                    <Button size="lg" disabled={busy} onClick={more} className="gap-2 max-sm:flex-1 md:h-10 md:rounded-[10px]">
+                      {!typing && <Orb size={20} />}
+                      {typing ? "Type more" : n ? "Speak more" : "Speak again"}
+                    </Button>
+                  )}
+                  <span className="flex-1 max-sm:hidden" />
+                  <Button size="lg" variant="primary" disabled={!n || busy} onClick={add} className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
+                    {n ? `Add ${tasks(n)}` : "Add tasks"}
+                    {n > 0 && !busy && (
+                      <span className="pointer-coarse:hidden">
+                        <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] bg-on-primary/18 px-1.5 font-sans text-caption-2 font-medium">↵</kbd>
+                      </span>
+                    )}
+                  </Button>
+                </>
+              )}
+            </footer>
+          </section>
         </div>
       )}
 
       {/* For assistive tech: what state the screen is in, without reading every word as it is heard. */}
       <p role="status" className="sr-only">
-        {busy ? "Sorting into tasks" : phase === "listening" ? "Listening" : problem ? problem.message : n ? `${n} ${n === 1 ? "task" : "tasks"} ready to add` : ""}
+        {busy ? "Sorting into tasks" : phase === "listening" ? "Listening" : problem ? problem.message : n ? `${tasks(n)} ready to add` : ""}
       </p>
 
       {openDayMenu && dayMenu && <Menu anchor={dayMenu.anchor} trigger={dayMenu.trigger} align="end" label="Day" entries={dayEntries(openDayMenu)} onClose={() => setDayMenu(null)} />}
-      {languageMenu && (
-        <Menu
-          anchor={languageMenu.anchor}
-          trigger={languageMenu.trigger}
-          align="end"
-          label="Spoken language"
-          entries={languages.flatMap((l, i): MenuEntry[] => [
-            // The browser's own languages first, then the rest.
-            ...(i > 0 && !l.own && languages[i - 1].own ? [{ separator: true } as const] : []),
-            { label: l.name, onSelect: () => chooseLanguage(l.tag), checked: l.tag === language },
-          ])}
-          onClose={() => setLanguageMenu(null)}
-        />
-      )}
     </div>,
     document.body,
   );

@@ -226,17 +226,102 @@ export function spokenLanguages(): { tag: string; name: string; own: boolean }[]
 
 const LANG_KEY = "hyperanchor:voice-language";
 
-export function readSpokenLanguage(): string {
-  const list = spokenLanguages();
-  try {
-    const saved = localStorage.getItem(LANG_KEY);
-    if (saved && list.some((l) => l.tag === saved)) return saved;
-  } catch {}
-  return list[0]?.tag ?? "en-US";
+type Script = "latin" | "cyrillic" | "greek" | "hebrew" | "arabic" | "devanagari" | "thai" | "kana" | "hangul" | "han";
+
+const SCRIPTS: [Script, RegExp][] = [
+  ["latin", /[A-Za-z\u00C0-\u024F]/g],
+  ["cyrillic", /[\u0400-\u04FF]/g],
+  ["greek", /[\u0370-\u03FF]/g],
+  ["hebrew", /[\u0590-\u05FF]/g],
+  ["arabic", /[\u0600-\u06FF]/g],
+  ["devanagari", /[\u0900-\u097F]/g],
+  ["thai", /[\u0E00-\u0E7F]/g],
+  ["kana", /[\u3040-\u30FF]/g],
+  ["hangul", /[\uAC00-\uD7AF]/g],
+  ["han", /[\u4E00-\u9FFF]/g],
+];
+
+/** The script of the languages that aren't written in Latin letters (the common ones). */
+const SCRIPT_OF: Record<string, Script> = {
+  ru: "cyrillic", uk: "cyrillic", be: "cyrillic", bg: "cyrillic", sr: "cyrillic", mk: "cyrillic", kk: "cyrillic", ky: "cyrillic", mn: "cyrillic",
+  el: "greek", he: "hebrew", ar: "arabic", fa: "arabic", ur: "arabic", hi: "devanagari", mr: "devanagari", ne: "devanagari", th: "thai",
+  ja: "kana", ko: "hangul", zh: "han",
+};
+
+/** The most widely spoken language written in a script, for a person whose browser doesn't list one. */
+const DEFAULT_FOR: Record<Script, string> = {
+  latin: "en-US", cyrillic: "ru-RU", greek: "el-GR", hebrew: "he-IL", arabic: "ar-SA", devanagari: "hi-IN", thai: "th-TH", kana: "ja-JP", hangul: "ko-KR", han: "zh-CN",
+};
+
+/** A region for a bare language ("ru" → "ru-RU"): recognizers are surer with one. */
+const REGION: Record<string, string> = {
+  en: "en-US", es: "es-ES", pt: "pt-BR", fr: "fr-FR", de: "de-DE", it: "it-IT", ru: "ru-RU", uk: "uk-UA", pl: "pl-PL", tr: "tr-TR", nl: "nl-NL", ar: "ar-SA",
+  hi: "hi-IN", zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", he: "he-IL", el: "el-GR", th: "th-TH", sv: "sv-SE", cs: "cs-CZ", da: "da-DK", fi: "fi-FI", nb: "nb-NO",
+  ro: "ro-RO", hu: "hu-HU", bg: "bg-BG", sr: "sr-RS", id: "id-ID", vi: "vi-VN",
+};
+const withRegion = (tag: string) => (tag.includes("-") ? tag : (REGION[tag.toLowerCase()] ?? tag));
+const base = (tag: string) => tag.split("-")[0].toLowerCase();
+
+/** The script most of `text` is written in; null when there is too little to tell. */
+function scriptOf(text: string): Script | null {
+  let total = 0;
+  let best: Script | null = null;
+  let most = 0;
+  const counts = new Map<Script, number>();
+  for (const [script, letters] of SCRIPTS) {
+    const n = text.match(letters)?.length ?? 0;
+    counts.set(script, n);
+    total += n;
+    if (n > most) [best, most] = [script, n];
+  }
+  if (total < 12 || most / total < 0.6) return null;
+  // Japanese is written in kana and Han characters together: any real share of kana means Japanese.
+  if (best === "han" && (counts.get("kana") ?? 0) / total > 0.1) return "kana";
+  return best;
 }
 
-export function saveSpokenLanguage(tag: string) {
+/**
+ * The language someone will most likely speak, without asking them. Browsers can't tell a language from its sound, so
+ * it is read from what the person writes: the script of their latest tasks picks among the languages their browser
+ * lists (someone whose browser is in English but whose tasks are in Russian speaks Russian). With no tasks to go by, it
+ * is the browser's first language.
+ */
+export function guessLanguage(sample: string[]): string {
+  const prefs = typeof navigator !== "undefined" && navigator.languages?.length ? [...navigator.languages] : [typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US"];
+  const text = sample.join(" ");
+  const script = scriptOf(text);
+  if (!script) return withRegion(prefs[0]);
+  const listed = prefs.find((tag) => (SCRIPT_OF[base(tag)] ?? "latin") === script);
+  if (listed) return withRegion(listed);
+  if (script === "cyrillic" && /[іїєґ]/i.test(text) && !/[ыэъё]/i.test(text)) return "uk-UA";
+  return DEFAULT_FOR[script];
+}
+
+/** The language picked in Settings, or null: guess it (the default). */
+export function readLanguageChoice(): string | null {
   try {
-    localStorage.setItem(LANG_KEY, tag);
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved && spokenLanguages().some((l) => l.tag === saved)) return saved;
   } catch {}
+  return null;
+}
+
+/** null: back to guessing. */
+export function saveLanguageChoice(tag: string | null) {
+  try {
+    if (tag) localStorage.setItem(LANG_KEY, tag);
+    else localStorage.removeItem(LANG_KEY);
+  } catch {}
+}
+
+/** The language to listen in: the one picked in Settings, else the guess. */
+export const spokenLanguage = (sample: string[]) => readLanguageChoice() ?? guessLanguage(sample);
+
+/** "Russian", "English": a language's name for Settings. */
+export function languageName(tag: string): string {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(base(tag)) ?? tag;
+  } catch {
+    return tag;
+  }
 }

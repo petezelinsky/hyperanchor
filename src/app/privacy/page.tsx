@@ -30,7 +30,13 @@ export default function PrivacyPage() {
             <Strong>What you say or type on the Speak screen.</Strong> Your browser turns your speech into text, which may involve the browser
             maker’s own speech service (for example Google’s in Chrome or Apple’s in Safari); the sound itself never reaches us. The text, or
             anything you type on that screen, is sent to our server and on to our AI provider to be sorted into tasks. We do not keep the
-            text: only the tasks you choose to add are saved. We do keep a count of how often you use this each day, to apply a daily limit.
+            text: only the tasks you choose to add are saved. We do keep a count of how often you use this each day and of what it costs
+            (in tokens), to apply a daily limit and to show you your usage. On computers the screen also reads how loud the microphone
+            is, to move the sphere to your voice; that is worked out in your browser and is never recorded, sent or kept.
+          </li>
+          <li>
+            <Strong>Your interest in Pro.</Strong> If you ask to be told when Pro opens, we note that with your account, along with the
+            billing you picked. You can take it back in the same window.
           </li>
           <li>
             <Strong>Technical data.</Strong> Basic server logs such as IP address, browser or app version and request times, used to run and

@@ -129,8 +129,14 @@ const anthropic = () => (client ??= new Anthropic({ timeout: 25_000, maxRetries:
 
 export const draftsConfigured = () => !!process.env.ANTHROPIC_API_KEY;
 
-/** Sorts `text` into task drafts. Throws DraftError with what went wrong, in terms the app can tell the person. */
-export async function draftTasks(text: string, today: string, weekStart: WeekStart): Promise<TaskDraft[]> {
+/** What one sorting cost: tokens read (cached ones included) and tokens written. */
+export type DraftUsage = { input: number; output: number };
+
+/**
+ * Sorts `text` into task drafts. Throws DraftError with what went wrong, in terms the app can tell the person.
+ * `onUsage` hears what the call cost as soon as Claude has answered, whether or not the answer turns out usable.
+ */
+export async function draftTasks(text: string, today: string, weekStart: WeekStart, onUsage?: (usage: DraftUsage) => void | Promise<void>): Promise<TaskDraft[]> {
   if (!draftsConfigured()) throw new DraftError("not_configured");
 
   let response: Anthropic.Message;
@@ -161,9 +167,15 @@ export async function draftTasks(text: string, today: string, weekStart: WeekSta
     throw e;
   }
 
-  // What it cost, for the logs (never the words themselves).
+  // What it cost, for the logs and the person's Usage (never the words themselves).
   const u = response.usage;
   console.info(`drafts: ${u.input_tokens} in, ${u.cache_read_input_tokens ?? 0} cached, ${u.output_tokens} out, ${response.stop_reason}`);
+  try {
+    await onUsage?.({ input: u.input_tokens + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0), output: u.output_tokens });
+  } catch (e) {
+    // Counting never stands in the way of the answer.
+    console.error("Couldn't record the usage", e);
+  }
 
   if (response.stop_reason === "refusal") throw new DraftError("refused");
   // Cut off mid-answer: the JSON is incomplete.

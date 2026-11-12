@@ -31,6 +31,10 @@ create table if not exists users (
 
 alter table users enable row level security;
 
+-- Pro isn't open yet: who asked to be told when it is, and which billing they picked ('yearly' or 'monthly').
+alter table users add column if not exists pro_interest text;
+alter table users add column if not exists pro_interest_at timestamptz;
+
 -- Turning text into tasks (voice): how many requests each person made on a day (UTC), and how much text. The daily
 -- allowance is counted here; the words themselves are never stored.
 create table if not exists ai_usage (
@@ -42,3 +46,7 @@ create table if not exists ai_usage (
 );
 
 alter table ai_usage enable row level security;
+
+-- What the sorting cost in tokens (input, cached input included, and output): the account menu's Usage shows the sum.
+alter table ai_usage add column if not exists input_tokens bigint not null default 0;
+alter table ai_usage add column if not exists output_tokens bigint not null default 0;

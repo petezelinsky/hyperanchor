@@ -41,6 +41,14 @@ begin
     );
     alter table ai_usage enable row level security;
   end if;
+  if not exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'ai_usage' and column_name = 'input_tokens') then
+    alter table ai_usage add column if not exists input_tokens bigint not null default 0;
+    alter table ai_usage add column if not exists output_tokens bigint not null default 0;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'users' and column_name = 'pro_interest') then
+    alter table users add column if not exists pro_interest text;
+    alter table users add column if not exists pro_interest_at timestamptz;
+  end if;
 end $$;
 `;
 

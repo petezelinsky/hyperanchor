@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, dayName, formatShort, parseYmd, startOfWeek, ymd } from "@/lib/dates";
 import { DEFAULT_SORT, type Sort } from "@/lib/tasks";
 import type { Task } from "@/lib/types";
-import { ChevronRight, PlusIcon, SortIcon } from "../icons";
+import { ChevronRight, PlusIcon } from "../icons";
 import { motion } from "../motion";
+import { SpeakChip } from "../Toolbar";
 import { Accordion, Kbd, Menu, type Anchor, type MenuEntry } from "../ui";
 import { useDrag } from "../drag";
 import { COLS, TaskRow } from "./TaskRow";
@@ -20,7 +21,6 @@ export function taskMenu(task: Task, todayKey: string, actions: TableActions): M
   return [
     { label: task.done ? "Mark as open" : "Mark as done", shortcut: "Space", onSelect: () => actions.toggle(task) },
     { label: "Edit", shortcut: "↩", onSelect: () => actions.startEdit(task.id, "title") },
-    { label: task.description ? "Edit notes" : "Add notes", onSelect: () => actions.startEdit(task.id, "description") },
     { separator: true },
     { label: "Move to today", disabled: task.date === todayKey, onSelect: () => actions.move(task, todayKey) },
     { label: "Move to tomorrow", disabled: task.date === tomorrow, onSelect: () => actions.move(task, tomorrow) },
@@ -30,108 +30,55 @@ export function taskMenu(task: Task, todayKey: string, actions: TableActions): M
   ];
 }
 
-const SORTS: { label: string; sort: Sort }[] = [
+/** The orders a list can be in (Settings → Task order). */
+export const SORTS: { label: string; sort: Sort }[] = [
   { label: "My order", sort: DEFAULT_SORT },
   { label: "Newest first", sort: { key: "added", dir: "desc" } },
   { label: "Name A–Z", sort: { key: "title", dir: "asc" } },
   { label: "Name Z–A", sort: { key: "title", dir: "desc" } },
 ];
 
-/** A quiet "⇅ My order" button that opens the sort options. */
-export function SortMenu({ sort, onSort, compact = false }: { sort: Sort; onSort: (s: Sort) => void; compact?: boolean }) {
-  const [anchor, setAnchor] = useState<{ rect: Anchor; el: HTMLElement } | null>(null);
-  const current = SORTS.find((s) => s.sort.key === sort.key && s.sort.dir === sort.dir) ?? SORTS[0];
-  return (
-    <>
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={!!anchor}
-        onClick={(e) => {
-          const el = e.currentTarget;
-          setAnchor((a) => (a ? null : { rect: el.getBoundingClientRect(), el }));
-        }}
-        data-tip={`Sort: ${current.label}`}
-        className="tap relative flex h-7 items-center gap-1.5 rounded-sm px-2 text-footnote text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink"
-      >
-        <SortIcon size={13} />
-        <span className={compact ? "sr-only" : ""}>
-          <span className="sr-only">Sort: </span>
-          {current.label}
-        </span>
-      </button>
-      {anchor && (
-        <Menu
-          anchor={anchor.rect}
-          trigger={anchor.el}
-          align="end"
-          label="Sort tasks"
-          onClose={() => setAnchor(null)}
-          entries={[
-            { heading: "Sort by" },
-            ...SORTS.map((s) => ({ label: s.label, checked: s === current, onSelect: () => onSort(s.sort) })),
-          ]}
-        />
-      )}
-    </>
-  );
-}
-
 function ComposerRow({ composer, actions }: { composer: Composer; actions: TableActions }) {
   const titleRef = useRef<HTMLInputElement>(null);
   // The text lives here while it's typed, so a key press redraws this row and nothing else.
-  const [text, setText] = useState({ title: "", description: "" });
-  const change = (patch: Partial<typeof text>) => {
-    setText((t) => ({ ...t, ...patch }));
-    actions.composerChange(patch);
-  };
+  const [title, setTitle] = useState("");
   const rowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    setText({ title: "", description: "" });
+    setTitle("");
     titleRef.current?.focus();
     // The field that was here just became the task; a new one appears in its place.
     rowRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: motion().fast, easing: motion().out });
   }, [composer.nonce]);
 
-  const keys = (e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing) return;
-    if (e.key === "Enter") {
-      e.preventDefault();
-      actions.composerSubmit(true);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      actions.composerCancel();
-    }
-  };
-  const input = "m-0 block w-full bg-transparent p-0 outline-none";
-
   return (
-    <div ref={rowRef} role="row" data-editing="true" className={`relative ${COLS} min-h-[50px] items-start bg-surface-2 md:min-h-12 md:rounded-sm`}>
+    <div ref={rowRef} role="row" data-editing="true" className={`relative ${COLS} min-h-[50px] items-center bg-surface-2 shadow-ring-line-2 md:min-h-12 md:rounded-sm`}>
       <div className="flex h-[50px] items-center md:h-12">
         <span className="size-[18px] rounded-[6px] border-[1.5px] border-check-ring bg-surface" />
       </div>
-      <div className="min-w-0 py-[14px] pr-2 md:py-[13px]">
-        <input
-          ref={titleRef}
-          value={text.title}
-          onChange={(e) => change({ title: e.target.value })}
-          onKeyDown={keys}
-          placeholder="New task"
-          aria-label="New task title"
-          maxLength={500}
-          className={`${input} text-[16px] leading-[22px] md:text-callout`}
-        />
-        <input
-          value={text.description}
-          onChange={(e) => change({ description: e.target.value })}
-          onKeyDown={keys}
-          placeholder="Notes"
-          aria-label="New task notes"
-          maxLength={5000}
-          className={`${input} mt-0.5 text-[16px] leading-5 text-ink-2 md:text-body`}
-        />
-      </div>
+      <input
+        ref={titleRef}
+        value={title}
+        onChange={(e) => {
+          setTitle(e.target.value);
+          actions.composerChange({ title: e.target.value });
+        }}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return;
+          if (e.key === "Enter") {
+            e.preventDefault();
+            actions.composerSubmit(true);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            actions.composerCancel();
+          }
+        }}
+        placeholder="New task"
+        aria-label="New task title"
+        maxLength={500}
+        enterKeyHint="done"
+        className="m-0 block h-full w-full min-w-0 bg-transparent p-0 pr-2 text-[16px] leading-[22px] outline-none md:text-callout"
+      />
       <div className="flex h-[50px] items-center justify-end pr-1.5 md:h-12" data-tip="Enter to add">
         <span className="pointer-coarse:hidden">
           <Kbd>↵</Kbd>
@@ -141,24 +88,24 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
   );
 }
 
-/** The first row of the list: a new task starts here, at the top. Sorting sits at its other end, above the list it sorts. */
-function NewTaskRow({ onClick, sort }: { onClick: () => void; sort?: React.ReactNode }) {
+/** The first row of the list: a new task starts here, at the top; speaking them is the small button at its other end. */
+function NewTaskRow({ onClick, onSpeak }: { onClick: () => void; onSpeak?: () => void }) {
   return (
-    <div className="group/new relative flex h-[50px] items-center pr-2 pl-4 md:h-12 md:pr-1 md:pl-3">
-      <button type="button" onClick={onClick} className="flex h-full min-w-0 flex-1 items-center text-left text-ink-3 transition-colors duration-(--duration-fast) hover:text-ink">
+    <div className="relative flex h-[50px] items-center pr-4 pl-4 md:h-12 md:pr-3 md:pl-3">
+      <button
+        type="button"
+        onClick={onClick}
+        data-tip="New task (N)"
+        className="flex h-full min-w-0 flex-1 items-center text-left text-ink-3 transition-colors duration-(--duration-fast) hover:text-ink"
+      >
         <span className="flex w-[30px] flex-none">
           <span className="flex size-[18px] items-center justify-center rounded-[6px] bg-surface-2 text-ink-2 shadow-ring-line">
-            <PlusIcon size={12} strokeWidth={2} />
+            <PlusIcon size={12} />
           </span>
         </span>
         <span className="text-[16px] leading-[22px] md:text-callout">New task</span>
       </button>
-      <span className="flex flex-none items-center gap-1">
-        {sort}
-        <span className="pr-1.5 pointer-coarse:hidden">
-          <Kbd>N</Kbd>
-        </span>
-      </span>
+      {onSpeak && <SpeakChip onClick={onSpeak} />}
       <span aria-hidden="true" className="pointer-events-none absolute right-4 bottom-0 left-[46px] h-px bg-line md:right-3 md:left-[42px]" />
     </div>
   );
@@ -170,7 +117,7 @@ export function FoldRow({ label, count, open, onToggle }: { label: string; count
     <button type="button" aria-expanded={open} onClick={onToggle} className="group/fold relative flex h-[46px] w-full items-center pr-4 pl-4 text-left md:h-11 md:pr-3 md:pl-3">
       <span className="flex w-[30px] flex-none">
         <span className="flex size-[18px] items-center justify-center rounded-[6px] bg-surface-2 text-ink-2 shadow-ring-line transition-colors duration-(--duration-fast) group-hover/fold:text-ink">
-          <ChevronRight size={12} strokeWidth={2} className={`transition-transform duration-(--duration-fast) ${open ? "rotate-90" : ""}`} />
+          <ChevronRight size={12} className={`transition-transform duration-(--duration-fast) ${open ? "rotate-90" : ""}`} />
         </span>
       </span>
       <span className="flex-1 text-footnote font-medium text-ink-2 transition-colors duration-(--duration-fast) group-hover/fold:text-ink">{label}</span>
@@ -190,6 +137,7 @@ export function TaskTable({
   onCompletedOpen,
   cleared,
   between,
+  onSpeak,
 }: {
   sections: Section[];
   state: TableState;
@@ -205,6 +153,8 @@ export function TaskTable({
   cleared?: React.ReactNode;
   /** Day view: what goes between the open tasks and Done (the tasks still open from earlier days). */
   between?: React.ReactNode;
+  /** Day view: opens the voice screen (the small Speak button beside "New task"). */
+  onSpeak?: () => void;
 }) {
   const [menu, setMenu] = useState<MenuState>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -230,8 +180,6 @@ export function TaskTable({
       onMenu={openMenu}
     />
   );
-  const sort = <SortMenu sort={state.sort} onSort={actions.sort} compact />;
-
   return (
     <div ref={root}>
       <div role="grid" aria-label="Tasks">
@@ -272,7 +220,7 @@ export function TaskTable({
                         onClick={() => actions.openComposer(s.date)}
                         className="tap relative flex size-6 items-center justify-center rounded-[7px] bg-surface text-ink-2 shadow-[inset_0_0_0_1px_var(--line-2)] transition-colors hover:text-ink"
                       >
-                        <PlusIcon size={13} strokeWidth={1.9} />
+                        <PlusIcon size={13} />
                       </button>
                     )}
                   </span>
@@ -282,7 +230,7 @@ export function TaskTable({
               {composing ? (
                 <ComposerRow composer={state.composer!} actions={actions} />
               ) : placeholderRow ? (
-                <NewTaskRow onClick={() => actions.openComposer(s.date)} sort={sort} />
+                <NewTaskRow onClick={() => actions.openComposer(s.date)} onSpeak={onSpeak} />
               ) : null}
               <div data-list="open">
                 {s.tasks.map((t) => row(t, "open"))}

@@ -1,16 +1,19 @@
-// SF Symbols-style line icons (1.6 stroke, 16px grid by default). Decorative: hidden from assistive tech.
+// Line icons on a 16px grid, one family: every icon is drawn with the same hairline, 1.25px on screen whatever its
+// size (the stroke doesn't scale with the icon; see `svg[data-icon]` in globals.css), with round caps and joins.
+// Decorative: hidden from assistive tech.
 
-type IconProps = { size?: number; className?: string; strokeWidth?: number };
+type IconProps = { size?: number; className?: string };
 
-function Svg({ size = 16, className, strokeWidth = 1.6, children }: IconProps & { children: React.ReactNode }) {
+function Svg({ size = 16, className, children }: IconProps & { children: React.ReactNode }) {
   return (
     <svg
+      data-icon=""
       width={size}
       height={size}
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeWidth={strokeWidth}
+      strokeWidth={1.25}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -28,28 +31,25 @@ export const SunIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const WeekIcon = (p: IconProps) => (
+export const MoonIcon = (p: IconProps) => (
   <Svg {...p}>
-    <rect x="1.8" y="2.6" width="12.4" height="10.8" rx="2.2" />
-    <path d="M6 2.6v10.8M10 2.6v10.8" />
+    <path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8Z" />
   </Svg>
 );
 
-// Week, Month and Analytics share one rounded frame and differ only inside it, so the set reads as one family.
-
-/** Month: the shared frame with a header band and two binder rings. */
-export const CalendarIcon = (p: IconProps) => (
+/** Home: the planner itself (the day, the week, the month). */
+export const HomeIcon = (p: IconProps) => (
   <Svg {...p}>
-    <rect x="1.8" y="2.6" width="12.4" height="10.8" rx="2.2" />
-    <path d="M1.8 6.4h12.4M5.2 1.2v2.6M10.8 1.2v2.6" />
+    <path d="M2.5 7.3 8 2.6l5.5 4.7v5.2a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1Z" />
+    <path d="M6.4 13.5V9.8h3.2v3.7" />
   </Svg>
 );
 
-/** Analytics: the shared frame with three bars standing on its bottom edge. */
+/** Progress: three bars in a rounded frame. */
 export const ChartIcon = (p: IconProps) => (
   <Svg {...p}>
-    <rect x="1.8" y="2.6" width="12.4" height="10.8" rx="2.2" />
-    <path d="M5.2 13.4V9.6M8 13.4V6.2M10.8 13.4V8.2" />
+    <rect x="2" y="2.5" width="12" height="11" rx="2.4" />
+    <path d="M5.3 10.6V8.6M8 10.6V5.4M10.7 10.6V7.2" />
   </Svg>
 );
 
@@ -96,14 +96,17 @@ export const ChevronUp = (p: IconProps) => (
 
 export const PlusIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M8 2.8v10.4M2.8 8h10.4" />
+    <path d="M8 3v10M3 8h10" />
   </Svg>
 );
 
-export const EllipsisIcon = (p: IconProps) => (
-  <Svg {...p} strokeWidth={2.2}>
-    <path d="M3.5 8h.01M8 8h.01M12.5 8h.01" />
-  </Svg>
+/** More: three dots. */
+export const EllipsisIcon = ({ size = 16, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" className={className}>
+    <circle cx="3.6" cy="8" r="0.95" />
+    <circle cx="8" cy="8" r="0.95" />
+    <circle cx="12.4" cy="8" r="0.95" />
+  </svg>
 );
 
 export const XIcon = (p: IconProps) => (
@@ -125,6 +128,21 @@ export const ArrowRightIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Back: an arrow to the left. */
+export const ArrowLeftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M13 8H3M7 4 3 8l4 4" />
+  </Svg>
+);
+
+/** Back to the present (today, this week, this month): an arrow that turns round. */
+export const ReturnIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 6.2h6.7a3.4 3.4 0 0 1 0 6.8H6.5" />
+    <path d="M5.6 3.6 3 6.2l2.6 2.6" />
+  </Svg>
+);
+
 export const TrashIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M2.8 4.3h10.4M6.4 4.3V3a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v1.3M4.2 4.3l.6 8.6a1.3 1.3 0 0 0 1.3 1.2h3.8a1.3 1.3 0 0 0 1.3-1.2l.6-8.6" />
@@ -137,17 +155,11 @@ export const SignOutIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const ListIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M6 4h7.5M6 8h7.5M6 12h7.5M2.6 4h.01M2.6 8h.01M2.6 12h.01" />
-  </Svg>
-);
-
-/** Checkmark sized for checkboxes. */
-export function CheckIcon({ size = 10, className, strokeWidth = 2 }: IconProps) {
+/** Checkmark sized for checkboxes: a touch firmer than the line icons, so it reads inside a small filled box. */
+export function CheckIcon({ size = 10, className }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 10 10" aria-hidden="true" className={className}>
-      <path d="M2 5.3 4.1 7.3 8 3" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    <svg data-icon="" width={size} height={size} viewBox="0 0 10 10" aria-hidden="true" className={className}>
+      <path d="M2 5.3 4.1 7.3 8 3" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -196,39 +208,27 @@ export const SortIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const MoonIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8Z" />
-  </Svg>
-);
-
-/** Focus mode: a viewfinder framing one point. */
+/** Focus mode: a target, one thing in the middle. */
 export const FocusIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M2.5 5.6V4.3c0-1 .8-1.8 1.8-1.8h1.3M10.4 2.5h1.3c1 0 1.8.8 1.8 1.8v1.3M13.5 10.4v1.3c0 1-.8 1.8-1.8 1.8h-1.3M5.6 13.5H4.3c-1 0-1.8-.8-1.8-1.8v-1.3" />
-    <circle cx="8" cy="8" r="2.1" fill="currentColor" stroke="none" />
+    <circle cx="8" cy="8" r="5.8" />
+    <circle cx="8" cy="8" r="2.6" />
+    <circle cx="8" cy="8" r="0.5" fill="currentColor" />
   </Svg>
 );
 
 /** The sidebar: a panel with its edge (hide it, show it). */
 export const SidebarIcon = (p: IconProps) => (
   <Svg {...p}>
-    <rect x="1.8" y="2.6" width="12.4" height="10.8" rx="2.2" />
-    <path d="M6 2.6v10.8M3.7 5.3h.6M3.7 7.4h.6" />
+    <rect x="2" y="2.5" width="12" height="11" rx="2.4" />
+    <path d="M6.2 2.5v11" />
   </Svg>
 );
 
-/** Up and down: a button that opens a short list of choices (the account). */
-export const SelectorIcon = (p: IconProps) => (
+/** Open in full: an arrow up and to the right. */
+export const OpenIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M5.3 6.2 8 3.6l2.7 2.6M5.3 9.8 8 12.4l2.7-2.6" />
-  </Svg>
-);
-
-/** Back: an arrow to the left. */
-export const ArrowLeftIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M13 8H3M7.2 3.8 3 8l4.2 4.2" />
+    <path d="M5 11 11 5M6.2 5H11v4.8" />
   </Svg>
 );
 
@@ -236,7 +236,7 @@ export const ArrowLeftIcon = (p: IconProps) => (
 export function StopIcon({ size = 12, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 12 12" fill="currentColor" aria-hidden="true" className={className}>
-      <rect x="2" y="2" width="8" height="8" rx="2" />
+      <rect x="2.5" y="2.5" width="7" height="7" rx="1.8" />
     </svg>
   );
 }
@@ -251,8 +251,8 @@ export const CloudOffIcon = (p: IconProps) => (
 /** A stopwatch, for the focus timer. */
 export const TimerIcon = (p: IconProps) => (
   <Svg {...p}>
-    <circle cx="8" cy="9" r="5.2" />
-    <path d="M8 6.4V9l1.6 1.2M6.4 1.8h3.2" />
+    <circle cx="8" cy="9" r="5" />
+    <path d="M8 6.4V9l1.7 1.1M6.5 1.8h3" />
   </Svg>
 );
 

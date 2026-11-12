@@ -109,13 +109,13 @@ function SwipeActions({ dx, done }: { dx: number; done: boolean }) {
       <span className={`flex items-center gap-2 transition-transform duration-(--duration-fast) ${past ? "scale-110" : "scale-90 opacity-80"}`}>
         {right ? (
           <>
-            <CheckIcon size={13} strokeWidth={2.4} />
+            <CheckIcon size={13} />
             {done ? "Open" : "Done"}
           </>
         ) : (
           <>
             Tomorrow
-            <ArrowRightIcon size={14} strokeWidth={2.2} />
+            <ArrowRightIcon size={14} />
           </>
         )}
       </span>
@@ -123,7 +123,10 @@ function SwipeActions({ dx, done }: { dx: number; done: boolean }) {
   );
 }
 
-/** A task in a list or on the week board. Memoized: a change to one task redraws its row, not the whole list. */
+/**
+ * A task in a list or on the week board: its box and its title (notes aren't shown on the web for now; they stay with
+ * the task). Memoized: a change to one task redraws its row, not the whole list.
+ */
 export const TaskRow = memo(function TaskRow({
   task,
   selected,
@@ -143,9 +146,8 @@ export const TaskRow = memo(function TaskRow({
   actions: TableActions;
   onMenu: (task: Task, anchor: DOMRect | { x: number; y: number }, trigger?: HTMLElement) => void;
 }) {
-  const titleRef = useFocusEnd(editingField === "title");
-  const notesRef = useFocusEnd(editingField === "description");
   const editing = editingField !== null;
+  const titleRef = useFocusEnd(editing);
   const drag = useDrag();
   const lifted = drag.dragging?.id === task.id;
   const card = variant === "card";
@@ -154,18 +156,15 @@ export const TaskRow = memo(function TaskRow({
     () => actions.move(task, tomorrow),
   );
 
-  const keys = (field: Field) => (e: React.KeyboardEvent) => {
+  const keys = (e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return;
     if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
       actions.cancelEdit();
-    } else if (e.key === "Enter" && (field === "title" || !e.shiftKey)) {
+    } else if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
       actions.finishEdit();
-    } else if (e.key === "Tab") {
-      e.preventDefault();
-      actions.startEdit(task.id, field === "title" ? "description" : "title");
     }
   };
 
@@ -175,60 +174,27 @@ export const TaskRow = memo(function TaskRow({
   const titleText = card ? "text-footnote" : "text-[16px] leading-[22px] md:text-callout";
   // Cards are narrow: long words hyphenate rather than break mid-word.
   // (line-clamp brings its own display, so it never goes with `block`.)
-  // A picked task shows its title whole; otherwise one line in lists (its notes beside it), two on cards.
-  const titleFit = selected ? "block w-full break-words hyphens-calm" : card && !compact ? "line-clamp-2 w-full break-words hyphens-calm" : card ? "block w-full truncate" : "min-w-0 flex-[0_1_auto] truncate";
+  // A picked task shows its title whole; otherwise one line in lists, two on cards.
+  const titleFit = selected ? "block w-full break-words hyphens-calm" : card && !compact ? "line-clamp-2 w-full break-words hyphens-calm" : "block w-full truncate";
   const titleCls = `${titleFit} ${titleText} transition-colors duration-(--duration-base) ${task.done ? "text-ink-3" : "text-ink"}`;
-  const notesText = card ? "text-caption" : "text-body";
-  // A picked task shows its notes in full (while its title is edited too); otherwise one quiet line.
-  const notesCls = `${notesText} ${selected ? "block w-full break-words whitespace-pre-line text-ink-2" : card ? "block w-full truncate text-ink-3" : "min-w-0 flex-[1_1_0] truncate text-ink-3"}`;
 
   // The first click picks a task and shows it whole; a click on the picked task, Enter or a double click edits it.
-  const editOnClick = (field: Field) => () => {
-    if (selected) actions.startEdit(task.id, field);
-  };
-  const title =
-    editingField === "title" ? (
-      <AutoTextarea
-        ref={titleRef}
-        value={task.title}
-        onChange={(e) => actions.change(task.id, { title: e.target.value.replace(/\n/g, " ") })}
-        onKeyDown={keys("title")}
-        aria-label="Task title"
-        maxLength={500}
-        dir="auto"
-        className={`${titleText} text-ink`}
-      />
-    ) : (
-      <span dir="auto" className={titleCls} onClick={editOnClick("title")} onDoubleClick={() => actions.startEdit(task.id, "title")}>
-        {task.title}
-      </span>
-    );
-
-  // One notes element: under the title in narrow tables and cards, in its own column from @2xl.
-  // A task without notes shows none; while it's being edited, a quiet "Notes" invites one (Tab gets there too).
-  const showNotes = (!!task.description || editing) && !compact;
-  const notes =
-    editingField === "description" ? (
-      <AutoTextarea
-        ref={notesRef}
-        value={task.description}
-        onChange={(e) => actions.change(task.id, { description: e.target.value })}
-        onKeyDown={keys("description")}
-        placeholder="Notes"
-        aria-label="Notes"
-        maxLength={5000}
-        dir="auto"
-        className={`${notesText} text-ink`}
-      />
-    ) : task.description ? (
-      <span dir="auto" className={notesCls} onClick={editOnClick("description")} onDoubleClick={() => actions.startEdit(task.id, "description")}>
-        {selected ? task.description : task.description.replace(/\s*\n\s*/g, " · ")}
-      </span>
-    ) : (
-      <span className={`block ${notesText} cursor-text text-ink-3`} onClick={() => actions.startEdit(task.id, "description")}>
-        Notes
-      </span>
-    );
+  const title = editing ? (
+    <AutoTextarea
+      ref={titleRef}
+      value={task.title}
+      onChange={(e) => actions.change(task.id, { title: e.target.value.replace(/\n/g, " ") })}
+      onKeyDown={keys}
+      aria-label="Task title"
+      maxLength={500}
+      dir="auto"
+      className={`${titleText} text-ink`}
+    />
+  ) : (
+    <span dir="auto" className={titleCls} onClick={() => selected && actions.startEdit(task.id, "title")} onDoubleClick={() => actions.startEdit(task.id, "title")}>
+      {task.title}
+    </span>
+  );
 
   const checkbox = (
     <Checkbox
@@ -242,6 +208,7 @@ export const TaskRow = memo(function TaskRow({
       className={card ? "mt-px" : ""}
     />
   );
+  // ⋯ waits for the pointer; under it, it becomes a white tile with an edge, so it shows on any row (done ones too).
   const menu = (
     <IconButton
       label="More actions"
@@ -251,7 +218,9 @@ export const TaskRow = memo(function TaskRow({
         actions.select(task.id);
         onMenu(task, e.currentTarget.getBoundingClientRect(), e.currentTarget);
       }}
-      className={`${card ? "size-6 rounded-sm bg-surface-2 group-aria-selected/row:bg-surface-3 hover:bg-surface-3 after:pointer-events-none after:absolute after:inset-y-0 after:right-full after:w-3 after:bg-linear-to-l after:from-surface-2 after:to-transparent group-aria-selected/row:after:from-surface-3 " : ""}${selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}`}
+      className={`text-ink-2! hover:bg-surface! hover:text-ink! hover:shadow-[inset_0_0_0_1px_var(--line-2)] ${
+        card ? "size-6 bg-surface-2 group-aria-selected/row:bg-surface-3 " : ""
+      }${selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}`}
     >
       <EllipsisIcon size={card ? 14 : 16} />
     </IconButton>
@@ -278,7 +247,7 @@ export const TaskRow = memo(function TaskRow({
         // A line of the day, like a row in the Day list: no card until it's picked up.
         className={`group/row relative rounded-sm ${compact ? "py-[5px]" : "py-1.5"} px-1.5 transition-[background-color,box-shadow,opacity] duration-(--duration-fast) ${
           lifted ? "opacity-35" : ""
-        } ${selected || editing ? "bg-surface-3 shadow-ring-line-2" : "hover:bg-surface-2 hover:shadow-ring-line"}`}
+        } ${selected || editing ? "bg-surface-3 shadow-ring-line-2" : "hover:bg-surface-2 hover:shadow-ring-line-2"}`}
       >
         <div className="flex items-start gap-2">
           <div role="gridcell" className="flex-none">
@@ -287,7 +256,6 @@ export const TaskRow = memo(function TaskRow({
           {/* The ⋯ button shows over the corner on hover, so titles keep the card's full width (touch keeps room for it). */}
           <div role="gridcell" className="min-w-0 flex-1 pointer-coarse:pr-5">
             {title}
-            {showNotes && <div className="mt-0.5">{notes}</div>}
           </div>
         </div>
         <div role="gridcell" className="absolute top-1 right-1">
@@ -297,7 +265,6 @@ export const TaskRow = memo(function TaskRow({
     );
   }
 
-  const inline = !selected && !editing;
   return (
     <div
       {...common}
@@ -307,11 +274,13 @@ export const TaskRow = memo(function TaskRow({
         swipeHandlers.onPointerDown(e);
       }}
       style={{ touchAction: "pan-y" }}
-      // Rows are divided by hairlines that start where the text starts. A hovered row turns into a soft box (no line),
-      // a picked one into a box outlined in the line color. It clips only while swiped (so the menu button's touch area
-      // can reach past its edge).
+      // Rows are divided by hairlines that start where the text starts. Under the pointer a row becomes a soft box with
+      // an edge (its ring covers the hairlines around it); a picked one is a shade darker. It clips only while swiped (so
+      // the menu button's touch area can reach past its edge).
       className={`group/row relative transition-[background-color,box-shadow,opacity] duration-(--duration-fast) md:rounded-sm ${dx !== 0 ? "overflow-hidden" : ""} after:pointer-events-none after:absolute after:right-4 after:bottom-0 after:left-[46px] after:h-px after:bg-line md:after:right-3 md:after:left-[42px] ${
-        selected || editing ? "bg-surface-3 shadow-ring-line-2 after:opacity-0" : "pointer-fine:hover:bg-surface-2 pointer-fine:hover:after:opacity-0"
+        selected || editing
+          ? "z-[1] bg-surface-3 shadow-ring-line-2 after:opacity-0"
+          : "pointer-fine:hover:z-[1] pointer-fine:hover:bg-surface-2 pointer-fine:hover:shadow-ring-line-2 pointer-fine:hover:after:opacity-0"
       } ${lifted ? "opacity-35" : ""}`}
     >
       {dx !== 0 && <SwipeActions dx={dx} done={task.done} />}
@@ -326,17 +295,7 @@ export const TaskRow = memo(function TaskRow({
           {checkbox}
         </div>
         <div role="gridcell" className="col-start-2 row-start-1 min-w-0 py-[14px] pr-2 md:py-[13px]">
-          {inline ? (
-            <div className="flex min-w-0 items-baseline gap-2.5">
-              {title}
-              {task.description && notes}
-            </div>
-          ) : (
-            <>
-              {title}
-              {showNotes && <div className="mt-1">{notes}</div>}
-            </>
-          )}
+          {title}
         </div>
         <div role="gridcell" className="col-start-3 row-start-1 flex h-[50px] items-center justify-end md:h-12">
           {menu}

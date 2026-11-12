@@ -4,12 +4,16 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
 import type { WeekStart } from "@/lib/dates";
+import type { Sort } from "@/lib/tasks";
 import type { AppUser } from "@/lib/types";
 import { Avatar } from "./Avatar";
-import { ArrowLeftIcon, ChevronRight, DownloadIcon, SignOutIcon, XIcon } from "./icons";
-import { applyTheme, readTheme, type Theme } from "./prefs";
+import { ArrowLeftIcon, ChevronDown, ChevronRight, DownloadIcon, SignOutIcon, XIcon } from "./icons";
+import { applyTheme, readSounds, readTheme, saveSounds, type Theme } from "./prefs";
+import { SORTS } from "./table/TaskTable";
 import { THEMES } from "./ThemeSwitch";
-import { Button, buttonClass, IconButton, Kbd, Modal, SegmentedControl } from "./ui";
+import { Button, buttonClass, IconButton, Kbd, Menu, Modal, SegmentedControl, type MenuEntry } from "./ui";
+import { canListen, guessLanguage, languageName, readLanguageChoice, saveLanguageChoice, spokenLanguages } from "./voice/dictation";
+import { primeSound, soundReady } from "./voice/sound";
 
 type Page = "settings" | "shortcuts" | "account";
 
@@ -43,7 +47,6 @@ function shortcuts(voice: boolean): { title: string; items: [string, string][] }
         [`${mac ? "⌥" : "Alt"} ↑ ↓`, "Move it up or down"],
         ["Space", "Complete"],
         ["↵", "Edit the title"],
-        ["Tab", "Title or notes"],
         ["⌫", "Delete"],
         ["Esc", "Cancel or deselect"],
       ],
@@ -61,29 +64,41 @@ function shortcuts(voice: boolean): { title: string; items: [string, string][] }
 }
 
 /**
- * Settings: a window. Sections are named, not painted: General (appearance, the first day of the week, the keyboard
- * shortcuts on computers), your data, and the account, which opens one level down (where deleting it lives, at the very
- * end). Signing out sits at the foot. Every change applies at once.
+ * Settings: a window. Sections are named, not painted: General (appearance, the first day of the week, the order of
+ * tasks, sounds, the keyboard shortcuts on computers), Voice (the spoken language: worked out by itself unless one is
+ * named here), your data, and the account, which opens one level down (where deleting it lives, at the very end).
+ * Signing out sits at the foot. Every change applies at once.
  */
 export function SettingsSheet({
   tab,
   user,
   weekStart,
   onWeekStart,
+  sort,
+  onSort,
   voice,
+  sample,
   onClose,
 }: {
   tab: SettingsTab;
   user: AppUser;
   weekStart: WeekStart;
   onWeekStart: (w: WeekStart) => void;
-  /** Whether the Speak screen is offered (its shortcut is listed only then). */
+  sort: Sort;
+  onSort: (s: Sort) => void;
+  /** Whether the Speak screen is offered (its settings and its shortcut are listed only then). */
   voice: boolean;
+  /** The person's latest task titles: what the spoken language is guessed from. */
+  sample: string[];
   onClose: () => void;
 }) {
   const [page, setPage] = useState<Page>(tab === "shortcuts" ? "shortcuts" : "settings");
   const [theme, setTheme] = useState<Theme>(readTheme);
+  const [sounds, setSounds] = useState(readSounds);
+  const [language, setLanguage] = useState(readLanguageChoice);
   const [signingOut, startSignOut] = useTransition();
+  const order = SORTS.find((o) => o.sort.key === sort.key && o.sort.dir === sort.dir) ?? SORTS[0];
+  const guessed = languageName(guessLanguage(sample));
   // Opened straight on the shortcuts (?), Back closes; from Settings, it goes back to Settings.
   const back = tab === "shortcuts" && page === "shortcuts" ? null : () => setPage("settings");
   const title = page === "shortcuts" ? "Keyboard shortcuts" : page === "account" ? "Account" : "Settings";
@@ -118,7 +133,7 @@ export function SettingsSheet({
                 className="w-[176px]"
               />
             </Row>
-            <Row title="Week starts on" hint="In Week, Month and Progress." last>
+            <Row title="Week starts on" hint="In Week, Month and Progress.">
               <SegmentedControl
                 label="Week starts on"
                 value={weekStart === 0 ? "sunday" : "monday"}
@@ -130,9 +145,67 @@ export function SettingsSheet({
                 className="w-[176px]"
               />
             </Row>
+            <Row title="Task order" hint={order.sort.key === "manual" ? "Yours: drag tasks to arrange them." : "Dragging is off while tasks are sorted."}>
+              <Pick label="Task order" value={order.label} entries={SORTS.map((o) => ({ label: o.label, checked: o === order, onSelect: () => onSort(o.sort) }))} />
+            </Row>
+            <Row title="Sounds" hint="Small cues: listening, tasks ready, the focus timer." last>
+              <SegmentedControl
+                label="Sounds"
+                value={sounds ? "on" : "off"}
+                options={[
+                  { value: "on", label: "On" },
+                  { value: "off", label: "Off" },
+                ]}
+                onChange={(v) => {
+                  saveSounds(v === "on");
+                  setSounds(v === "on");
+                  // Turning them on lets you hear what they are like.
+                  if (v === "on") {
+                    primeSound();
+                    soundReady();
+                  }
+                }}
+                className="w-[176px]"
+              />
+            </Row>
             <div className="pointer-coarse:hidden">
               <Go title="Keyboard shortcuts" onClick={() => setPage("shortcuts")} top />
             </div>
+
+            {voice && canListen() && (
+              <>
+                <Band>Voice</Band>
+                <Row
+                  title="Spoken language"
+                  hint={language ? "Always listens in this language." : `Worked out from your tasks and your browser: ${guessed} right now.`}
+                  last
+                >
+                  <Pick
+                    label="Spoken language"
+                    value={language ? languageName(language) : "Automatic"}
+                    entries={[
+                      {
+                        label: "Automatic",
+                        checked: !language,
+                        onSelect: () => {
+                          saveLanguageChoice(null);
+                          setLanguage(null);
+                        },
+                      },
+                      { separator: true },
+                      ...spokenLanguages().map((l) => ({
+                        label: l.name,
+                        checked: l.tag === language,
+                        onSelect: () => {
+                          saveLanguageChoice(l.tag);
+                          setLanguage(l.tag);
+                        },
+                      })),
+                    ]}
+                  />
+                </Row>
+              </>
+            )}
 
             <Band>Your data</Band>
             <Row title="Export tasks" hint="Every task, as a CSV file." last>
@@ -205,6 +278,29 @@ export function SettingsSheet({
   );
 }
 
+/** A choice among several: a button with the current one, which opens the list. */
+function Pick({ label, value, entries }: { label: string; value: string; entries: MenuEntry[] }) {
+  const [menu, setMenu] = useState<{ anchor: DOMRect; trigger: HTMLElement } | null>(null);
+  return (
+    <>
+      <Button
+        aria-haspopup="menu"
+        aria-expanded={!!menu}
+        aria-label={`${label}: ${value}. Change`}
+        onClick={(e) => {
+          const trigger = e.currentTarget;
+          setMenu((m) => (m ? null : { anchor: trigger.getBoundingClientRect(), trigger }));
+        }}
+        className="min-w-[176px] flex-none justify-between gap-2 pr-2 pl-3"
+      >
+        <span className="truncate">{value}</span>
+        <ChevronDown size={12} className="flex-none text-ink-3" />
+      </Button>
+      {menu && <Menu anchor={menu.anchor} trigger={menu.trigger} align="end" label={label} className="max-h-[min(60vh,420px)] min-w-[176px] overflow-y-auto" entries={entries} onClose={() => setMenu(null)} />}
+    </>
+  );
+}
+
 /** A section's name: small capitals, no color. */
 function Band({ children }: { children: React.ReactNode }) {
   return <div className="px-4 pt-5 pb-1.5 text-caption-2 font-semibold tracking-[0.06em] text-ink-3 uppercase md:px-6">{children}</div>;
@@ -226,7 +322,7 @@ function Go({ title, hint, lead, onClick, top = false, last = false }: { title: 
         </span>
       </span>
       <span aria-hidden="true" className="flex size-7 flex-none items-center justify-center rounded-[7px] text-ink-2 shadow-[inset_0_0_0_1px_var(--line-2)] transition-colors group-hover:text-ink">
-        <ChevronRight size={14} strokeWidth={1.8} />
+        <ChevronRight size={14} />
       </span>
     </button>
   );
