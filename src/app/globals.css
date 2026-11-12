@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — minimal: neutral grays, black for primary actions, and one blue accent used
- * sparingly (today, completion, progress, data). (The orange and green accents in the token block serve the iOS
- * app's accent setting; the web stays blue.) Red is reserved for destructive actions and drops,
+ * Design tokens — black and white: neutral grays, black for primary actions, and the accent (today, completion,
+ * progress, data) is graphite, ink itself (html[data-accent="graphite"]). (The blue, orange and green accents in the
+ * token block serve the iOS app's accent setting.) Red is reserved for destructive actions and drops,
  * green for rises. Translucent glass only on floating chrome.
  * Theme: html[data-theme] is "light" or "dark" — set before first paint from the saved choice (until there is one,
  * the device's setting; see prefs.ts). Components use the tokens through the Tailwind theme below.
@@ -94,6 +94,20 @@
   --heat-4: #138a40;
 }
 
+:root[data-accent="graphite"] {
+  --accent: #171717;
+  --accent-solid: #171717;
+  --accent-hover: #2e2e2e;
+  --accent-ink: #171717;
+  --accent-soft: #f2f2f2;
+  --accent-track: #e2e2e2;
+  --heat-1: #d4d4d4;
+  --heat-2: #a3a3a3;
+  --heat-3: #6b6b6b;
+  --heat-4: #262626;
+  --on-accent: #ffffff;
+}
+
 :root[data-theme="dark"] {
   color-scheme: dark;
 
@@ -164,6 +178,20 @@
   --heat-2: #1a4f31;
   --heat-3: #25854b;
   --heat-4: #36c46c;
+}
+
+:root[data-theme="dark"][data-accent="graphite"] {
+  --accent: #ededed;
+  --accent-solid: #ededed;
+  --accent-hover: #ffffff;
+  --accent-ink: #ededed;
+  --accent-soft: #242424;
+  --accent-track: #2e2e2e;
+  --heat-1: #3a3a3a;
+  --heat-2: #5e5e5e;
+  --heat-3: #9a9a9a;
+  --heat-4: #e6e6e6;
+  --on-accent: #141414;
 }
 
 @theme {
@@ -357,16 +385,6 @@
 }
 :root[data-dragging] [data-task-row][aria-selected="false"]:hover::after {
   opacity: 1;
-}
-
-/* Focus: the sidebar and the tab bar step back while one task is on screen, and return under the pointer or keyboard. */
-[data-focus] aside,
-[data-focus] nav[aria-label="Views"] {
-  transition: opacity 0.4s var(--ease-out);
-}
-[data-focus="on"] aside:not(:hover, :focus-within),
-[data-focus="on"] nav[aria-label="Views"]:not(:hover, :focus-within) {
-  opacity: 0.28;
 }
 
 /*

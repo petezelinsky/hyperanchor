@@ -1,93 +1,148 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, PlusIcon, SphereIcon } from "./icons";
-import { Button } from "./ui";
+import { ChevronDown, ChevronLeft, ChevronRight } from "./icons";
+import { Orb } from "./voice/Orb";
 
 /**
- * Header of a view: title + subtitle on the left, controls on the right.
- * Sticky on desktop; once the sheet scrolls (main[data-scrolled]) it turns into frosted glass.
+ * The head of a view's column: the title with its date beside it (never under it), and the few controls that go with
+ * it. Counts live elsewhere (the sidebar's Progress). On computers it stays at the top while the list scrolls.
+ * `onTitle` makes the title a button (phones: Day's title opens the calendar).
  */
-export function Toolbar({
+export function ViewHead({
   title,
-  subtitle,
-  children,
-  wide = false,
+  soft,
+  right,
+  below,
+  onTitle,
+  titleOpen = false,
+  titleButton = "always",
 }: {
   title: React.ReactNode;
-  subtitle?: React.ReactNode;
-  children?: React.ReactNode;
-  /** Full width (calendar, analytics) instead of the reading column. */
-  wide?: boolean;
+  /** The quiet part beside the title: a date, a range, the year. */
+  soft?: React.ReactNode;
+  right?: React.ReactNode;
+  below?: React.ReactNode;
+  onTitle?: () => void;
+  titleOpen?: boolean;
+  /** "phone": the title opens something on phones only. */
+  titleButton?: "always" | "phone";
 }) {
+  const heading = (
+    <>
+      <h1 className="truncate font-display text-[24px] leading-[30px] font-bold tracking-[-0.026em] md:text-title md:tracking-[-0.028em]">{title}</h1>
+      {soft && <span className="tabular truncate text-body font-medium whitespace-nowrap text-ink-3 md:text-headline md:font-medium">{soft}</span>}
+    </>
+  );
   return (
-    <div className="relative z-20 px-4 pt-5 pb-3 transition-[background-color,box-shadow] duration-(--duration-fast) md:sticky md:top-0 md:px-8 md:pt-6 md:pb-4 md:border-b md:border-transparent md:group-data-[scrolled=true]/sheet:glass md:group-data-[scrolled=true]/sheet:border-line">
-      {/* min width: on narrow screens the controls wrap below the title instead of squeezing it. */}
-      <div className={`mx-auto flex flex-wrap items-center gap-x-4 gap-y-3 ${wide ? "" : "max-w-[1120px]"}`}>
-        <div className="min-w-[220px] flex-1">
-          <h1 className="truncate font-display text-title font-bold">{title}</h1>
-          {subtitle && <p className="tabular mt-0.5 flex items-center gap-1.5 truncate text-footnote text-ink-2">{subtitle}</p>}
-        </div>
-        {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+    <div className="relative z-20 bg-surface md:sticky md:top-0">
+      <div className="flex min-h-16 items-center justify-between gap-3 border-b border-line px-4 py-2.5 md:min-h-[84px] md:px-3 md:pt-[22px] md:pb-[18px]">
+        {onTitle && titleButton === "phone" && <div className="flex min-w-0 items-baseline gap-2.5 max-md:hidden">{heading}</div>}
+        {onTitle ? (
+          <button
+            type="button"
+            onClick={onTitle}
+            aria-haspopup="dialog"
+            aria-expanded={titleOpen}
+            className={`tap relative flex min-w-0 items-baseline gap-2 text-left md:gap-2.5 ${titleButton === "phone" ? "md:hidden" : ""}`}
+          >
+            {heading}
+            <span
+              aria-hidden="true"
+              className={`flex size-[22px] flex-none items-center justify-center self-center rounded-[6px] transition-colors duration-(--duration-fast) ${
+                titleOpen ? "bg-primary text-on-primary" : "bg-surface-2 text-ink-2 shadow-ring-line"
+              }`}
+            >
+              <ChevronDown size={12} strokeWidth={2} className={`transition-transform duration-(--duration-fast) ${titleOpen ? "rotate-180" : ""}`} />
+            </span>
+          </button>
+        ) : (
+          <div className="flex min-w-0 items-baseline gap-2 md:gap-2.5">{heading}</div>
+        )}
+        {right && <div className="flex flex-none items-center gap-2">{right}</div>}
       </div>
+      {below}
     </div>
   );
 }
 
 /**
- * ‹ Today ›: quiet on purpose — plain chevrons and a text button, no frame — so it never competes with the view's
- * real actions (Focus, New task). "Today" greys out while today is already on screen.
+ * ‹ ›: one framed group, so the arrows have a home. Away from today (this week, this month) the way back sits between
+ * them.
  */
-export function NavGroup({
-  onPrev,
-  onNext,
-  onToday,
-  todayLabel = "Today",
+export function Stepper({
   prevLabel,
   nextLabel,
-  todayDisabled = false,
+  onPrev,
+  onNext,
+  todayLabel,
+  onToday,
   nextDisabled = false,
 }: {
-  onPrev: () => void;
-  onNext: () => void;
-  onToday: () => void;
-  todayLabel?: string;
   prevLabel: string;
   nextLabel: string;
-  todayDisabled?: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  /** Shown only while away from the present ("Today", "This week"). */
+  todayLabel?: string | null;
+  onToday?: () => void;
   nextDisabled?: boolean;
 }) {
-  const ghost =
-    "tap relative flex h-8 items-center justify-center rounded-sm text-ink-2 transition-colors duration-(--duration-fast) hover:bg-surface-3 hover:text-ink active:bg-line disabled:pointer-events-none disabled:text-ink-4";
+  const cell =
+    "tap relative flex h-8 items-center justify-center text-ink-2 transition-colors duration-(--duration-fast) hover:bg-surface-3 hover:text-ink active:bg-line disabled:pointer-events-none disabled:text-ink-4";
   return (
-    <div className="flex items-center">
-      <button type="button" aria-label={prevLabel} data-tip={prevLabel} onClick={onPrev} className={`${ghost} w-8`}>
+    <div role="group" className="flex h-8 flex-none items-center rounded-sm bg-surface shadow-[inset_0_0_0_1px_var(--line-2)]">
+      <button type="button" aria-label={prevLabel} data-tip={prevLabel} onClick={onPrev} className={`${cell} w-8 rounded-l-sm`}>
         <ChevronLeft size={15} strokeWidth={1.8} />
       </button>
-      <button type="button" onClick={onToday} disabled={todayDisabled} className={`${ghost} px-2 text-footnote font-medium whitespace-nowrap`}>
-        {todayLabel}
-      </button>
-      <button type="button" aria-label={nextLabel} data-tip={nextLabel} onClick={onNext} disabled={nextDisabled} className={`${ghost} w-8`}>
+      {todayLabel && onToday && (
+        <button type="button" onClick={onToday} className={`${cell} border-l border-line-2 px-2.5 text-footnote font-medium whitespace-nowrap text-ink!`}>
+          {todayLabel}
+        </button>
+      )}
+      <button
+        type="button"
+        aria-label={nextLabel}
+        data-tip={nextLabel}
+        onClick={onNext}
+        disabled={nextDisabled}
+        className={`${cell} w-8 rounded-r-sm border-l border-line-2`}
+      >
         <ChevronRight size={15} strokeWidth={1.8} />
       </button>
     </div>
   );
 }
 
-export function NewTaskButton({ onClick }: { onClick: () => void }) {
+/** Speak your tasks, on computers: in the top bar, always in the same place, with the sphere as its sign. */
+export function SpeakButton({ onClick }: { onClick: () => void }) {
   return (
-    <Button variant="primary" onClick={onClick} aria-label="New task" data-tip="New task (N)" className="pl-2.5">
-      <PlusIcon size={14} strokeWidth={2.2} />
-      <span className="max-sm:hidden">New task</span>
-    </Button>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Speak your tasks"
+      data-tip="Speak your tasks (V)"
+      className="tap relative flex h-8 flex-none items-center gap-2 rounded-sm bg-primary pr-1.5 pl-2 text-footnote font-semibold text-on-primary transition-[background-color,transform] duration-(--duration-fast) hover:bg-primary-hover active:scale-[0.98]"
+    >
+      <Orb size={20} />
+      Speak
+      <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] bg-on-primary/18 px-1.5 font-sans text-caption-2 font-medium text-on-primary/80">V</kbd>
+    </button>
   );
 }
 
-/** Speak your tasks: opens the voice screen. The sphere is its sign everywhere. */
-export function SpeakButton({ onClick }: { onClick: () => void }) {
+/** Speak your tasks, on phones: floating over the list, where the thumb is. */
+export function SpeakFloat({ onClick }: { onClick: () => void }) {
   return (
-    <Button onClick={onClick} aria-label="Speak your tasks" data-tip="Speak your tasks (V)" className="max-sm:w-8 max-sm:px-0 sm:pr-3.5 sm:pl-2.5">
-      <SphereIcon size={17} />
-      <span className="max-sm:hidden">Speak</span>
-    </Button>
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center pb-[calc(env(safe-area-inset-bottom)+20px)] md:hidden">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Speak your tasks"
+        className="pointer-events-auto flex h-[52px] items-center gap-2.5 rounded-card bg-primary pr-6 pl-[18px] text-[16px] leading-[22px] font-semibold tracking-[-0.006em] text-on-primary shadow-float transition-transform duration-(--duration-fast) active:scale-[0.97]"
+      >
+        <Orb size={26} />
+        Speak
+      </button>
+    </div>
   );
 }

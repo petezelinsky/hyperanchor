@@ -162,7 +162,7 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
                     className={`flex cursor-pointer items-start gap-3 rounded-sm px-3 py-2 ${i === active ? "bg-surface-3" : ""}`}
                   >
                     <span
-                      className={`mt-0.5 flex size-[18px] flex-none items-center justify-center rounded-full ${
+                      className={`mt-0.5 flex size-[18px] flex-none items-center justify-center rounded-[6px] ${
                         t.done ? "bg-accent text-on-accent" : "border-[1.5px] border-check-ring"
                       }`}
                     >

@@ -6,10 +6,12 @@ import { signOutAction } from "@/app/actions";
 import type { WeekStart } from "@/lib/dates";
 import type { AppUser } from "@/lib/types";
 import { Avatar } from "./Avatar";
-import { DownloadIcon, KeyboardIcon, SlidersIcon, XIcon } from "./icons";
+import { ArrowLeftIcon, ChevronRight, DownloadIcon, SignOutIcon, XIcon } from "./icons";
 import { applyTheme, readTheme, type Theme } from "./prefs";
 import { THEMES } from "./ThemeSwitch";
 import { Button, buttonClass, IconButton, Kbd, Modal, SegmentedControl } from "./ui";
+
+type Page = "settings" | "shortcuts" | "account";
 
 export type SettingsTab = "general" | "shortcuts";
 
@@ -26,7 +28,9 @@ function shortcuts(voice: boolean): { title: string; items: [string, string][] }
         ["/", "Search all tasks"],
         ["T", "Go to today"],
         ["← →", "Previous / next"],
-        ["D W M A", "Switch view"],
+        ["D W M", "Day, week, month"],
+        ["A", "Progress"],
+        ["[", "Show or hide the sidebar"],
         [`${mac ? "⌘" : "Ctrl"} Z`, "Undo the last action"],
         ["?", "Keyboard shortcuts"],
         [",", "Settings"],
@@ -48,7 +52,7 @@ function shortcuts(voice: boolean): { title: string; items: [string, string][] }
       title: "In focus",
       items: [
         ["Space", "Done"],
-        ["→", "Not now"],
+        ["→", "Later"],
         ["N", "Jot something down"],
         ["Esc", "Leave focus"],
       ],
@@ -57,11 +61,12 @@ function shortcuts(voice: boolean): { title: string; items: [string, string][] }
 }
 
 /**
- * Settings: appearance, the first day of the week, your data and the account, with the keyboard shortcuts on a tab of
- * their own (computers only; phones have no keys to learn). Every change applies at once.
+ * Settings: a window. Sections are named, not painted: General (appearance, the first day of the week, the keyboard
+ * shortcuts on computers), your data, and the account, which opens one level down (where deleting it lives, at the very
+ * end). Signing out sits at the foot. Every change applies at once.
  */
 export function SettingsSheet({
-  tab: initialTab,
+  tab,
   user,
   weekStart,
   onWeekStart,
@@ -76,97 +81,112 @@ export function SettingsSheet({
   voice: boolean;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState(initialTab);
+  const [page, setPage] = useState<Page>(tab === "shortcuts" ? "shortcuts" : "settings");
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [signingOut, startSignOut] = useTransition();
+  // Opened straight on the shortcuts (?), Back closes; from Settings, it goes back to Settings.
+  const back = tab === "shortcuts" && page === "shortcuts" ? null : () => setPage("settings");
+  const title = page === "shortcuts" ? "Keyboard shortcuts" : page === "account" ? "Account" : "Settings";
 
   return (
-    <Modal label="Settings" onClose={onClose} top className="max-w-[560px]">
-      <div className="flex items-center justify-between gap-4 px-6 pt-5">
-        <h2 className="text-headline font-semibold">Settings</h2>
-        <IconButton label="Close" size="sm" onClick={onClose} className="-mr-2">
+    <Modal label={title} onClose={onClose} top sheet className="flex max-w-[560px] flex-col">
+      <div className="flex h-[60px] flex-none items-center gap-2.5 border-b border-line px-4 md:px-6">
+        {page !== "settings" && back && (
+          <IconButton label="Back" onClick={back} className="-ml-1.5 shadow-[inset_0_0_0_1px_var(--line-2)]">
+            <ArrowLeftIcon size={15} />
+          </IconButton>
+        )}
+        <h2 className="min-w-0 flex-1 truncate text-headline font-semibold">{title}</h2>
+        <IconButton label="Close" onClick={onClose} className="-mr-1.5 shadow-[inset_0_0_0_1px_var(--line-2)]">
           <XIcon size={14} />
         </IconButton>
       </div>
-      <div className="px-6 pt-3 pointer-coarse:hidden">
-        <SegmentedControl
-          label="Settings section"
-          value={tab}
-          options={[
-            { value: "general", label: "General", icon: <SlidersIcon size={14} /> },
-            { value: "shortcuts", label: "Keyboard shortcuts", icon: <KeyboardIcon size={14} /> },
-          ]}
-          onChange={setTab}
-          size="lg"
-          className="w-full"
-        />
-      </div>
 
-      {tab === "general" ? (
-        <div className="px-6 pt-1 pb-5">
-          <Row title="Appearance">
-            <SegmentedControl
-              label="Appearance"
-              value={theme}
-              options={THEMES}
-              onChange={(t) => {
-                applyTheme(t);
-                setTheme(t);
-              }}
-              size="lg"
-              className="w-[184px]"
-            />
-          </Row>
-          <Row title="Week starts on" hint="In Week, Month and Analytics.">
-            <SegmentedControl
-              label="Week starts on"
-              value={weekStart === 0 ? "sunday" : "monday"}
-              options={[
-                { value: "monday", label: "Monday" },
-                { value: "sunday", label: "Sunday" },
-              ]}
-              onChange={(v) => onWeekStart(v === "sunday" ? 0 : 1)}
-              size="lg"
-              className="w-[184px]"
-            />
-          </Row>
-          <Row title="Your tasks" hint="Every task as a CSV file, for any spreadsheet.">
-            <a href="/api/export" download className={`${buttonClass()} w-[184px] no-underline`}>
-              <DownloadIcon size={14} />
-              Export
-            </a>
-          </Row>
-          <div className="flex items-center gap-3 border-b border-line py-4">
-            <Avatar name={user.name} image={user.image} size={36} />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-body font-medium">{user.name}</div>
-              <div className="truncate text-caption text-ink-3">{user.email}</div>
+      {page === "settings" ? (
+        <>
+          <div className="pb-2">
+            <Band>General</Band>
+            <Row title="Appearance">
+              <SegmentedControl
+                label="Appearance"
+                value={theme}
+                options={THEMES}
+                onChange={(t) => {
+                  applyTheme(t);
+                  setTheme(t);
+                }}
+                className="w-[176px]"
+              />
+            </Row>
+            <Row title="Week starts on" hint="In Week, Month and Progress." last>
+              <SegmentedControl
+                label="Week starts on"
+                value={weekStart === 0 ? "sunday" : "monday"}
+                options={[
+                  { value: "monday", label: "Monday" },
+                  { value: "sunday", label: "Sunday" },
+                ]}
+                onChange={(v) => onWeekStart(v === "sunday" ? 0 : 1)}
+                className="w-[176px]"
+              />
+            </Row>
+            <div className="pointer-coarse:hidden">
+              <Go title="Keyboard shortcuts" onClick={() => setPage("shortcuts")} top />
             </div>
-            <Button onClick={() => startSignOut(() => signOutAction())} disabled={signingOut}>
-              Sign out
-            </Button>
+
+            <Band>Your data</Band>
+            <Row title="Export tasks" hint="Every task, as a CSV file." last>
+              <a href="/api/export" download className={`${buttonClass()} no-underline`}>
+                <DownloadIcon size={14} />
+                Download
+              </a>
+            </Row>
+
+            <Band>Account</Band>
+            <Go
+              title={user.name}
+              hint={user.email}
+              lead={<Avatar name={user.name} image={user.image} size={36} />}
+              onClick={() => setPage("account")}
+              last
+            />
           </div>
-          <DeleteAccount />
-          <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 pt-4 text-caption text-ink-3">
-            <p>Appearance and the first day of the week are saved on this device.</p>
-            <nav aria-label="Help and legal" className="flex gap-4">
+          <div className="flex flex-none items-center justify-between gap-3 border-t border-line px-4 py-3 md:px-6">
+            <nav aria-label="Help and legal" className="flex gap-3.5 text-caption">
               {[
                 ["/privacy", "Privacy"],
                 ["/terms", "Terms"],
                 ["/support", "Support"],
               ].map(([href, label]) => (
-                <Link key={href} href={href} className="text-ink-2 no-underline hover:underline tap relative">
+                <Link key={href} href={href} className="tap relative text-ink-3 no-underline hover:text-ink">
                   {label}
                 </Link>
               ))}
             </nav>
+            <Button onClick={() => startSignOut(() => signOutAction())} disabled={signingOut} className="pl-2.5">
+              <SignOutIcon size={14} />
+              Sign out
+            </Button>
           </div>
+        </>
+      ) : page === "account" ? (
+        <div className="pb-2">
+          <div className="h-1.5" />
+          <Row title="Name">
+            <span className="min-w-0 truncate text-body text-ink-3">{user.name}</span>
+          </Row>
+          <Row title="Email" last>
+            <span className="min-w-0 truncate text-body text-ink-3">{user.email}</span>
+          </Row>
+          <p className="px-4 pt-1 pb-2 text-caption text-ink-3 md:px-6">Appearance and the first day of the week are saved on this device.</p>
+          <Band>Delete account</Band>
+          <DeleteAccount />
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-x-8 gap-y-5 px-6 pt-4 pb-6 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-8 gap-y-5 px-4 pt-4 pb-6 sm:grid-cols-2 md:px-6">
           {shortcuts(voice).map((g) => (
             <div key={g.title}>
-              <div className="mb-1 text-caption font-medium text-ink-3">{g.title}</div>
+              <div className="mb-1 text-caption-2 font-semibold tracking-[0.06em] text-ink-3 uppercase">{g.title}</div>
               {g.items.map(([keys, what]) => (
                 <div key={what} className="flex h-9 items-center justify-between gap-4 border-b border-line text-footnote last:border-0">
                   <span className="text-ink-2">{what}</span>
@@ -185,10 +205,37 @@ export function SettingsSheet({
   );
 }
 
-/** One setting: its name (and a hint) on the left, the control on the right. */
-function Row({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+/** A section's name: small capitals, no color. */
+function Band({ children }: { children: React.ReactNode }) {
+  return <div className="px-4 pt-5 pb-1.5 text-caption-2 font-semibold tracking-[0.06em] text-ink-3 uppercase md:px-6">{children}</div>;
+}
+
+/** A line that opens a page one level down. */
+function Go({ title, hint, lead, onClick, top = false, last = false }: { title: string; hint?: string; lead?: React.ReactNode; onClick: () => void; top?: boolean; last?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-line py-4">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group flex w-full items-center justify-between gap-4 px-4 py-2 text-left transition-colors duration-(--duration-fast) hover:bg-surface-2 md:px-6 ${hint ? "min-h-16" : "min-h-[52px]"} ${top ? "border-t border-line" : ""} ${last ? "" : "border-b border-line"}`}
+    >
+      <span className="flex min-w-0 items-center gap-3">
+        {lead}
+        <span className="min-w-0">
+          <span className="block truncate text-body font-medium text-ink">{title}</span>
+          {hint && <span className="block truncate text-caption text-ink-3">{hint}</span>}
+        </span>
+      </span>
+      <span aria-hidden="true" className="flex size-7 flex-none items-center justify-center rounded-[7px] text-ink-2 shadow-[inset_0_0_0_1px_var(--line-2)] transition-colors group-hover:text-ink">
+        <ChevronRight size={14} strokeWidth={1.8} />
+      </span>
+    </button>
+  );
+}
+
+/** One setting: its name (and a hint) on the left, the control on the right. */
+function Row({ title, hint, children, last = false }: { title: string; hint?: string; children: React.ReactNode; last?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between gap-4 px-4 py-2 md:px-6 ${hint ? "min-h-16" : "min-h-[52px]"} ${last ? "" : "border-b border-line"}`}>
       <div className="min-w-0">
         <div className="text-body font-medium">{title}</div>
         {hint && <div className="mt-0.5 text-caption text-ink-3">{hint}</div>}
@@ -218,14 +265,17 @@ function DeleteAccount() {
 
   if (!asking)
     return (
-      <Row title="Delete account" hint="Your tasks and account, erased for good.">
-        <Button variant="danger-quiet" onClick={() => setAsking(true)} className="w-[184px]">
+      <div className="flex flex-col items-start gap-3.5 px-4 pt-1 pb-5 md:px-6">
+        <p className="max-w-[440px] text-body text-ink-2">
+          This erases every task and the account itself, for good. Nothing can bring them back, so export your tasks first if you might want them.
+        </p>
+        <Button variant="danger-quiet" onClick={() => setAsking(true)}>
           Delete account…
         </Button>
-      </Row>
+      </div>
     );
   return (
-    <div role="group" aria-labelledby="delete-title" className="mt-4 animate-[fade_var(--duration-fast)_var(--ease-out)_both] rounded-lg bg-red-soft p-4">
+    <div role="group" aria-labelledby="delete-title" className="mx-4 mt-1 mb-5 animate-[fade_var(--duration-fast)_var(--ease-out)_both] rounded-lg bg-red-soft p-4 md:mx-6">
       <div id="delete-title" className="text-body font-semibold text-red-ink">
         Delete your account?
       </div>

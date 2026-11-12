@@ -210,27 +210,27 @@ export const FocusIcon = (p: IconProps) => (
   </Svg>
 );
 
-// The sphere's dots, on a 24 grid: sixteen on the ring, sixteen finer ones between them as a halo.
-const SPHERE_DOTS = [
-  { radius: 7.2, size: 1, opacity: 1, turn: 0 },
-  { radius: 10.2, size: 0.5, opacity: 0.7, turn: 0.5 },
-].flatMap(({ radius, size, opacity, turn }) =>
-  Array.from({ length: 16 }, (_, i) => {
-    const a = ((i + turn) / 16) * Math.PI * 2 - Math.PI / 2;
-    return { cx: (12 + Math.cos(a) * radius).toFixed(2), cy: (12 + Math.sin(a) * radius).toFixed(2), r: size, opacity };
-  }),
+/** The sidebar: a panel with its edge (hide it, show it). */
+export const SidebarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="1.8" y="2.6" width="12.4" height="10.8" rx="2.2" />
+    <path d="M6 2.6v10.8M3.7 5.3h.6M3.7 7.4h.6" />
+  </Svg>
 );
 
-/** Voice: the sphere, small. A ring of dots with a fine halo, wherever speaking starts. */
-export function SphereIcon({ size = 16, className }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-      {SPHERE_DOTS.map((d, i) => (
-        <circle key={i} cx={d.cx} cy={d.cy} r={d.r} opacity={d.opacity} />
-      ))}
-    </svg>
-  );
-}
+/** Up and down: a button that opens a short list of choices (the account). */
+export const SelectorIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5.3 6.2 8 3.6l2.7 2.6M5.3 9.8 8 12.4l2.7-2.6" />
+  </Svg>
+);
+
+/** Back: an arrow to the left. */
+export const ArrowLeftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M13 8H3M7.2 3.8 3 8l4.2 4.2" />
+  </Svg>
+);
 
 /** Stop (listening): a filled square. */
 export function StopIcon({ size = 12, className }: IconProps) {

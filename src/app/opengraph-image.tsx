@@ -6,7 +6,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 const INK = "#171717";
-const ACCENT = "#2563eb";
+const ACCENT = INK;
 
 function Row({ title, done }: { title: string; done: boolean }) {
   return (
@@ -15,7 +15,7 @@ function Row({ title, done }: { title: string; done: boolean }) {
         style={{
           width: 30,
           height: 30,
-          borderRadius: 999,
+          borderRadius: 9,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

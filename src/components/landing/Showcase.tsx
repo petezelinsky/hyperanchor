@@ -65,7 +65,7 @@ const ADDED_AT = ENTER_AT + 320;
 
 function Tick({ done = false }: { done?: boolean }) {
   return (
-    <span className={`flex size-[18px] flex-none items-center justify-center rounded-full ${done ? "bg-accent text-on-accent" : "border-[1.5px] border-check-ring"}`}>
+    <span className={`flex size-[18px] flex-none items-center justify-center rounded-[6px] ${done ? "bg-accent text-on-accent" : "border-[1.5px] border-check-ring"}`}>
       {done && <CheckIcon size={9} strokeWidth={2.6} />}
     </span>
   );
@@ -196,7 +196,7 @@ function WeekScene({ t }: { t: number }) {
         <div key={d} className={`flex h-[152px] flex-col items-center gap-1.5 rounded-xs px-1 pt-3 sm:px-1.5 ${d === TODAY ? "bg-surface-3" : ""}`}>
           <span className={`text-caption-2 font-medium ${d === TODAY ? "text-accent-ink" : "text-ink-3"}`}>{DAYS[d]}</span>
           <span
-            className={`flex h-7 items-center font-semibold ${d === TODAY ? "w-7 justify-center rounded-full bg-accent-solid text-body text-on-accent" : "text-callout text-ink-2"}`}
+            className={`flex h-7 items-center font-semibold ${d === TODAY ? "w-7 justify-center rounded-sm bg-accent-solid text-body text-on-accent" : "text-callout text-ink-2"}`}
           >
             {19 + d}
           </span>

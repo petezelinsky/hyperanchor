@@ -11,11 +11,11 @@ type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
   primary: "bg-primary text-on-primary hover:bg-primary-hover active:scale-[0.98]",
-  secondary: "bg-surface text-ink shadow-lift hover:bg-surface-2 active:scale-[0.98]",
+  secondary: "bg-surface text-ink shadow-[inset_0_0_0_1px_var(--line-2)] hover:bg-surface-3 active:scale-[0.98]",
   plain: "text-ink-2 hover:bg-surface-3 hover:text-ink active:bg-line",
   // Red only for what can't be undone.
   danger: "bg-red-ink text-surface hover:opacity-90 active:scale-[0.98]",
-  "danger-quiet": "bg-surface text-red-ink shadow-lift hover:bg-red-soft active:scale-[0.98]",
+  "danger-quiet": "bg-surface text-red-ink shadow-[inset_0_0_0_1px_var(--line-2)] hover:bg-red-soft active:scale-[0.98]",
 };
 const sizes: Record<Size, string> = {
   sm: "h-7 rounded-sm px-2.5 text-footnote",
@@ -74,15 +74,17 @@ export function SegmentedControl<T extends string>({
   size = "md",
   className = "",
 }: {
-  value: T;
+  /** null: none of them (the view switch while Progress is on screen). */
+  value: T | null;
   /** With `iconOnly`, the label becomes the radio's accessible name and tooltip. */
-  options: { value: T; label: string; icon?: React.ReactNode; iconOnly?: boolean }[];
+  options: { value: T; label: string; icon?: React.ReactNode; iconOnly?: boolean; tip?: string }[];
   onChange: (v: T) => void;
   label: string;
   size?: "md" | "lg";
   className?: string;
 }) {
-  const index = Math.max(0, options.findIndex((o) => o.value === value));
+  const found = options.findIndex((o) => o.value === value);
+  const index = Math.max(0, found);
   return (
     <div
       role="radiogroup"
@@ -91,19 +93,19 @@ export function SegmentedControl<T extends string>({
         radioKeys(
           e,
           options.map((o) => o.value),
-          value,
+          value ?? options[0].value,
           onChange,
         )
       }
-      className={`relative grid rounded-sm bg-surface-3 p-[3px] ${className}`}
+      className={`relative grid rounded-[9px] bg-surface-2 p-0.5 shadow-[inset_0_0_0_1px_var(--line)] ${className}`}
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
     >
       <span
         aria-hidden="true"
-        className="absolute inset-y-[3px] left-[3px] rounded-xs bg-surface shadow-lift transition-transform duration-(--duration-base) ease-out"
-        style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${index * 100}%)` }}
+        className={`absolute inset-y-0.5 left-0.5 rounded-[7px] bg-surface shadow-lift transition-[transform,opacity] duration-(--duration-base) ease-out ${found < 0 ? "opacity-0" : ""}`}
+        style={{ width: `calc((100% - 4px) / ${options.length})`, transform: `translateX(${index * 100}%)` }}
       />
-      {options.map((o) => {
+      {options.map((o, i) => {
         const on = o.value === value;
         return (
           <button
@@ -112,12 +114,12 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={on}
             aria-label={o.iconOnly ? o.label : undefined}
-            data-tip={o.iconOnly ? o.label : undefined}
-            tabIndex={on ? 0 : -1}
+            data-tip={o.iconOnly ? o.label : o.tip}
+            tabIndex={on || (found < 0 && i === 0) ? 0 : -1}
             onClick={() => onChange(o.value)}
-            className={`tap relative flex items-center justify-center gap-1.5 rounded-xs font-medium whitespace-nowrap transition-colors duration-(--duration-fast) ${
-              size === "lg" ? "h-8 px-3 text-footnote" : "h-[26px] px-3 text-footnote"
-            } ${on ? "text-ink" : "text-ink-2 hover:text-ink"}`}
+            className={`tap relative flex items-center justify-center gap-1.5 rounded-[7px] whitespace-nowrap transition-colors duration-(--duration-fast) ${
+              size === "lg" ? "h-8 px-3 text-footnote" : "h-7 px-3 text-footnote"
+            } ${on ? "font-semibold text-ink" : "font-medium text-ink-3 hover:text-ink"}`}
           >
             {o.icon}
             {!o.iconOnly && o.label}
@@ -128,7 +130,7 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-// ── Checkbox: round; completing it pops, draws the tick and ripples ─────────
+// ── Checkbox: a soft square with a firm edge; completing it pops, fills and draws the tick ──
 
 export function Checkbox({
   checked,
@@ -162,18 +164,27 @@ export function Checkbox({
         e.stopPropagation();
         onToggle();
       }}
-      style={{ width: size, height: size, animation: celebrate ? "check-pop var(--duration-move) var(--ease-out)" : undefined }}
-      className={`relative flex flex-none items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color] duration-(--duration-fast) before:absolute before:-inset-1.5 before:content-[''] pointer-coarse:before:inset-auto pointer-coarse:before:top-1/2 pointer-coarse:before:left-1/2 pointer-coarse:before:size-11 pointer-coarse:before:-translate-1/2 ${
-        checked
-          ? "border-accent bg-accent text-on-accent"
-          : "border-check-ring hover:border-accent hover:bg-accent-soft"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size <= 16 ? 5 : 6,
+        animation: celebrate ? "check-pop var(--duration-move) var(--ease-out)" : undefined,
+      }}
+      className={`group/check relative flex flex-none items-center justify-center border-[1.5px] transition-[background-color,border-color] duration-(--duration-fast) before:absolute before:-inset-1.5 before:content-[''] pointer-coarse:before:inset-auto pointer-coarse:before:top-1/2 pointer-coarse:before:left-1/2 pointer-coarse:before:size-11 pointer-coarse:before:-translate-1/2 ${
+        checked ? "border-accent bg-accent text-on-accent" : "border-check-ring bg-surface text-ink-4 hover:border-ink"
       } ${className}`}
     >
       {celebrate && (
-        <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-full bg-accent" style={{ animation: "ripple var(--duration-data) var(--ease-out) both" }} />
+        <span aria-hidden="true" className="pointer-events-none absolute -inset-[1.5px] rounded-[inherit] bg-accent" style={{ animation: "ripple var(--duration-data) var(--ease-out) both" }} />
+      )}
+      {/* Under the pointer an open box shows the tick it would get. */}
+      {!checked && (
+        <svg width={size * 0.72} height={size * 0.72} viewBox="0 0 12 12" fill="none" aria-hidden="true" className="opacity-0 transition-opacity duration-(--duration-fast) pointer-fine:group-hover/check:opacity-100">
+          <path d="M2.6 6.3 5 8.6 9.4 3.7" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       )}
       {checked && (
-        <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 12 12" fill="none" aria-hidden="true" className="relative">
+        <svg width={size * 0.72} height={size * 0.72} viewBox="0 0 12 12" fill="none" aria-hidden="true" className="relative">
           <path
             d="M2.6 6.3 5 8.6 9.4 3.7"
             stroke="currentColor"
@@ -389,7 +400,7 @@ export function Popover({
 
 export type MenuEntry =
   /** `checked` makes the item one of a set of choices (a tick marks the current one). */
-  | { label: string; onSelect: () => void; destructive?: boolean; disabled?: boolean; shortcut?: string; icon?: React.ReactNode; checked?: boolean }
+  | { label: string; onSelect: () => void; destructive?: boolean; disabled?: boolean; shortcut?: string; hint?: string; icon?: React.ReactNode; checked?: boolean }
   | { separator: true }
   | { heading: string };
 
@@ -400,6 +411,8 @@ export function Menu({
   align = "start",
   label = "Menu",
   trigger,
+  header,
+  className = "min-w-[220px]",
 }: {
   anchor: Anchor;
   entries: MenuEntry[];
@@ -407,6 +420,9 @@ export function Menu({
   align?: "start" | "end";
   label?: string;
   trigger?: HTMLElement | null;
+  /** Shown above the items (who is signed in, in the account menu). */
+  header?: React.ReactNode;
+  className?: string;
 }) {
   const { ref, style, ready } = useFloating(anchor, align);
   const [active, setActive] = useState(-1);
@@ -453,8 +469,9 @@ export function Menu({
       data-floating=""
       onKeyDown={onKeyDown}
       style={style}
-      className="fixed z-[100] min-w-[220px] animate-pop-in rounded-lg bg-elevated p-1 text-footnote shadow-float outline-none"
+      className={`fixed z-[100] animate-pop-in rounded-lg bg-elevated p-1 text-footnote shadow-float outline-none ${className}`}
     >
+      {header}
       {entries.map((e, i) => {
         if ("separator" in e) return <div key={i} role="separator" className="mx-2 my-1 h-px bg-line" />;
         if ("heading" in e)
@@ -474,7 +491,7 @@ export function Menu({
             onMouseEnter={() => setActive(i)}
             onMouseLeave={() => setActive(-1)}
             onClick={() => run(e)}
-            className={`flex h-8 w-full items-center gap-2.5 rounded-sm px-2.5 text-left whitespace-nowrap disabled:opacity-35 ${
+            className={`flex h-8 w-full items-center gap-2.5 rounded-sm px-2.5 text-left whitespace-nowrap disabled:opacity-35 pointer-coarse:h-11 ${
               e.destructive ? `text-red-ink ${on ? "bg-red-soft" : ""}` : `text-ink ${on ? "bg-surface-3" : ""}`
             }`}
           >
@@ -484,6 +501,8 @@ export function Menu({
               <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="ml-6 text-ink-2">
                 <path d="M2.5 6.2 4.9 8.6 9.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
+            ) : e.hint ? (
+              <span className="pl-6 text-caption text-ink-3">{e.hint}</span>
             ) : (
               e.shortcut && <span className="pl-6 text-caption text-ink-3 pointer-coarse:hidden">{e.shortcut}</span>
             )}
@@ -504,12 +523,15 @@ export function Modal({
   label,
   onClose,
   top = false,
+  sheet = false,
   className = "",
   children,
 }: {
   label: string;
   onClose: () => void;
   top?: boolean;
+  /** Phones: at the bottom of the screen, where the thumb is. */
+  sheet?: boolean;
   className?: string;
   children: React.ReactNode;
 }) {
@@ -520,10 +542,12 @@ export function Modal({
   }, []);
   useEffect(() => {
     // The gutter stays, so locking the page doesn't shift it sideways where scrollbars take space.
-    const s = document.documentElement.style;
+    const root = document.documentElement;
+    const s = root.style;
     const { overflow, scrollbarGutter } = s;
+    const scrolls = root.scrollHeight > root.clientHeight;
     s.overflow = "hidden";
-    s.scrollbarGutter = "stable";
+    if (scrolls) s.scrollbarGutter = "stable";
     return () => {
       s.overflow = overflow;
       s.scrollbarGutter = scrollbarGutter;
@@ -531,8 +555,12 @@ export function Modal({
   }, []);
   return createPortal(
     <div
-      className={`fixed inset-0 z-[110] flex animate-[fade_var(--duration-fast)_var(--ease-out)_both] justify-center bg-[var(--scrim)] p-4 ${
-        top ? "items-start pt-[max(1rem,10vh)]" : "items-center"
+      className={`fixed inset-0 z-[110] flex animate-[fade_var(--duration-fast)_var(--ease-out)_both] justify-center bg-[var(--scrim)] ${
+        sheet
+          ? `items-end p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:p-4 ${top ? "md:items-start md:pt-[max(1rem,10vh)]" : "md:items-center"}`
+          : top
+            ? "items-start p-4 pt-[max(1rem,10vh)]"
+            : "items-center p-4"
       }`}
     >
       <div
@@ -554,7 +582,7 @@ export function Modal({
 /** Small key hint, e.g. ⏎ or N. */
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-xs bg-surface px-1.5 font-sans text-caption-2 font-medium text-ink-2 shadow-ring-line-2">
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] bg-surface-2 px-1.5 font-sans text-caption-2 font-medium text-ink-3 shadow-ring-line">
       {children}
     </kbd>
   );
@@ -578,7 +606,8 @@ export function Accordion({ open, children }: { open: boolean; children: React.R
   }, [open]);
   return (
     <div
-      className={`grid transition-[grid-template-rows] duration-(--duration-base) ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+      // One column that never grows past the space it has (long single lines inside truncate instead of widening the page).
+      className={`grid grid-cols-[minmax(0,1fr)] transition-[grid-template-rows] duration-(--duration-base) ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
       onTransitionEnd={(e) => {
         if (e.target !== e.currentTarget) return;
         setMoving(false);

@@ -30,8 +30,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // The boot script sets data-theme / data-accent on <html> before React hydrates.
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    // The boot script sets data-theme on <html> before React hydrates. The accent is graphite: the website is black and
+    // white (the iOS app keeps its own accent choice).
+    <html lang="en" data-accent="graphite" className={inter.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: PREFS_BOOT }} />
       </head>

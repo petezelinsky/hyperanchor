@@ -1,10 +1,11 @@
 "use client";
 
-import { addDays, dayShort, formatLong, formatMedium, MONTHS, MONTHS_SHORT, parseYmd, rangeLabel, relativeDay, ymd } from "@/lib/dates";
+import { addDays, dayShort, formatLong, formatMedium, MONTHS, MONTHS_SHORT, parseYmd, relativeDay, ymd } from "@/lib/dates";
 import { dayStats, monthStats, periodBounds, summarize, type DayStat, type Period } from "@/lib/stats";
 import type { Task } from "@/lib/types";
-import { NavGroup, Toolbar } from "../Toolbar";
+import { Stepper, ViewHead } from "../Toolbar";
 import { SegmentedControl } from "../ui";
+import { shortRange } from "../WeekView";
 import { BarChart, type Bar } from "./BarChart";
 import { OpenCard, WeekdayCard } from "./Breakdown";
 import { Heatmap } from "./Heatmap";
@@ -59,7 +60,7 @@ export function AnalyticsView({
   const year = b.start.getFullYear();
   const current = offset === 0;
 
-  const label = period === "week" ? rangeLabel(b.start, b.end) : period === "month" ? `${MONTHS[b.start.getMonth()]} ${year}` : String(year);
+  const label = period === "week" ? shortRange(b.start, b.end, today.getFullYear()) : period === "month" ? `${MONTHS[b.start.getMonth()]} ${year}` : String(year);
 
   let bars: Bar[];
   let history: HistoryRow[];
@@ -123,32 +124,43 @@ export function AnalyticsView({
   if (current && period !== "year") for (let d = new Date(today.getFullYear(), 0, 1); d <= today; d = addDays(d, 1)) if (byDate(ymd(d)).some((t) => t.done)) thisYear++;
   const quiet = "tap relative font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-current";
 
-  return (
-    <>
-      <Toolbar title="Analytics" subtitle={label} wide>
-        <SegmentedControl
-          label="Period"
-          value={period}
-          onChange={onPeriod}
-          options={[
-            { value: "week", label: "Week" },
-            { value: "month", label: "Month" },
-            { value: "year", label: "Year" },
-          ]}
-        />
-        <NavGroup
-          prevLabel={`Previous ${period}`}
-          nextLabel={`Next ${period}`}
-          todayLabel={NOW[period]}
-          onPrev={() => onOffset(offset - 1)}
-          onNext={() => onOffset(offset + 1)}
-          onToday={() => onOffset(0)}
-          todayDisabled={offset === 0}
-          nextDisabled={offset === 0}
-        />
-      </Toolbar>
+  const periods = (
+    <SegmentedControl
+      label="Period"
+      value={period}
+      onChange={onPeriod}
+      options={[
+        { value: "week", label: "Week" },
+        { value: "month", label: "Month" },
+        { value: "year", label: "Year" },
+      ]}
+      className="max-md:w-full"
+    />
+  );
 
-      <div className="mx-auto max-w-[1240px] space-y-4 px-4 pb-10 md:px-8">
+  return (
+    <div className="mx-auto w-full max-w-[888px] md:px-6">
+      <ViewHead
+        title="Progress"
+        soft={label}
+        right={
+          <>
+            <span className="max-md:hidden">{periods}</span>
+            <Stepper
+              prevLabel={`Previous ${period}`}
+              nextLabel={`Next ${period}`}
+              onPrev={() => onOffset(offset - 1)}
+              onNext={() => onOffset(offset + 1)}
+              todayLabel={offset === 0 ? null : NOW[period]}
+              onToday={() => onOffset(0)}
+              nextDisabled={offset === 0}
+            />
+          </>
+        }
+        below={<div className="px-4 pt-3 md:hidden">{periods}</div>}
+      />
+
+      <div className="space-y-4 px-4 pt-6 pb-10 md:px-3 md:pt-8">
         {!sum.planned && !sum.upcoming && !prevDays.some((d) => d.total) ? (
           // Nothing to measure yet: a sentence where the summary goes, instead of empty charts.
           <p className="text-callout text-ink-2">
@@ -222,6 +234,6 @@ export function AnalyticsView({
           </>
         )}
       </div>
-    </>
+    </div>
   );
 }

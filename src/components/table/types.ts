@@ -5,8 +5,11 @@ export type Field = "title" | "description";
 
 export type Editing = { id: string; field: Field; snapshot: Pick<Task, "title" | "description"> };
 
-/** A new task being written on `date`; its text lives in the composer until Enter. A new nonce starts it afresh. */
-export type Composer = { date: string; nonce: number };
+/**
+ * A new task being written on `date`; its text lives in the composer until Enter. A new nonce starts it afresh. New
+ * tasks land at the top of the day, in the order they're written: each one after the one added just before (`after`).
+ */
+export type Composer = { date: string; nonce: number; after?: string };
 
 /** A day's tasks; in the Day view `tasks` holds what's left and `completed` what's done. */
 export type Section = { date: string; tasks: Task[]; completed?: Task[] };
