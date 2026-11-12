@@ -14,13 +14,14 @@ import { Button, buttonClass, IconButton, Kbd, Modal, SegmentedControl } from ".
 export type SettingsTab = "general" | "shortcuts";
 
 /** The shortcuts, with the modifier spelled the way this keyboard labels it. */
-function shortcuts(): { title: string; items: [string, string][] }[] {
+function shortcuts(voice: boolean): { title: string; items: [string, string][] }[] {
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   return [
     {
       title: "Anywhere",
       items: [
         ["N", "New task"],
+        ...(voice ? ([["V", "Speak your tasks"]] as [string, string][]) : []),
         ["F", "Focus: one task at a time"],
         ["/", "Search all tasks"],
         ["T", "Go to today"],
@@ -64,12 +65,15 @@ export function SettingsSheet({
   user,
   weekStart,
   onWeekStart,
+  voice,
   onClose,
 }: {
   tab: SettingsTab;
   user: AppUser;
   weekStart: WeekStart;
   onWeekStart: (w: WeekStart) => void;
+  /** Whether the Speak screen is offered (its shortcut is listed only then). */
+  voice: boolean;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState(initialTab);
@@ -160,7 +164,7 @@ export function SettingsSheet({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-x-8 gap-y-5 px-6 pt-4 pb-6 sm:grid-cols-2">
-          {shortcuts().map((g) => (
+          {shortcuts(voice).map((g) => (
             <div key={g.title}>
               <div className="mb-1 text-caption font-medium text-ink-3">{g.title}</div>
               {g.items.map(([keys, what]) => (

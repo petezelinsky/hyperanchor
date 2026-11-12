@@ -10,6 +10,9 @@ export type Task = {
   updatedAt: string;
 };
 
+/** A task understood from what was said or typed: shown for review, and saved only when the person adds it. */
+export type TaskDraft = Pick<Task, "title" | "description" | "date">;
+
 export type AppUser = {
   name: string;
   email: string;

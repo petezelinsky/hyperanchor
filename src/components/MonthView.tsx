@@ -5,7 +5,7 @@ import { addDays, formatLong, isWeekend, monthGrid, MONTHS, plural, weekdayNames
 import type { Task } from "@/lib/types";
 import { useDrag } from "./drag";
 import { ArrowRightIcon, PlusIcon, XIcon } from "./icons";
-import { NavGroup, Toolbar } from "./Toolbar";
+import { NavGroup, SpeakButton, Toolbar } from "./Toolbar";
 import { Button, Checkbox, IconButton, Popover, ProgressRing } from "./ui";
 
 export function MonthView({
@@ -20,6 +20,7 @@ export function MonthView({
   onOpenDay,
   onToggle,
   onCreate,
+  onSpeak,
 }: {
   year: number;
   month: number;
@@ -32,6 +33,8 @@ export function MonthView({
   onOpenDay: (key: string) => void;
   onToggle: (t: Task) => void;
   onCreate: (date: string, title: string) => void;
+  /** Opens the voice screen; absent where the server can't sort speech into tasks. */
+  onSpeak?: () => void;
 }) {
   const [pop, setPop] = useState<{ key: string; rect: DOMRect } | null>(null);
   const drag = useDrag();
@@ -84,6 +87,7 @@ export function MonthView({
           }}
           todayDisabled={isCurrent}
         />
+        {onSpeak && <SpeakButton onClick={onSpeak} />}
       </Toolbar>
 
       <div className="pb-6">

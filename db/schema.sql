@@ -30,3 +30,15 @@ create table if not exists users (
 );
 
 alter table users enable row level security;
+
+-- Turning text into tasks (voice): how many requests each person made on a day (UTC), and how much text. The daily
+-- allowance is counted here; the words themselves are never stored.
+create table if not exists ai_usage (
+  user_id  text not null,
+  day      date not null,
+  requests integer not null default 0,
+  chars    integer not null default 0,
+  primary key (user_id, day)
+);
+
+alter table ai_usage enable row level security;

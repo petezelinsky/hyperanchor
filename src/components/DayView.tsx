@@ -7,7 +7,7 @@ import { FocusPanel } from "./FocusPanel";
 import { ArrowRightIcon, ChevronDown, ChevronLeft, ChevronRight, FocusIcon, TrashIcon } from "./icons";
 import { TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
-import { NavGroup, NewTaskButton, Toolbar } from "./Toolbar";
+import { NavGroup, NewTaskButton, SpeakButton, Toolbar } from "./Toolbar";
 import { Accordion, Burst, Button, Checkbox, IconButton, Kbd, ProgressRing } from "./ui";
 
 /** Focus mode for the selected day (null when off). */
@@ -37,6 +37,7 @@ export function DayView({
   carried,
   focus,
   onFocus,
+  onSpeak,
   welcome,
 }: {
   selected: string;
@@ -52,6 +53,8 @@ export function DayView({
   carried: Task[];
   focus: Focus;
   onFocus: () => void;
+  /** Opens the voice screen; absent where the server can't sort speech into tasks. */
+  onSpeak?: () => void;
   welcome: Welcome;
 }) {
   const { todayKey } = state;
@@ -138,6 +141,7 @@ export function DayView({
               <FocusIcon size={15} strokeWidth={1.7} />
               <span className="max-sm:hidden">Focus</span>
             </Button>
+            {onSpeak && <SpeakButton onClick={onSpeak} />}
             <NewTaskButton onClick={() => actions.openComposer(selected)} />
           </>
         )}

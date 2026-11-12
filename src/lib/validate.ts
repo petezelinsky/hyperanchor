@@ -3,6 +3,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export const TITLE_MAX = 500;
 export const DESCRIPTION_MAX = 5000;
+/** The most text sorted into tasks in one go: about seven minutes of speech. Longer text is refused rather than cut. */
+export const DRAFT_TEXT_MAX = 6000;
 
 export function isDate(v: unknown): v is string {
   if (typeof v !== "string" || !DATE_RE.test(v)) return false;

@@ -31,6 +31,16 @@ begin
     );
     alter table users enable row level security;
   end if;
+  if to_regclass('ai_usage') is null then
+    create table if not exists ai_usage (
+      user_id  text not null,
+      day      date not null,
+      requests integer not null default 0,
+      chars    integer not null default 0,
+      primary key (user_id, day)
+    );
+    alter table ai_usage enable row level security;
+  end if;
 end $$;
 `;
 

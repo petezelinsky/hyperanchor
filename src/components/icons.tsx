@@ -210,6 +210,37 @@ export const FocusIcon = (p: IconProps) => (
   </Svg>
 );
 
+// The sphere's dots, on a 24 grid: sixteen on the ring, sixteen finer ones between them as a halo.
+const SPHERE_DOTS = [
+  { radius: 7.2, size: 1, opacity: 1, turn: 0 },
+  { radius: 10.2, size: 0.5, opacity: 0.7, turn: 0.5 },
+].flatMap(({ radius, size, opacity, turn }) =>
+  Array.from({ length: 16 }, (_, i) => {
+    const a = ((i + turn) / 16) * Math.PI * 2 - Math.PI / 2;
+    return { cx: (12 + Math.cos(a) * radius).toFixed(2), cy: (12 + Math.sin(a) * radius).toFixed(2), r: size, opacity };
+  }),
+);
+
+/** Voice: the sphere, small. A ring of dots with a fine halo, wherever speaking starts. */
+export function SphereIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      {SPHERE_DOTS.map((d, i) => (
+        <circle key={i} cx={d.cx} cy={d.cy} r={d.r} opacity={d.opacity} />
+      ))}
+    </svg>
+  );
+}
+
+/** Stop (listening): a filled square. */
+export function StopIcon({ size = 12, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12" fill="currentColor" aria-hidden="true" className={className}>
+      <rect x="2" y="2" width="8" height="8" rx="2" />
+    </svg>
+  );
+}
+
 /** Offline: a cloud with a slash. */
 export const CloudOffIcon = (p: IconProps) => (
   <Svg {...p}>

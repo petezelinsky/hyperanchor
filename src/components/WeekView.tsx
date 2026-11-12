@@ -5,7 +5,7 @@ import { addDays, dayDiff, formatShort, parseYmd, rangeLabel, startOfWeek, ymd }
 import { SortMenu, TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
 import { WeekBoard } from "./table/WeekBoard";
-import { NavGroup, NewTaskButton, Toolbar } from "./Toolbar";
+import { NavGroup, NewTaskButton, SpeakButton, Toolbar } from "./Toolbar";
 import { ProgressRing } from "./ui";
 
 const BOARD_MIN = 1040; // px of sheet below which seven columns get too narrow and the week becomes a list
@@ -16,12 +16,15 @@ export function WeekView({
   state,
   actions,
   onSelectDate,
+  onSpeak,
 }: {
   selected: string;
   sections: Section[];
   state: TableState;
   actions: TableActions;
   onSelectDate: (key: string) => void;
+  /** Opens the voice screen; absent where the server can't sort speech into tasks. */
+  onSpeak?: () => void;
 }) {
   const { todayKey } = state;
   const start = startOfWeek(parseYmd(selected));
@@ -68,6 +71,7 @@ export function WeekView({
           onToday={() => onSelectDate(todayKey)}
           todayDisabled={weeks === 0}
         />
+        {onSpeak && <SpeakButton onClick={onSpeak} />}
         <NewTaskButton onClick={() => actions.openComposer(selected)} />
       </Toolbar>
 

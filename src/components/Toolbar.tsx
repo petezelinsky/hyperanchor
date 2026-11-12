@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, PlusIcon } from "./icons";
+import { ChevronLeft, ChevronRight, PlusIcon, SphereIcon } from "./icons";
 import { Button } from "./ui";
 
 /**
@@ -78,6 +78,16 @@ export function NewTaskButton({ onClick }: { onClick: () => void }) {
     <Button variant="primary" onClick={onClick} aria-label="New task" data-tip="New task (N)" className="pl-2.5">
       <PlusIcon size={14} strokeWidth={2.2} />
       <span className="max-sm:hidden">New task</span>
+    </Button>
+  );
+}
+
+/** Speak your tasks: opens the voice screen. The sphere is its sign everywhere. */
+export function SpeakButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button onClick={onClick} aria-label="Speak your tasks" data-tip="Speak your tasks (V)" className="max-sm:w-8 max-sm:px-0 sm:pr-3.5 sm:pl-2.5">
+      <SphereIcon size={17} />
+      <span className="max-sm:hidden">Speak</span>
     </Button>
   );
 }

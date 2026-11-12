@@ -12,5 +12,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const { name, email, image } = session.user;
   const user = { name: name ?? email ?? "", email: email ?? "", image: image ?? null };
   await touchUser(session.user.id, user);
-  return <TaskAppLoader user={user} account={session.user.id} />;
+  // Speaking tasks needs the server's Anthropic key: without one the app simply doesn't offer it.
+  return <TaskAppLoader user={user} account={session.user.id} voice={!!process.env.ANTHROPIC_API_KEY} />;
 }
