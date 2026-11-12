@@ -8,9 +8,9 @@ import { ArrowRightIcon, CheckIcon, EllipsisIcon } from "../icons";
 import { Checkbox, IconButton } from "../ui";
 import type { Field, TableActions } from "./types";
 
-// Responsive columns (container queries): check | task | notes | menu. Notes sit under the title in narrow lists;
-// in wide ones they take the right third, and a task without notes lets its title run across both.
-export const COLS = "grid grid-cols-[40px_minmax(0,1fr)_36px] @2xl:grid-cols-[40px_minmax(0,2fr)_minmax(0,1fr)_36px]";
+// A row's columns: check | task (the title, its notes beside it on the same line) | menu. The box and its gap make 30px,
+// so text starts 12px + 30px in (16px + 30px on phones), where the hairline under the row starts too.
+export const COLS = "grid grid-cols-[30px_minmax(0,1fr)_36px] pr-2 pl-4 md:pr-1 md:pl-3";
 
 const SWIPE = 72; // px a finger has to travel for a swipe to count
 
@@ -171,15 +171,16 @@ export const TaskRow = memo(function TaskRow({
 
   // A finished task on the week board steps back to one quiet line (picking it shows it whole again).
   const compact = card && task.done && !selected && !editing;
-  const titleText = compact ? "text-footnote" : card ? "text-footnote" : "text-footnote";
+  // Lists: 15px titles (16px on phones, which also keeps them from zooming in on a field). Cards: 13px.
+  const titleText = card ? "text-footnote" : "text-[16px] leading-[22px] md:text-callout";
   // Cards are narrow: long words hyphenate rather than break mid-word.
   // (line-clamp brings its own display, so it never goes with `block`.)
-  // A picked task shows its title whole; otherwise one line in lists, three on cards.
-  const titleFit = selected ? "block break-words hyphens-calm" : card && !compact ? "line-clamp-3 break-words hyphens-calm" : "block truncate";
-  const titleCls = `w-full ${titleFit} ${titleText} transition-colors duration-(--duration-base) ${task.done ? "text-ink-3" : "text-ink"}`;
-  const notesText = card ? "text-caption" : "text-footnote";
+  // A picked task shows its title whole; otherwise one line in lists (its notes beside it), two on cards.
+  const titleFit = selected ? "block w-full break-words hyphens-calm" : card && !compact ? "line-clamp-2 w-full break-words hyphens-calm" : card ? "block w-full truncate" : "min-w-0 flex-[0_1_auto] truncate";
+  const titleCls = `${titleFit} ${titleText} transition-colors duration-(--duration-base) ${task.done ? "text-ink-3" : "text-ink"}`;
+  const notesText = card ? "text-caption" : "text-body";
   // A picked task shows its notes in full (while its title is edited too); otherwise one quiet line.
-  const notesCls = `w-full ${notesText} ${selected ? "block break-words whitespace-pre-line text-ink-2" : card ? "block truncate text-ink-3" : "block truncate text-ink-2"}`;
+  const notesCls = `${notesText} ${selected ? "block w-full break-words whitespace-pre-line text-ink-2" : card ? "block w-full truncate text-ink-3" : "min-w-0 flex-[1_1_0] truncate text-ink-3"}`;
 
   // The first click picks a task and shows it whole; a click on the picked task, Enter or a double click edits it.
   const editOnClick = (field: Field) => () => {
@@ -231,7 +232,7 @@ export const TaskRow = memo(function TaskRow({
 
   const checkbox = (
     <Checkbox
-      size={card ? 16 : 20}
+      size={card ? 16 : 18}
       checked={task.done}
       onToggle={() => {
         actions.select(task.id);
@@ -296,6 +297,7 @@ export const TaskRow = memo(function TaskRow({
     );
   }
 
+  const inline = !selected && !editing;
   return (
     <div
       {...common}
@@ -305,36 +307,38 @@ export const TaskRow = memo(function TaskRow({
         swipeHandlers.onPointerDown(e);
       }}
       style={{ touchAction: "pan-y" }}
-      // Rows are divided by hairlines. A hovered or picked row becomes a rounded box outlined in the same line color: its
-      // 1px ring sits over the hairlines above and below, so they turn into the box's edges instead of breaking off at
-      // its corners. The first row hangs from the section's line, so its top corners stay square. It clips only while
-      // swiped (so the menu button's touch area can reach past its edge).
-      className={`group/row relative rounded-sm transition-[background-color,box-shadow,opacity] duration-(--duration-fast) first:rounded-t-none ${dx !== 0 ? "overflow-hidden" : ""} after:pointer-events-none after:absolute after:right-3.5 after:bottom-0 after:left-11 after:h-px after:bg-line ${
-        selected || editing
-          ? "bg-surface-3 shadow-ring-line-2 after:opacity-0"
-          : "hover:bg-surface-2 hover:shadow-ring-line hover:after:opacity-0"
+      // Rows are divided by hairlines that start where the text starts. A hovered row turns into a soft box (no line),
+      // a picked one into a box outlined in the line color. It clips only while swiped (so the menu button's touch area
+      // can reach past its edge).
+      className={`group/row relative transition-[background-color,box-shadow,opacity] duration-(--duration-fast) md:rounded-sm ${dx !== 0 ? "overflow-hidden" : ""} after:pointer-events-none after:absolute after:right-4 after:bottom-0 after:left-[46px] after:h-px after:bg-line md:after:right-3 md:after:left-[42px] ${
+        selected || editing ? "bg-surface-3 shadow-ring-line-2 after:opacity-0" : "pointer-fine:hover:bg-surface-2 pointer-fine:hover:after:opacity-0"
       } ${lifted ? "opacity-35" : ""}`}
     >
       {dx !== 0 && <SwipeActions dx={dx} done={task.done} />}
       <div
-        className={`relative ${COLS} min-h-11 items-start px-1 ${dx !== 0 ? "rounded-sm bg-surface" : ""}`}
+        className={`relative ${COLS} min-h-[50px] items-start md:min-h-12 ${dx !== 0 ? "bg-surface" : ""}`}
         style={{
           transform: dx ? `translateX(${dx}px)` : undefined,
           transition: back ? "transform var(--duration-base) var(--ease-out)" : undefined,
         }}
       >
-        <div role="gridcell" className="col-start-1 row-start-1 flex h-11 items-center justify-center">
+        <div role="gridcell" className="col-start-1 row-start-1 flex h-[50px] items-center md:h-12">
           {checkbox}
         </div>
-        <div role="gridcell" className={`col-start-2 row-start-1 min-w-0 py-3 pr-3 ${showNotes ? "" : "@2xl:col-span-2"}`}>
-          {title}
+        <div role="gridcell" className="col-start-2 row-start-1 min-w-0 py-[14px] pr-2 md:py-[13px]">
+          {inline ? (
+            <div className="flex min-w-0 items-baseline gap-2.5">
+              {title}
+              {task.description && notes}
+            </div>
+          ) : (
+            <>
+              {title}
+              {showNotes && <div className="mt-1">{notes}</div>}
+            </>
+          )}
         </div>
-        {showNotes && (
-          <div role="gridcell" className="col-start-2 row-start-2 -mt-2.5 min-w-0 pr-3 pb-3 @2xl:col-start-3 @2xl:row-start-1 @2xl:mt-0 @2xl:pt-3">
-            {notes}
-          </div>
-        )}
-        <div role="gridcell" className="col-start-3 row-start-1 flex h-11 items-center justify-end pr-0.5 @2xl:col-start-4">
+        <div role="gridcell" className="col-start-3 row-start-1 flex h-[50px] items-center justify-end md:h-12">
           {menu}
         </div>
       </div>

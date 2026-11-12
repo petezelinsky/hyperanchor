@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { addDays, formatLong, isWeekend, monthGrid, MONTHS, plural, weekdayNames, ymd } from "@/lib/dates";
+import { addDays, formatLong, monthGrid, MONTHS, parseYmd, plural, weekdayNames, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { useDrag } from "./drag";
 import { ArrowRightIcon, PlusIcon, XIcon } from "./icons";
-import { NavGroup, SpeakButton, Toolbar } from "./Toolbar";
-import { Button, Checkbox, IconButton, Popover, ProgressRing } from "./ui";
+import { MiniMonth } from "./Sidebar";
+import { Stepper, ViewHead } from "./Toolbar";
+import { Button, Checkbox, IconButton, Popover } from "./ui";
 
 export function MonthView({
   year,
@@ -20,7 +21,6 @@ export function MonthView({
   onOpenDay,
   onToggle,
   onCreate,
-  onSpeak,
 }: {
   year: number;
   month: number;
@@ -33,8 +33,6 @@ export function MonthView({
   onOpenDay: (key: string) => void;
   onToggle: (t: Task) => void;
   onCreate: (date: string, title: string) => void;
-  /** Opens the voice screen; absent where the server can't sort speech into tasks. */
-  onSpeak?: () => void;
 }) {
   const [pop, setPop] = useState<{ key: string; rect: DOMRect } | null>(null);
   const drag = useDrag();
@@ -43,75 +41,68 @@ export function MonthView({
   // Five-week months have taller days: room for a fourth title. A day that would show "+1 more" shows that task instead.
   const fit = rows > 5 ? 3 : 4;
   const shown = (n: number) => (n === fit + 1 ? fit + 1 : Math.min(n, fit));
-  const inMonth = cells.filter((d) => d.getMonth() === month).flatMap((d) => byDate(ymd(d)));
-  const done = inMonth.filter((t) => t.done).length;
   const isCurrent = ymd(new Date(year, month, 1)).slice(0, 7) === todayKey.slice(0, 7);
+  const todayIndex = (parseYmd(todayKey).getDay() - start.getDay() + 7) % 7;
 
   return (
-    <>
-      <Toolbar
-        title={
-          <>
-            {MONTHS[month]} <span className="font-normal text-ink-3">{year}</span>
-          </>
+    <div className="mx-auto w-full max-w-[1288px] md:px-6">
+      <ViewHead
+        title={MONTHS[month]}
+        soft={year}
+        right={
+          <Stepper
+            prevLabel="Previous month"
+            nextLabel="Next month"
+            onPrev={() => {
+              setPop(null);
+              onShift(-1);
+            }}
+            onNext={() => {
+              setPop(null);
+              onShift(1);
+            }}
+            todayLabel={isCurrent ? null : "This month"}
+            onToday={() => {
+              setPop(null);
+              onThisMonth();
+            }}
+          />
         }
-        subtitle={
-          inMonth.length ? (
-            <>
-              <ProgressRing value={done / inMonth.length} size={14} stroke={2.4} />
-              <span>
-                {done} of {inMonth.length} done
-              </span>
-            </>
-          ) : (
-            "No tasks this month"
-          )
-        }
-        wide
-      >
-        <NavGroup
-          prevLabel="Previous month"
-          nextLabel="Next month"
-          todayLabel="This month"
-          onPrev={() => {
-            setPop(null);
-            onShift(-1);
-          }}
-          onNext={() => {
-            setPop(null);
-            onShift(1);
-          }}
-          onToday={() => {
-            setPop(null);
-            onThisMonth();
-          }}
-          todayDisabled={isCurrent}
-        />
-        {onSpeak && <SpeakButton onClick={onSpeak} />}
-      </Toolbar>
+      />
 
-      <div className="pb-6">
-        <div className="grid grid-cols-7 border-y border-line bg-surface-2">
+      {/* Phones: the month as numbers (dark where something is still to do), and the chosen day's tasks under it. */}
+      <div className="md:hidden">
+        <div className="px-2 pt-2 pb-1">
+          <MiniMonth large year={year} month={month} selected={selected} todayKey={todayKey} byDate={byDate} onShift={onShift} onSelect={onSelectDate} />
+        </div>
+        <DayList dateKey={selected} tasks={byDate(selected)} onToggle={onToggle} onCreate={(title) => onCreate(selected, title)} onOpenDay={() => onOpenDay(selected)} />
+      </div>
+
+      {/* Computers: the whole month as a grid, the tasks written in the days. */}
+      <div className="max-md:hidden">
+        <div className="grid grid-cols-7">
           {weekdayNames("short").map((d, i) => (
-            <div key={d} className={`px-2 py-2 text-right text-caption font-medium md:px-3 ${isWeekend(cells[i]) ? "text-ink-3" : "text-ink-2"}`}>
-              <span className="sm:hidden">{d[0]}</span>
-              <span className="max-sm:hidden">{d}</span>
+            <div key={d} className={`flex h-8 items-center px-3 text-caption font-medium ${i ? "border-l border-line" : ""} ${isCurrent && i === todayIndex ? "text-ink" : "text-ink-3"}`}>
+              {d}
             </div>
           ))}
         </div>
-        {/* On computers the weeks share the screen's height, so the month always fills the sheet. */}
+        {/* The weeks share the screen's height, so the month always fills the work area. */}
         <div
           key={`${year}-${month}`}
+          role="grid"
+          aria-label={`${MONTHS[month]} ${year}`}
           style={{ "--weeks": rows } as React.CSSProperties}
-          className="grid animate-[fade_var(--duration-fast)_var(--ease-out)_both] grid-cols-7 [grid-auto-rows:minmax(76px,auto)] md:min-h-[calc(100dvh-10.5rem)] md:[grid-template-rows:repeat(var(--weeks),minmax(112px,1fr))]"
+          className="grid min-h-[calc(100dvh-173px)] animate-[fade_var(--duration-fast)_var(--ease-out)_both] grid-cols-7 [grid-template-rows:repeat(var(--weeks),minmax(104px,1fr))]"
         >
           {cells.map((d, i) => {
             const key = ymd(d);
             const tasks = byDate(key);
+            // What's left first, then what's done.
+            const ordered = [...tasks.filter((t) => !t.done), ...tasks.filter((t) => t.done)];
             const out = d.getMonth() !== month;
             const isToday = key === todayKey;
             const isSel = key === selected;
-            const weekend = isWeekend(d);
             const hot = drag.dragging && drag.target?.zone === "month" && drag.target.date === key;
             return (
               <button
@@ -125,59 +116,34 @@ export function MonthView({
                 }}
                 onDoubleClick={() => onOpenDay(key)}
                 aria-label={`${formatLong(d)}${tasks.length ? `, ${plural(tasks.length, "task")}` : ""}`}
-                className={`flex min-w-0 flex-col gap-1 border-line p-1.5 text-left transition-[background-color,box-shadow] duration-(--duration-fast) md:p-2 ${i % 7 < 6 ? "border-r" : ""} ${
-                  i < cells.length - 7 ? "border-b" : ""
-                } ${hot ? "bg-accent-soft outline -outline-offset-1 outline-accent" : isSel ? "bg-surface-3" : weekend ? "bg-surface-2 hover:bg-surface-3" : "hover:bg-surface-2"}`}
+                className={`flex min-w-0 flex-col gap-[3px] overflow-hidden border-t border-line px-3 py-2 text-left transition-[background-color,box-shadow] duration-(--duration-fast) ${i % 7 ? "border-l" : ""} ${
+                  hot ? "bg-accent-soft outline -outline-offset-1 outline-accent" : isSel && !isToday ? "bg-surface-3" : out ? "bg-surface-2 hover:bg-surface-3" : "hover:bg-surface-2"
+                }`}
               >
-                <span className="flex justify-end">
-                  {/* Today is the accent; another selected day is black (as in Calendar). */}
+                <span className="mb-px flex h-6 flex-none items-center">
                   <span
-                    className={`tabular flex size-[26px] items-center justify-center rounded-full text-footnote transition-colors duration-(--duration-fast) ${
-                      isToday ? "bg-accent-solid font-semibold text-on-accent" : isSel ? "bg-primary font-semibold text-on-primary" : out ? "text-ink-4" : "text-ink"
+                    data-day-dot={key}
+                    className={`tabular flex h-6 items-center justify-center rounded-[7px] text-footnote ${
+                      isToday ? "min-w-6 bg-primary px-[5px] font-semibold text-on-primary" : out ? "font-medium text-ink-4" : "font-medium text-ink"
                     }`}
                   >
                     {d.getDate()}
                   </span>
                 </span>
-                <span className="flex min-w-0 flex-col gap-[3px] max-lg:hidden">
-                  {tasks.slice(0, shown(tasks.length)).map((t) => (
-                    // A task can be dragged straight from here onto another day.
-                    <span
-                      key={t.id}
-                      onPointerDown={(e) => drag.start(e, t)}
-                      className={`flex min-w-0 cursor-grab items-center gap-1.5 rounded-xs text-caption ${drag.dragging?.id === t.id ? "opacity-35" : ""} ${
-                        t.done ? "text-ink-3" : out ? "text-ink-3" : "text-ink"
-                      }`}
-                    >
-                      <span className={`size-[7px] flex-none rounded-full ${t.done ? "bg-accent" : "border-[1.5px] border-check-ring"}`} />
-                      <span className="truncate">{t.title}</span>
-                    </span>
-                  ))}
-                  {tasks.length > shown(tasks.length) && (
-                    <span className="pl-3 text-caption font-medium text-ink-3">+{tasks.length - shown(tasks.length)} more</span>
-                  )}
-                </span>
-                {tasks.length > 0 && (
-                  <span className="flex flex-wrap justify-end gap-[3px] lg:hidden">
-                    {tasks.slice(0, 4).map((t) => (
-                      <span key={t.id} className={`size-[5px] rounded-full ${t.done ? "bg-accent" : "bg-ink-4"}`} />
-                    ))}
+                {ordered.slice(0, shown(ordered.length)).map((t) => (
+                  // A task can be dragged straight from here onto another day.
+                  <span
+                    key={t.id}
+                    onPointerDown={(e) => drag.start(e, t)}
+                    className={`block min-w-0 flex-none cursor-grab truncate text-caption ${drag.dragging?.id === t.id ? "opacity-35" : ""} ${t.done || out ? "text-ink-3" : "text-ink"}`}
+                  >
+                    {t.title}
                   </span>
-                )}
+                ))}
+                {ordered.length > shown(ordered.length) && <span className="flex-none text-caption text-ink-3">+{ordered.length - shown(ordered.length)} more</span>}
               </button>
             );
           })}
-        </div>
-        {/* Phones and tablets show dots, not titles: say what they mean. */}
-        <div className="mt-3 flex items-center justify-center gap-4 text-caption text-ink-3 lg:hidden">
-          <span className="flex items-center gap-1.5">
-            <span className="size-[6px] rounded-full bg-accent" />
-            Done
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-[6px] rounded-full bg-ink-4" />
-            Open
-          </span>
         </div>
       </div>
 
@@ -196,7 +162,70 @@ export function MonthView({
           }}
         />
       )}
-    </>
+    </div>
+  );
+}
+
+/** Phones: the chosen day under the month — its tasks to tick off, a line to add one, and the way into the day. */
+function DayList({
+  dateKey,
+  tasks,
+  onToggle,
+  onCreate,
+  onOpenDay,
+}: {
+  dateKey: string;
+  tasks: Task[];
+  onToggle: (t: Task) => void;
+  onCreate: (title: string) => void;
+  onOpenDay: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const d = parseYmd(dateKey);
+  const done = tasks.filter((t) => t.done).length;
+  return (
+    <div>
+      <div className="flex h-10 items-center justify-between bg-surface-2 px-4 shadow-[inset_0_-1px_0_var(--line),inset_0_1px_0_var(--line)]">
+        <button type="button" onClick={onOpenDay} className="tap relative flex items-center gap-1.5 text-footnote font-semibold">
+          {formatLong(d)}
+          <ArrowRightIcon size={12} strokeWidth={2} className="text-ink-3" />
+        </button>
+        <span className="tabular text-caption text-ink-3">{tasks.length ? `${done} of ${tasks.length}` : ""}</span>
+      </div>
+      <form
+        className="relative flex h-[50px] items-center gap-3 px-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!title.trim()) return;
+          onCreate(title.trim());
+          setTitle("");
+        }}
+      >
+        <span className="flex size-[18px] flex-none items-center justify-center rounded-[6px] bg-surface-2 text-ink-2 shadow-ring-line">
+          <PlusIcon size={12} strokeWidth={2} />
+        </span>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="New task"
+          aria-label={`New task on ${formatLong(d)}`}
+          maxLength={500}
+          enterKeyHint="done"
+          className="h-full min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-ink-3"
+        />
+        <span aria-hidden="true" className="absolute right-4 bottom-0 left-[46px] h-px bg-line" />
+      </form>
+      <ul>
+        {tasks.map((t) => (
+          <li key={t.id} className="relative flex min-h-[50px] items-center gap-3 px-4 py-2">
+            <Checkbox size={18} checked={t.done} onToggle={() => onToggle(t)} label={t.done ? `Mark “${t.title}” as open` : `Mark “${t.title}” as done`} />
+            <span className={`min-w-0 flex-1 text-[16px] leading-[22px] break-words transition-colors duration-(--duration-base) ${t.done ? "text-ink-3" : "text-ink"}`}>{t.title}</span>
+            <span aria-hidden="true" className="absolute right-4 bottom-0 left-[46px] h-px bg-line" />
+          </li>
+        ))}
+      </ul>
+      {!tasks.length && <p className="px-4 pt-3 pl-[46px] text-body text-ink-3">Nothing planned.</p>}
+    </div>
   );
 }
 
@@ -233,19 +262,6 @@ function DayPopover({
           <XIcon size={13} />
         </IconButton>
       </div>
-      {tasks.length > 0 && (
-        <ul className="mt-2 max-h-72 overflow-y-auto">
-          {tasks.map((t) => (
-            <li key={t.id} className="flex items-start gap-2.5 rounded-sm px-1 py-1.5">
-              <Checkbox size={18} checked={t.done} onToggle={() => onToggle(t)} label={t.done ? `Mark “${t.title}” as open` : `Mark “${t.title}” as done`} className="mt-0.5" />
-              <div className="min-w-0">
-                <div className={`text-body break-words transition-colors duration-(--duration-base) ${t.done ? "text-ink-3" : "text-ink"}`}>{t.title}</div>
-                {t.description && <div className="truncate text-caption text-ink-3">{t.description}</div>}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
       <form
         className="mt-2 flex h-9 items-center gap-2 rounded-sm bg-surface-2 px-3 transition-shadow focus-within:bg-surface focus-within:shadow-ring-accent"
         onSubmit={(e) => {
@@ -266,6 +282,19 @@ function DayPopover({
           className="min-w-0 flex-1 bg-transparent text-body outline-none"
         />
       </form>
+      {tasks.length > 0 && (
+        <ul className="mt-2 max-h-72 overflow-y-auto">
+          {tasks.map((t) => (
+            <li key={t.id} className="flex items-start gap-2.5 rounded-sm px-1 py-1.5">
+              <Checkbox size={18} checked={t.done} onToggle={() => onToggle(t)} label={t.done ? `Mark “${t.title}” as open` : `Mark “${t.title}” as done`} className="mt-0.5" />
+              <div className="min-w-0">
+                <div className={`text-body break-words transition-colors duration-(--duration-base) ${t.done ? "text-ink-3" : "text-ink"}`}>{t.title}</div>
+                {t.description && <div className="truncate text-caption text-ink-3">{t.description}</div>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="mt-2 -mr-2 flex justify-end">
         <Button size="sm" variant="plain" onClick={onOpenDay} className="gap-1 text-ink!">
           Open day <ArrowRightIcon size={12} />

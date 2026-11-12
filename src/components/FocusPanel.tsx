@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
-import { CheckIcon, PlusIcon, TimerIcon } from "./icons";
-import { Button, Checkbox, Kbd, ProgressRing } from "./ui";
+import { CheckIcon, PlusIcon, TimerIcon, XIcon } from "./icons";
+import { Button, Kbd, ProgressRing } from "./ui";
 
 /**
- * Focus mode: one task at a time, on the top card of a small stack — the edges peeking out below are what's left.
- * Done lifts the card away and the next one rises into place; Not now sends it to the back. The rest of the day is
- * one quiet line, so there is nothing else to choose between.
+ * Focus mode: the whole screen for one task. The card holds only the task and its two ways on, Done and Later; where it
+ * stands in the day and the timer sit in the bar above. The cards behind it, the same size, peek out by the same strip,
+ * one for each task still waiting. Done lifts the card away and the next one rises into place; Later sends it to the
+ * back.
  */
 export function FocusPanel({
   task,
@@ -38,43 +39,74 @@ export function FocusPanel({
 }) {
   const leaving = useLeaving(task, !!next);
   const waiting = (next ? 1 : 0) + after;
+  const root = useRef<HTMLDivElement>(null);
+
+  // The page behind holds still, and focus moves into the stage.
+  useEffect(() => {
+    root.current?.focus();
+    const s = document.documentElement.style;
+    const { overflow } = s;
+    s.overflow = "hidden";
+    return () => {
+      s.overflow = overflow;
+    };
+  }, []);
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-22rem)] w-full max-w-[600px] flex-col items-center justify-center pt-4 pb-6 md:min-h-[calc(100dvh-14rem)]">
-      {task ? (
-        <>
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
-            <Progress done={done} total={total} />
-            <span aria-hidden="true" className="text-ink-4">
-              ·
+    <div
+      ref={root}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Focus"
+      tabIndex={-1}
+      className="fixed inset-0 z-[80] flex animate-[fade_var(--duration-base)_var(--ease-out)_both] flex-col bg-canvas outline-none"
+    >
+      <header className="grid h-[52px] flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 md:h-14 md:px-4">
+        <div className="flex">
+          <Button onClick={onExit} data-tip="Leave focus (Esc)" className="gap-2 pl-2.5">
+            <XIcon size={14} strokeWidth={1.8} />
+            <span className="sm:hidden">Leave</span>
+            <span className="max-sm:hidden">Leave focus</span>
+            <span className="pointer-coarse:hidden">
+              <Kbd>Esc</Kbd>
             </span>
-            <FocusTimer />
-          </div>
-          <div className="relative mt-6 w-full">
-            {waiting > 1 && <span aria-hidden="true" className="absolute inset-x-[9%] -bottom-[18px] h-16 rounded-card bg-surface-2 shadow-lift" />}
-            {waiting > 0 && <span aria-hidden="true" className="absolute inset-x-[4.5%] -bottom-[9px] h-16 rounded-card bg-surface shadow-lift" />}
+          </Button>
+        </div>
+        <Where done={done} total={total} finished={!task} />
+        <div className="flex justify-end">
+          <FocusTimer />
+        </div>
+      </header>
+
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-3 pb-6 md:px-10">
+        {task ? (
+          <div className="relative w-full max-w-[600px]">
+            {/* The cards behind: the same size as the first, each showing the same strip under the one before. */}
+            {waiting > 1 && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-x-6 inset-y-0 translate-y-6 rounded-[20px] bg-[color-mix(in_srgb,var(--surface)_52%,var(--canvas))] shadow-[0_0_0_1px_color-mix(in_srgb,var(--ink)_7%,transparent)] md:inset-x-9"
+              />
+            )}
+            {waiting > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-x-3 inset-y-0 translate-y-3 rounded-[20px] bg-[color-mix(in_srgb,var(--surface)_80%,var(--canvas))] shadow-[0_0_0_1px_color-mix(in_srgb,var(--ink)_7%,transparent)] md:inset-x-[18px]"
+              />
+            )}
             <Card key={task.id} task={task} hasNext={!!next} onDone={onDone} onLater={onLater} />
             {leaving && <Card key={`${leaving.task.id}-leaving`} task={leaving.task} hasNext={leaving.hasNext} leaving />}
           </div>
-          <p className="mt-10 max-w-full truncate px-4 text-footnote text-ink-3">
-            {next ? (
-              <>
-                Up next: <span className="text-ink-2">{next.title}</span>
-                {after > 0 && ` · ${after} more after that`}
-              </>
-            ) : (
-              "This is the last one."
-            )}
-          </p>
-        </>
-      ) : total > 0 ? (
-        <AllDone isToday={isToday} onExit={onExit} />
-      ) : (
-        <p className="text-callout text-ink-2">Nothing is planned for this day.</p>
-      )}
+        ) : total > 0 ? (
+          <AllDone isToday={isToday} onExit={onExit} />
+        ) : (
+          <p className="text-callout text-ink-2">Nothing is planned for this day.</p>
+        )}
+      </main>
 
+      {/* A thought that comes up on the way: one quiet line at the foot (N), kept for later without leaving focus. */}
       <form
-        className="group mt-8 flex h-10 w-full max-w-[420px] items-center gap-2 rounded-sm bg-surface-2 pointer-coarse:h-11 pr-2 pl-3.5 shadow-ring-line transition-shadow focus-within:bg-surface focus-within:shadow-ring-accent"
+        className="mx-auto mb-[max(1rem,env(safe-area-inset-bottom))] flex h-10 w-[calc(100%-24px)] max-w-[420px] flex-none items-center gap-2 rounded-sm pr-2 pl-3 text-ink-3 transition-[background-color,box-shadow] duration-(--duration-fast) focus-within:bg-surface focus-within:text-ink focus-within:shadow-ring-line-2 hover:text-ink-2 md:mb-8"
         onSubmit={(e) => {
           e.preventDefault();
           const input = e.currentTarget.elements.namedItem("thought") as HTMLInputElement;
@@ -84,18 +116,18 @@ export function FocusPanel({
           input.value = "";
         }}
       >
-        <PlusIcon size={14} className="flex-none text-ink-3" />
+        <PlusIcon size={14} className="flex-none" />
         <input
           id="focus-capture"
           name="thought"
-          placeholder="Something else on your mind? Jot it down"
+          placeholder="Jot something down for later"
           aria-label="Add a task for later"
           maxLength={500}
           autoComplete="off"
-          className="h-full min-w-0 flex-1 bg-transparent text-footnote outline-none"
+          className="peer h-full min-w-0 flex-1 bg-transparent text-footnote text-ink outline-none placeholder:text-current"
           onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
         />
-        <span className="group-focus-within:hidden pointer-coarse:hidden">
+        <span className="peer-focus:hidden pointer-coarse:hidden">
           <Kbd>N</Kbd>
         </span>
       </form>
@@ -103,28 +135,36 @@ export function FocusPanel({
   );
 }
 
-/** Where you are in the day: one segment per task (a plain bar for long days), the current one half-lit. */
-function Progress({ done, total }: { done: number; total: number }) {
+/** Where the day stands: a dot per task (a plain bar for long days), the one in hand outlined, and "3 of 7". */
+function Where({ done, total, finished }: { done: number; total: number; finished: boolean }) {
+  if (!total) return <span />;
+  const at = Math.min(done + 1, total);
   return (
-    <div className="flex items-center gap-3 text-footnote text-ink-3">
+    <span
+      role="img"
+      aria-label={finished ? `All ${total} done` : `Task ${at} of ${total}`}
+      className="flex items-center gap-2.5 text-footnote font-medium whitespace-nowrap text-ink-3"
+    >
       {total <= 12 ? (
-        <span aria-hidden="true" className="flex gap-1">
+        <span aria-hidden="true" className="flex gap-[5px]">
           {Array.from({ length: total }, (_, i) => (
             <span
               key={i}
-              className={`h-1.5 w-5 rounded-full transition-colors duration-(--duration-data) ${i < done ? "bg-accent" : i === done ? "bg-accent/45" : "bg-accent-track"}`}
+              className={`size-1.5 rounded-full transition-[background-color,box-shadow] duration-(--duration-data) ${
+                i < done ? "bg-ink" : i === done ? "shadow-[inset_0_0_0_1.5px_var(--ink)]" : "bg-line-2"
+              }`}
             />
           ))}
         </span>
       ) : (
-        <span aria-hidden="true" className="block h-1.5 w-40 overflow-hidden rounded-full bg-accent-track">
-          <span className="block h-full origin-left rounded-full bg-accent transition-transform duration-(--duration-data) ease-out" style={{ transform: `scaleX(${done / total})` }} />
+        <span aria-hidden="true" className="block h-1 w-24 overflow-hidden rounded-full bg-line-2">
+          <span className="block h-full origin-left rounded-full bg-ink transition-transform duration-(--duration-data) ease-out" style={{ transform: `scaleX(${done / total})` }} />
         </span>
       )}
-      <span className="tabular">
-        Task {Math.min(done + 1, total)} of {total}
+      <span aria-hidden="true" className="tabular">
+        {finished ? `${total} of ${total}` : `${at} of ${total}`}
       </span>
-    </div>
+    </span>
   );
 }
 
@@ -179,35 +219,23 @@ function FocusTimer() {
     const secs = Math.ceil(left / 1000);
     const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
     return (
-      <button
-        type="button"
-        onClick={() => setEnd(null)}
-        aria-label={`Stop the timer, ${Math.ceil(secs / 60)} minutes left`}
-        data-tip="Stop the timer"
-        className="tap group relative flex h-7 items-center gap-1.5 rounded-full px-2 text-footnote font-medium text-accent-ink transition-colors duration-(--duration-fast) hover:bg-surface-3"
-      >
+      <Button onClick={() => setEnd(null)} aria-label={`Stop the timer, ${Math.ceil(secs / 60)} minutes left`} data-tip="Stop the timer" className="gap-2 pl-2.5">
         <ProgressRing value={1 - left / total} size={14} stroke={2.2} />
         <span className="tabular min-w-[34px] text-left">{clock}</span>
-      </button>
+      </Button>
     );
   }
   if (over)
     return (
-      <span role="status" className="flex h-7 animate-pop-in items-center px-2 text-footnote font-medium text-accent-ink">
+      <span role="status" className="flex h-8 animate-pop-in items-center px-2 text-footnote font-medium text-ink">
         {TIMER_MINUTES} minutes are up.
       </span>
     );
   return (
-    <button
-      type="button"
-      onClick={start}
-      aria-label={`Start a ${TIMER_MINUTES}-minute timer`}
-      data-tip={`Start a ${TIMER_MINUTES}-minute timer`}
-      className="tap relative flex h-7 items-center gap-1.5 rounded-full px-2 text-footnote text-ink-3 transition-colors duration-(--duration-fast) hover:bg-surface-3 hover:text-ink"
-    >
-      <TimerIcon size={13} />
-      {TIMER_MINUTES} min
-    </button>
+    <Button onClick={start} aria-label={`Start a ${TIMER_MINUTES}-minute timer`} data-tip={`Start a ${TIMER_MINUTES}-minute timer`} className="gap-2 pl-2.5">
+      <TimerIcon size={14} />
+      <span className="tabular">{TIMER_MINUTES}:00</span>
+    </Button>
   );
 }
 
@@ -253,33 +281,27 @@ function Card({
       : "pointer-events-none absolute inset-x-0 top-0 animate-[focus-later_var(--duration-base)_var(--ease-in)_both]"
     : "relative animate-[focus-in_var(--duration-move)_80ms_var(--ease-spring)_both]";
   return (
-    <article inert={leaving} aria-hidden={leaving || undefined} className={`rounded-card bg-surface p-5 text-left shadow-float sm:p-7 ${motion}`}>
-      <div className="flex items-start gap-4">
-        <Checkbox
-          size={28}
-          checked={task.done}
-          onToggle={() => onDone?.(task)}
-          label={task.done ? `Mark “${task.title}” as open` : `Mark “${task.title}” as done`}
-          className="mt-[3px]"
-        />
-        <div className="min-w-0 flex-1">
-          <h2
-            className={`text-title-2 font-semibold break-words transition-colors duration-(--duration-base) sm:text-title ${task.done ? "text-ink-3" : ""}`}
-          >
-            {task.title}
-          </h2>
-          {task.description && <p className="mt-2 text-callout whitespace-pre-line text-ink-2">{task.description}</p>}
-        </div>
-      </div>
-      <div className="mt-7 grid grid-cols-2 gap-2 sm:flex sm:pl-[44px]">
-        <Button variant="primary" size="lg" onClick={() => onDone?.(task)} disabled={task.done} className={`gap-2 px-4 ${hasNext ? "" : "col-span-2"}`}>
+    <article
+      inert={leaving}
+      aria-hidden={leaving || undefined}
+      className={`z-[2] flex min-h-[300px] flex-col rounded-[20px] bg-surface px-5 pt-7 pb-5 text-left shadow-float md:px-10 md:pt-10 md:pb-8 ${motion}`}
+    >
+      <h2
+        className={`text-[28px] leading-[34px] font-semibold tracking-[-0.026em] text-balance break-words transition-colors duration-(--duration-base) md:text-[34px] md:leading-10 md:tracking-[-0.028em] ${task.done ? "text-ink-3" : ""}`}
+      >
+        {task.title}
+      </h2>
+      {task.description && <p className="mt-2.5 text-[16px] leading-[22px] whitespace-pre-line text-ink-2 md:mt-3 md:text-headline">{task.description}</p>}
+      <span className="min-h-8 flex-1" />
+      <div className="flex gap-2">
+        <Button variant="primary" size="lg" onClick={() => onDone?.(task)} disabled={task.done} className="gap-2 px-4 max-sm:flex-1 md:h-10 md:rounded-[10px]">
           <CheckIcon size={12} strokeWidth={2.4} />
           Done
           <KeyHint tone="dark">Space</KeyHint>
         </Button>
         {hasNext && (
-          <Button size="lg" onClick={() => onLater?.(task)} disabled={task.done} className="gap-2 px-4">
-            Not now
+          <Button size="lg" onClick={() => onLater?.(task)} disabled={task.done} className="gap-2 px-4 max-sm:flex-1 md:h-10 md:rounded-[10px]">
+            Later
             <KeyHint>→</KeyHint>
           </Button>
         )}
@@ -293,7 +315,7 @@ function KeyHint({ children, tone = "light" }: { children: React.ReactNode; tone
   return (
     <kbd
       className={`ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-xs px-1.5 font-sans text-caption-2 font-medium pointer-coarse:hidden ${
-        tone === "dark" ? "bg-on-primary/15 text-on-primary/75" : "bg-surface-3 text-ink-3"
+        tone === "dark" ? "bg-on-primary/15 text-on-primary/75" : "bg-surface-2 text-ink-3 shadow-ring-line"
       }`}
     >
       {children}
@@ -319,7 +341,7 @@ function useLeaving(task: Task | undefined, hasNext: boolean) {
 }
 
 function AllDone({ isToday, onExit }: { isToday: boolean; onExit: () => void }) {
-  // The ring in the header has just filled and thrown its confetti; this only says where things stand.
+  // The dots above have all filled; this only says where things stand.
   return (
     <div className="flex flex-col items-center text-center">
       <p className="text-title-2 font-semibold">{isToday ? "That was the last one." : "Everything on this day is done."}</p>

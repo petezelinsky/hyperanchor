@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { addDays, dayShort, formatLong, formatMedium, MONTHS, parseYmd, relativeDay, startOfWeek, ymd, dayName } from "@/lib/dates";
+import { addDays, formatMedium, formatShort, parseYmd, relativeDay, ymd, dayName } from "@/lib/dates";
 import type { Task } from "@/lib/types";
-import { FocusPanel } from "./FocusPanel";
-import { ArrowRightIcon, ChevronDown, ChevronLeft, ChevronRight, FocusIcon, TrashIcon } from "./icons";
-import { TaskTable } from "./table/TaskTable";
+import { ArrowRightIcon, FocusIcon, TrashIcon } from "./icons";
+import { FoldRow, TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
-import { NavGroup, NewTaskButton, SpeakButton, Toolbar } from "./Toolbar";
-import { Accordion, Burst, Button, Checkbox, IconButton, Kbd, ProgressRing } from "./ui";
+import { Stepper, ViewHead } from "./Toolbar";
+import { Accordion, Button, Checkbox, IconButton, Kbd, Modal } from "./ui";
 
 /** Focus mode for the selected day (null when off). */
 export type Focus = {
@@ -35,10 +34,10 @@ export function DayView({
   onSelectDate,
   onMoveToToday,
   carried,
-  focus,
   onFocus,
-  onSpeak,
   welcome,
+  calendar,
+  calendarFromTitle,
 }: {
   selected: string;
   section: Section;
@@ -51,159 +50,96 @@ export function DayView({
   onMoveToToday: (tasks: Task[]) => void;
   /** Today only: tasks still open from earlier days. */
   carried: Task[];
-  focus: Focus;
   onFocus: () => void;
-  /** Opens the voice screen; absent where the server can't sort speech into tasks. */
-  onSpeak?: () => void;
   welcome: Welcome;
+  /** The month to pick a day from, opened from the title (phones, and computers with the sidebar hidden). */
+  calendar: (close: () => void) => React.ReactNode;
+  /** "always" while the sidebar (and its month) is hidden. */
+  calendarFromTitle: "always" | "phone";
 }) {
   const { todayKey } = state;
   const d = parseYmd(selected);
   const all = byDate(selected);
-  const doneN = all.filter((t) => t.done).length;
   const open = all.filter((t) => !t.done);
-  const allDone = all.length > 0 && doneN === all.length;
   const past = selected < todayKey;
   const isToday = selected === todayKey;
   const year = d.getFullYear() !== parseYmd(todayKey).getFullYear() ? `, ${d.getFullYear()}` : "";
+  const relative = relativeDay(selected, todayKey);
+  const [picking, setPicking] = useState(false);
 
   return (
-    <>
-      <Toolbar
-        title={relativeDay(selected, todayKey) ?? dayName(d)}
-        subtitle={
+    <div className="mx-auto w-full max-w-[792px] md:px-6">
+      {/* The day itself is the title ("Today", "Friday"), its date beside it; how much is done lives in the sidebar. */}
+      <ViewHead
+        title={relative ?? dayName(d)}
+        soft={`${relative ? formatMedium(d) : formatShort(d)}${year}`}
+        onTitle={() => setPicking(true)}
+        titleOpen={picking}
+        titleButton={calendarFromTitle}
+        right={
           <>
-            <span>
-              {/* The title already names the weekday unless it says Today / Tomorrow / Yesterday. */}
-              {relativeDay(selected, todayKey) ? (
-                <>
-                  {/* Phones get the short date, so the count beside it is never cut off. */}
-                  <span className="sm:hidden">{formatMedium(d)}</span>
-                  <span className="max-sm:hidden">{formatLong(d)}</span>
-                </>
-              ) : (
-                `${MONTHS[d.getMonth()]} ${d.getDate()}`
-              )}
-              {year}
-            </span>
-            <span className="text-ink-4">·</span>
-            {all.length ? (
-              <>
-                <Burst active={allDone}>
-                  <ProgressRing value={doneN / all.length} size={14} stroke={2.4} />
-                </Burst>
-                <span className={allDone ? "font-medium text-ink" : ""}>{allDone ? "All done" : `${doneN} of ${all.length} done`}</span>
-              </>
-            ) : (
-              <span>No tasks</span>
-            )}
-            {/* Phones: the way back to today sits on this line, so the week strip below never changes width. */}
-            {!isToday && !focus && (
-              <button
-                type="button"
-                onClick={() => onSelectDate(todayKey)}
-                className="relative ml-auto font-medium text-ink underline decoration-ink-4 underline-offset-[3px] before:absolute before:-inset-3 md:hidden"
-              >
-                Today
-              </button>
-            )}
-          </>
-        }
-      >
-        {focus ? (
-          // In focus the header keeps one way out; new thoughts go into the capture field below.
-          <Button onClick={onFocus} data-tip="Leave focus (Esc)" className="gap-2">
-            Leave focus
-            <span className="pointer-coarse:hidden">
-              <Kbd>Esc</Kbd>
-            </span>
-          </Button>
-        ) : (
-          <>
-            {/* Computers step through days here and jump with the sidebar calendar; phones get the week strip below. */}
-            <div className="max-md:hidden">
-              <NavGroup
-                prevLabel="Previous day"
-                nextLabel="Next day"
-                onPrev={() => onSelectDate(ymd(addDays(d, -1)))}
-                onNext={() => onSelectDate(ymd(addDays(d, 1)))}
-                onToday={() => onSelectDate(todayKey)}
-                todayDisabled={isToday}
-              />
-            </div>
+            <Stepper
+              prevLabel="Previous day"
+              nextLabel="Next day"
+              onPrev={() => onSelectDate(ymd(addDays(d, -1)))}
+              onNext={() => onSelectDate(ymd(addDays(d, 1)))}
+              todayLabel={isToday ? null : "Today"}
+              onToday={() => onSelectDate(todayKey)}
+            />
             <Button
               onClick={onFocus}
               disabled={!open.length}
               aria-label="Focus"
               data-tip="Focus on one task at a time (F)"
-              className="max-sm:w-8 max-sm:px-0 sm:pr-3.5 sm:pl-3"
+              className="max-sm:w-8 max-sm:px-0 sm:pr-3 sm:pl-2.5"
             >
               <FocusIcon size={15} strokeWidth={1.7} />
               <span className="max-sm:hidden">Focus</span>
             </Button>
-            {onSpeak && <SpeakButton onClick={onSpeak} />}
-            <NewTaskButton onClick={() => actions.openComposer(selected)} />
           </>
+        }
+      />
+
+      <div className="pb-6 md:pt-2 md:pb-16">
+        {past && open.length > 0 && (
+          <Notice action={<MoveButton label="Move to today" onClick={() => onMoveToToday(open)} />}>{open.length} left open on this day</Notice>
         )}
-      </Toolbar>
 
-      <div className="mx-auto max-w-[1184px] px-4 pb-16 md:px-8">
-        {focus ? (
-          <FocusPanel
-            task={focus.task}
-            next={focus.next}
-            after={focus.after}
-            done={doneN}
-            total={all.length}
-            isToday={isToday}
-            onDone={focus.onDone}
-            onLater={focus.onLater}
-            onExit={focus.onExit}
-            onCapture={focus.onCapture}
-          />
+        {welcome && !all.length && !carried.length ? (
+          <WelcomeCard welcome={welcome} onAdd={() => actions.openComposer(selected)} />
         ) : (
-          <>
-            <div className="mb-2 md:hidden">
-              <WeekPills selected={selected} todayKey={todayKey} byDate={byDate} onSelect={onSelectDate} />
-            </div>
-
-            {past && open.length > 0 && (
-              <Notice action={<MoveButton label="Move to today" onClick={() => onMoveToToday(open)} />}>
-                {open.length} left open on this day
-              </Notice>
-            )}
-            {isToday && carried.length > 0 && <Carried tasks={carried} todayKey={todayKey} actions={actions} onMoveAll={() => onMoveToToday(carried)} />}
-
-            {welcome && !all.length && !carried.length ? (
-              <WelcomeCard welcome={welcome} onAdd={() => actions.openComposer(selected)} />
-            ) : (
-              <TaskTable
-                key={selected}
-                sections={[section]}
-                state={state}
-                actions={actions}
-                placeholderRow
-                completedOpen={completedOpen}
-                onCompletedOpen={onCompletedOpen}
-                cleared={
-                  <p className="flex h-11 items-center pl-[15px] text-body text-ink-3">
-                    {all.length
-                      ? isToday
-                        ? "All done for today."
-                        : "Everything on this day is done."
-                      : past
-                        ? "Nothing was planned."
-                        : isToday
-                          ? "Nothing planned yet."
-                          : `Nothing planned for ${dayName(d)} yet.`}
-                  </p>
-                }
-              />
-            )}
-          </>
+          <TaskTable
+            key={selected}
+            sections={[section]}
+            state={state}
+            actions={actions}
+            placeholderRow
+            completedOpen={completedOpen}
+            onCompletedOpen={onCompletedOpen}
+            between={isToday && carried.length > 0 && <Carried tasks={carried} todayKey={todayKey} actions={actions} onMoveAll={() => onMoveToToday(carried)} />}
+            cleared={
+              <p className="flex h-12 items-center pl-[46px] text-body text-ink-3 md:pl-[42px]">
+                {all.length
+                  ? isToday
+                    ? "All done for today."
+                    : "Everything on this day is done."
+                  : past
+                    ? "Nothing was planned."
+                    : isToday
+                      ? "Nothing planned yet."
+                      : `Nothing planned for ${dayName(d)} yet.`}
+              </p>
+            }
+          />
         )}
       </div>
-    </>
+
+      {picking && (
+        <Modal label="Pick a day" sheet onClose={() => setPicking(false)} className="max-w-[400px] p-3 pt-3.5">
+          {calendar(() => setPicking(false))}
+        </Modal>
+      )}
+    </div>
   );
 }
 
@@ -212,7 +148,7 @@ const CHUNK = 50;
 /** A quiet line above the list, with its actions after the words; what it opens appears below it. */
 function Notice({ children, action, more }: { children: React.ReactNode; action: React.ReactNode; more?: React.ReactNode }) {
   return (
-    <div className="mt-1 mb-3 text-footnote text-ink-2">
+    <div className="px-4 pt-2 pb-1 text-footnote text-ink-2 md:px-3">
       <div className="flex min-h-8 flex-wrap items-center gap-x-1 gap-y-1">
         <span className="min-w-0">{children}</span>
         {action}
@@ -228,18 +164,6 @@ function MoveButton({ label, onClick }: { label: string; onClick: () => void }) 
       {label}
       <ArrowRightIcon size={12} strokeWidth={2} />
     </Button>
-  );
-}
-
-/** Two labels sharing one spot: the box keeps the size of the larger, so swapping them never shifts the layout. */
-function Swap({ on, a, b, className = "" }: { on: boolean; a: React.ReactNode; b: React.ReactNode; className?: string }) {
-  return (
-    <span className={`grid ${className}`}>
-      <span className={`col-start-1 row-start-1 transition-opacity duration-(--duration-fast) ${on ? "invisible opacity-0" : ""}`}>{a}</span>
-      <span aria-hidden={!on} className={`col-start-1 row-start-1 transition-opacity duration-(--duration-fast) ${on ? "" : "invisible opacity-0"}`}>
-        {b}
-      </span>
-    </span>
   );
 }
 
@@ -271,24 +195,16 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
     return relativeDay(date, todayKey) ?? `${formatMedium(d)}${d.getFullYear() !== thisYear ? `, ${d.getFullYear()}` : ""}`;
   };
   return (
-    <Notice
-      action={
-        <>
-          <Button size="sm" variant="plain" onClick={() => setOpen(!open)} aria-expanded={open} className="gap-1">
-            <Swap on={open} a="Review" b="Hide" className="justify-items-end" />
-            <ChevronDown size={12} strokeWidth={2} className={`transition-transform duration-(--duration-base) ${open ? "rotate-180" : ""}`} />
-          </Button>
+    <div>
+      <FoldRow label="From earlier days" count={n} open={open} onToggle={() => setOpen(!open)} />
+      <Accordion open={open}>
+        <div className="pt-1 pb-3 pl-[46px] pr-4 md:pl-[42px] md:pr-3">
           {/* Bringing everything along is a choice made while looking at the list, not a button that's always there. */}
-          {open && (
-            <span className="ml-auto">
-              <MoveButton label={n === 1 ? "Move to today" : "Move all to today"} onClick={onMoveAll} />
-            </span>
-          )}
-        </>
-      }
-      more={
-        <Accordion open={open}>
-          <ul className="mt-1.5 max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain rounded-lg border border-line">
+          <div className="flex min-h-9 items-center justify-between gap-3 text-footnote text-ink-3">
+            <span>Most recent first. Tick off, bring to today, or let go.</span>
+            <MoveButton label={n === 1 ? "Move to today" : "Move all to today"} onClick={onMoveAll} />
+          </div>
+          <ul className="mt-1 max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain rounded-lg shadow-ring-line">
             {tasks.slice(0, limit).map((t, i) => (
               <li key={t.id} data-flip={t.id} className={`flex items-center gap-3 py-1.5 pr-2 pl-3.5 ${i ? "border-t border-line" : ""}`}>
                 <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
@@ -307,11 +223,9 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
             ))}
             {limit < n && <li ref={end} aria-hidden="true" className="h-px" />}
           </ul>
-        </Accordion>
-      }
-    >
-      {n} open from earlier days
-    </Notice>
+        </div>
+      </Accordion>
+    </div>
   );
 }
 
@@ -319,14 +233,14 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
 function WelcomeCard({ welcome, onAdd }: { welcome: NonNullable<Welcome>; onAdd: () => void }) {
   const steps: { title: string; key: string; touch: string }[] = [
     { title: "Add what’s on your mind", key: "N", touch: "Tap +" },
-    { title: "Tick tasks off as you go", key: "Space", touch: "Tap the circle, or swipe right" },
+    { title: "Tick tasks off as you go", key: "Space", touch: "Tap the box, or swipe right" },
     { title: "Stuck? Do one thing at a time", key: "F", touch: "Tap the focus button" },
     { title: "Plans change: move a task to another day", key: "Drag it", touch: "Swipe left for tomorrow" },
   ];
   return (
     // A note on the page, not a card over it: the same left edge as the list it stands in for.
-    <div className="mt-4 max-w-[520px]">
-      <h2 className="font-display text-title-2 font-semibold">Welcome, {welcome.name}.</h2>
+    <div className="max-w-[520px] px-4 pt-5 md:px-3">
+      <h2 className="font-display text-title-2 font-semibold tracking-[-0.02em]">Welcome, {welcome.name}.</h2>
       <p className="mt-1 text-body text-ink-2">Hyperanchor keeps your day calm: one list, one clear next step. Four things are enough to start.</p>
       <dl className="mt-5 border-t border-line">
         {steps.map((s) => (
@@ -354,53 +268,6 @@ function WelcomeCard({ welcome, onAdd }: { welcome: NonNullable<Welcome>; onAdd:
           Start with my own
         </Button>
       </div>
-    </div>
-  );
-}
-
-/** Phones: the week around the selected day, compact — weekday, date and a dot for how the day went. */
-function WeekPills({ selected, todayKey, byDate, onSelect }: { selected: string; todayKey: string; byDate: (key: string) => Task[]; onSelect: (key: string) => void }) {
-  const sel = parseYmd(selected);
-  const start = startOfWeek(sel);
-  return (
-    <div className="flex items-center gap-0.5">
-      <IconButton label="Previous week" size="sm" onClick={() => onSelect(ymd(addDays(sel, -7)))}>
-        <ChevronLeft size={14} strokeWidth={2} />
-      </IconButton>
-      <div className="flex min-w-0 flex-1 items-center gap-0.5">
-        {Array.from({ length: 7 }, (_, i) => {
-          const day = addDays(start, i);
-          const key = ymd(day);
-          const on = key === selected;
-          const isToday = key === todayKey;
-          const tasks = byDate(key);
-          const done = tasks.filter((t) => t.done).length;
-          // Accent: everything done. Gray: something still open.
-          const dot = !tasks.length ? "" : done === tasks.length ? "bg-accent" : "bg-ink-4";
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onSelect(key)}
-              aria-pressed={on}
-              aria-label={`${formatLong(day)}: ${tasks.length ? `${done} of ${tasks.length} done` : "no tasks"}`}
-              className={`flex h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-lg transition-colors duration-(--duration-fast) ${
-                on && isToday ? "bg-accent-solid text-on-accent" : on ? "bg-primary text-on-primary" : "hover:bg-surface-3"
-              }`}
-            >
-              {/* Today is the accent; another selected day is black (as in Calendar). */}
-              <span className={`text-caption-2 font-medium ${on ? "opacity-75" : isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(day)}</span>
-              <span className={`tabular text-callout font-semibold ${on ? "" : isToday ? "text-accent-ink" : key < todayKey ? "text-ink-2" : "text-ink"}`}>
-                {day.getDate()}
-              </span>
-              <span data-day-dot={key} className={`mt-px size-1 rounded-full ${dot ? (on ? "bg-current opacity-60" : dot) : ""}`} />
-            </button>
-          );
-        })}
-      </div>
-      <IconButton label="Next week" size="sm" onClick={() => onSelect(ymd(addDays(sel, 7)))}>
-        <ChevronRight size={14} strokeWidth={2} />
-      </IconButton>
     </div>
   );
 }

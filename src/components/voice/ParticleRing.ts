@@ -103,6 +103,12 @@ export class ParticleRing {
     cancelAnimationFrame(this.raf);
   }
 
+  /** One still frame, `t` seconds into its life: the sphere drawn small, as an icon (see Orb). */
+  still(t = 0) {
+    if (t > 0) this.advance(t);
+    this.draw();
+  }
+
   /** The canvas changed size on screen (or the screen's density changed). */
   resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 3);

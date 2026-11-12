@@ -144,7 +144,9 @@ export function pulseDay(date: string) {
   const m = motion();
   for (const dot of document.querySelectorAll<HTMLElement>(`[data-day-dot="${date}"]`)) {
     if (!onScreen(dot.getBoundingClientRect())) continue;
-    dot.animate([{ transform: "scale(1)" }, { transform: "scale(2)" }, { transform: "scale(1)" }], { duration: m.move, easing: m.out });
+    // A dot doubles; a day's number (the calendar has no dots) swells a little.
+    const peak = dot.offsetWidth > 12 ? "scale(1.16)" : "scale(2)";
+    dot.animate([{ transform: "scale(1)" }, { transform: peak }, { transform: "scale(1)" }], { duration: m.move, easing: m.out });
   }
 }
 

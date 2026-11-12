@@ -1,88 +1,126 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import { signOutAction } from "@/app/actions";
 import { addDays, formatLong, monthGrid, MONTHS, weekdayNames, ymd } from "@/lib/dates";
 import type { AppUser, Task } from "@/lib/types";
 import { Avatar } from "./Avatar";
-import { Wordmark } from "./Brand";
+import { Mark, Wordmark } from "./Brand";
 import { useDrag } from "./drag";
-import { CalendarIcon, ChartIcon, ChevronLeft, ChevronRight, SunIcon, WeekIcon } from "./icons";
+import { ChartIcon, ChevronLeft, ChevronRight, KeyboardIcon, SearchIcon, SelectorIcon, SidebarIcon, SignOutIcon, SlidersIcon } from "./icons";
 import { SyncStatus, type Sync } from "./SyncStatus";
-import { IconButton } from "./ui";
+import { SpeakButton } from "./Toolbar";
+import { Burst, IconButton, Kbd, Menu, ProgressRing, SegmentedControl } from "./ui";
 
 export type View = "day" | "week" | "month" | "analytics";
 
-export const VIEWS: { value: View; label: string; key: string; icon: React.ReactNode }[] = [
-  { value: "day", label: "Day", key: "D", icon: <SunIcon /> },
-  { value: "week", label: "Week", key: "W", icon: <WeekIcon /> },
-  { value: "month", label: "Month", key: "M", icon: <CalendarIcon /> },
-  { value: "analytics", label: "Analytics", key: "A", icon: <ChartIcon /> },
-];
+/** What's done of today's tasks: the sidebar's Progress line and the phone's account menu show it. */
+export type TodayCount = { done: number; total: number };
 
-const NAV_ROW = 38; // item height (36) + gap (2): how far the selection travels per item
-
+/**
+ * Computers: the sidebar, on the left for the whole height, and it can be hidden. Its head holds the name; then Search
+ * and Progress (with how much of today is done); the month to pick a day from; and the account at the foot.
+ */
 export function Sidebar({
   user,
   sync,
-  view,
-  onView,
-  onSettings,
-  badges,
+  progress,
+  today,
+  onSearch,
+  onProgress,
+  onHide,
+  onAccount,
+  accountOpen,
   mini,
 }: {
   user: AppUser;
   sync: Sync;
-  view: View;
-  onView: (v: View) => void;
-  onSettings: () => void;
-  badges: Partial<Record<View, number>>;
+  /** Whether Progress is the view on screen. */
+  progress: boolean;
+  today: TodayCount;
+  onSearch: () => void;
+  onProgress: () => void;
+  onHide: () => void;
+  onAccount: (button: HTMLElement) => void;
+  accountOpen: boolean;
   mini: React.ReactNode;
 }) {
-  const index = Math.max(0, VIEWS.findIndex((v) => v.value === view));
+  const allDone = today.total > 0 && today.done === today.total;
   return (
-    <aside className="hidden w-[248px] flex-none flex-col md:flex">
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pt-3 pb-3">
-        <div className="flex h-11 flex-none items-center px-2.5">
-          <Wordmark />
-        </div>
-        <nav aria-label="Views" className="relative mt-3 flex flex-col gap-0.5">
-          <span
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-9 rounded-sm bg-surface shadow-lift transition-transform duration-(--duration-base) ease-out"
-            style={{ transform: `translateY(${index * NAV_ROW}px)` }}
-          />
-          {VIEWS.map((v) => {
-            const on = v.value === view;
-            const badge = badges[v.value];
-            return (
-              <button
-                key={v.value}
-                type="button"
-                onClick={() => onView(v.value)}
-                aria-current={on ? "page" : undefined}
-                data-tip={`${v.label} (${v.key})`}
-                data-tip-side="right"
-                className={`relative flex h-9 items-center gap-2.5 rounded-sm px-2.5 text-body transition-colors duration-(--duration-fast) ${
-                  on ? "font-medium text-ink" : "text-ink-2 hover:bg-line hover:text-ink"
-                }`}
-              >
-                <span className={`transition-colors duration-(--duration-fast) ${on ? "text-accent" : "text-ink-3"}`}>{v.icon}</span>
-                <span className="flex-1 text-left">{v.label}</span>
-                {!!badge && <span className="tabular text-caption font-normal text-ink-3">{badge}</span>}
-              </button>
-            );
-          })}
-        </nav>
-        <div className="mt-7 px-1">{mini}</div>
-        <div className="mt-auto pt-4">
-          <SyncStatus sync={sync} className="px-2.5 pb-2 empty:hidden" />
-          <AccountButton user={user} onSettings={onSettings} />
-        </div>
+    <aside aria-label="Sidebar" className="hidden w-[248px] flex-none flex-col border-r border-line bg-canvas md:flex">
+      <div className="flex h-14 flex-none items-center justify-between border-b border-line pr-3 pl-5">
+        <Wordmark size={19} />
+        <IconButton label="Hide sidebar" tip="Hide sidebar ([)" size="sm" onClick={onHide} className="text-ink-3 hover:bg-line!">
+          <SidebarIcon size={16} />
+        </IconButton>
+      </div>
+      <nav aria-label="Tools" className="flex flex-none flex-col gap-0.5 border-b border-line px-2.5 py-3">
+        <SideRow icon={<SearchIcon size={16} />} label="Search" onClick={onSearch} right={<Kbd>/</Kbd>} />
+        <SideRow
+          icon={<ChartIcon size={16} />}
+          label="Progress"
+          on={progress}
+          onClick={onProgress}
+          right={
+            today.total > 0 && (
+              <span aria-label={`Today: ${today.done} of ${today.total} done`} className="flex items-center gap-1.5 text-caption font-normal text-ink-3">
+                <Burst active={allDone}>
+                  <ProgressRing value={today.done / today.total} size={14} stroke={2.2} />
+                </Burst>
+                <span aria-hidden="true" className="tabular">
+                  {today.done}/{today.total}
+                </span>
+              </span>
+            )
+          }
+        />
+      </nav>
+      <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pt-3 pb-3">{mini}</div>
+      <SyncStatus sync={sync} className="px-5 pb-2 empty:hidden" />
+      <div className="flex h-16 flex-none items-center border-t border-line px-2.5">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={accountOpen}
+          aria-label={`${user.name}: account`}
+          onClick={(e) => onAccount(e.currentTarget)}
+          className={`flex h-12 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-left transition-[background-color,box-shadow] duration-(--duration-fast) ${
+            accountOpen ? "bg-surface shadow-lift" : "hover:bg-line"
+          }`}
+        >
+          <Avatar name={user.name} image={user.image} size={32} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-footnote font-semibold">{user.name}</span>
+            <span className="block truncate text-caption text-ink-3">{user.email}</span>
+          </span>
+          <SelectorIcon size={16} className="flex-none text-ink-3" />
+        </button>
       </div>
     </aside>
   );
 }
 
+function SideRow({ icon, label, on = false, onClick, right }: { icon: React.ReactNode; label: string; on?: boolean; onClick: () => void; right?: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={on ? "page" : undefined}
+      className={`flex h-9 w-full items-center gap-2.5 rounded-sm px-2.5 text-footnote text-ink transition-[background-color,box-shadow] duration-(--duration-fast) ${
+        on ? "bg-surface font-semibold shadow-lift" : "font-medium hover:bg-line"
+      }`}
+    >
+      <span className={on ? "text-ink" : "text-ink-2"}>{icon}</span>
+      <span className="flex-1 text-left">{label}</span>
+      {right}
+    </button>
+  );
+}
+
+/**
+ * The month to pick a day from: plain numbers, no dots. Today is the black tile, the chosen day has an outline; days with
+ * something still to do are dark, the rest quiet. A task dragged over a day lands there.
+ */
 export function MiniMonth({
   year,
   month,
@@ -91,6 +129,7 @@ export function MiniMonth({
   byDate,
   onShift,
   onSelect,
+  large = false,
 }: {
   year: number;
   month: number;
@@ -99,6 +138,8 @@ export function MiniMonth({
   byDate: (key: string) => Task[];
   onShift: (n: number) => void;
   onSelect: (key: string) => void;
+  /** Phones: bigger days to tap (the calendar that opens from Day's title, and Month). */
+  large?: boolean;
 }) {
   const { start, rows } = monthGrid(year, month);
   const drag = useDrag();
@@ -118,22 +159,22 @@ export function MiniMonth({
   };
   return (
     <div>
-      <div className="flex items-center justify-between pl-1.5">
-        <span className="text-footnote font-semibold">
+      <div className="flex h-8 items-center justify-between pl-2.5">
+        <span className={`font-semibold ${large ? "text-body" : "text-footnote"}`}>
           {MONTHS[month]} <span className="font-normal text-ink-3">{year}</span>
         </span>
-        <span className="flex">
-          <IconButton label="Previous month" size="sm" onClick={() => onShift(-1)} className="hover:bg-line!">
-            <ChevronLeft size={13} strokeWidth={2} />
+        <span className="flex h-8 items-center rounded-sm bg-surface shadow-[inset_0_0_0_1px_var(--line-2)]">
+          <IconButton label="Previous month" onClick={() => onShift(-1)} className="rounded-r-none! text-ink-2">
+            <ChevronLeft size={14} strokeWidth={1.8} />
           </IconButton>
-          <IconButton label="Next month" size="sm" onClick={() => onShift(1)} className="hover:bg-line!">
-            <ChevronRight size={13} strokeWidth={2} />
+          <IconButton label="Next month" onClick={() => onShift(1)} className="rounded-l-none! border-l border-line-2 text-ink-2">
+            <ChevronRight size={14} strokeWidth={1.8} />
           </IconButton>
         </span>
       </div>
-      <div className="mt-1.5 grid grid-cols-7 text-center text-caption-2 font-medium text-ink-3">
+      <div className="mt-1.5 grid grid-cols-7 text-center text-caption-2 font-medium tracking-[0.02em] text-ink-3">
         {weekdayNames("letter").map((d, i) => (
-          <span key={i} className="py-1">
+          <span key={i} className="flex h-6 items-center justify-center">
             {d}
           </span>
         ))}
@@ -143,8 +184,8 @@ export function MiniMonth({
           const d = addDays(start, i);
           const sel = key === selected;
           const today = key === todayKey;
-          const tasks = byDate(key);
-          const allDone = tasks.length > 0 && tasks.every((t) => t.done);
+          const out = d.getMonth() !== month;
+          const busy = byDate(key).some((t) => !t.done);
           return (
             <button
               key={key}
@@ -156,29 +197,28 @@ export function MiniMonth({
               onFocus={() => setActive(key)}
               data-drop-date={key}
               data-drop-zone="calendar"
-              className="group relative flex h-[30px] items-center justify-center"
+              className={`group relative flex items-center justify-center ${large ? "h-11" : "h-8"}`}
             >
               {/* Dragging a task over a day: the day lights up to take it. */}
               {drag.dragging && drag.target?.zone === "calendar" && drag.target.date === key && (
                 <span aria-hidden="true" className="absolute inset-[1px] animate-pop-in rounded-sm bg-accent-soft shadow-ring-accent" />
               )}
-              {/* Today is the accent; another selected day is black (as in Calendar). */}
               <span
-                className={`tabular relative flex size-[26px] items-center justify-center rounded-full text-caption transition-colors duration-(--duration-fast) ${
-                  sel && today
-                    ? "bg-accent-solid font-semibold text-on-accent"
+                data-day-dot={key}
+                className={`tabular relative flex items-center justify-center rounded-sm transition-colors duration-(--duration-fast) ${large ? "size-10 text-callout" : "size-7 text-[12.5px]"} ${
+                  today
+                    ? "bg-primary font-semibold text-on-primary"
                     : sel
-                      ? "bg-primary font-semibold text-on-primary"
-                      : today
-                        ? "font-bold text-accent-ink group-hover:bg-line-2"
-                        : d.getMonth() !== month
-                          ? "text-ink-4 group-hover:bg-line-2"
-                          : "text-ink group-hover:bg-line-2"
+                      ? "bg-surface font-semibold text-ink shadow-[inset_0_0_0_1.5px_var(--ink)]"
+                      : out
+                        ? "text-ink-4 group-hover:bg-line"
+                        : busy
+                          ? "font-medium text-ink group-hover:bg-line"
+                          : "text-ink-3 group-hover:bg-line"
                 }`}
               >
                 {d.getDate()}
               </span>
-              {tasks.length > 0 && !sel && <span data-day-dot={key} className={`absolute bottom-0 size-[3px] rounded-full ${allDone ? "bg-accent" : "bg-ink-4"}`} />}
             </button>
           );
         })}
@@ -187,77 +227,144 @@ export function MiniMonth({
   );
 }
 
-/** The account: the avatar, the name and the address. It opens Settings, which holds the account and signing out. */
-function AccountButton({ user, onSettings }: { user: AppUser; onSettings: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-haspopup="dialog"
-      aria-label={`${user.name}, settings`}
-      onClick={onSettings}
-      className="flex w-full items-center gap-2.5 rounded-sm p-2 text-left transition-colors duration-(--duration-fast) hover:bg-line"
-    >
-      <Avatar name={user.name} image={user.image} size={30} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-footnote font-medium">{user.name}</span>
-        <span className="block truncate text-caption text-ink-3">{user.email}</span>
-      </span>
-    </button>
-  );
-}
-
-/** Phone layout, top: the wordmark and the account. */
-export function MobileHeader({
+/**
+ * The bar across the top of the work area. Computers: the view switch in the middle and Speak at the right end (with
+ * the sidebar hidden, the way to show it and the sign on the left). Phones: the sign, the switch and the account.
+ */
+export function AppBar({
   user,
   sync,
-  onSettings,
+  view,
+  onView,
+  sidebar,
+  onShowSidebar,
+  onSpeak,
+  onAccount,
+  accountOpen,
 }: {
   user: AppUser;
   sync: Sync;
-  onSettings: () => void;
+  view: View;
+  onView: (v: View) => void;
+  /** Whether the sidebar is shown (computers). */
+  sidebar: boolean;
+  onShowSidebar: () => void;
+  onSpeak?: () => void;
+  onAccount: (button: HTMLElement) => void;
+  accountOpen: boolean;
 }) {
   return (
-    <div className="glass sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line pr-4 pl-5 md:hidden">
-      <Wordmark />
-      <div className="flex items-center gap-2">
-        <SyncStatus sync={sync} className="empty:hidden" />
-        <button type="button" aria-label="Settings" aria-haspopup="dialog" onClick={onSettings} className="relative rounded-full before:absolute before:-inset-[7px]">
-          <Avatar name={user.name} image={user.image} size={30} />
+    <header className="sticky top-0 z-30 grid h-[52px] flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-line bg-surface px-4 md:static md:h-14">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="md:hidden">
+          <Mark size={18} />
+        </span>
+        {!sidebar && (
+          <span className="flex items-center gap-3 max-md:hidden">
+            <IconButton label="Show sidebar" tip="Show sidebar ([)" onClick={onShowSidebar} className="text-ink-3 shadow-[inset_0_0_0_1px_var(--line-2)]">
+              <SidebarIcon size={16} />
+            </IconButton>
+            <Mark size={18} />
+            <SyncStatus sync={sync} className="empty:hidden" />
+          </span>
+        )}
+      </div>
+      <SegmentedControl
+        label="View"
+        value={view === "analytics" ? null : view}
+        onChange={onView}
+        options={[
+          { value: "day", label: "Day", tip: "Day (D)" },
+          { value: "week", label: "Week", tip: "Week (W)" },
+          { value: "month", label: "Month", tip: "Month (M)" },
+        ]}
+      />
+      <div className="flex min-w-0 items-center justify-end gap-2">
+        <SyncStatus sync={sync} className="empty:hidden md:hidden" />
+        {onSpeak && (
+          <span className="max-md:hidden">
+            <SpeakButton onClick={onSpeak} />
+          </span>
+        )}
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={accountOpen}
+          aria-label={`${user.name}: account`}
+          onClick={(e) => onAccount(e.currentTarget)}
+          className={`relative flex-none rounded-full transition-shadow duration-(--duration-fast) before:absolute before:-inset-[6px] md:hidden ${
+            accountOpen ? "shadow-[0_0_0_2px_var(--surface),0_0_0_3.5px_var(--ink)]" : ""
+          }`}
+        >
+          <Avatar name={user.name} image={user.image} size={32} />
         </button>
       </div>
-    </div>
+    </header>
   );
 }
 
-/** Phone layout, bottom: a floating glass tab bar; the selection slides to the current view. */
-export function TabBar({ view, onView }: { view: View; onView: (v: View) => void }) {
-  const index = Math.max(0, VIEWS.findIndex((v) => v.value === view));
+/**
+ * The account's short menu: who is signed in, then Settings (on phones also Progress and Search, which computers keep in
+ * the sidebar), and signing out as the last line. Deleting the account lives in Settings, one level down.
+ */
+export function AccountMenu({
+  user,
+  anchor,
+  phone,
+  today,
+  onProgress,
+  onSearch,
+  onSettings,
+  onShortcuts,
+  onClose,
+}: {
+  user: AppUser;
+  anchor: HTMLElement;
+  phone: boolean;
+  today: TodayCount;
+  onProgress: () => void;
+  onSearch: () => void;
+  onSettings: () => void;
+  onShortcuts: () => void;
+  onClose: () => void;
+}) {
+  const [, startSignOut] = useTransition();
+  const [rect] = useState(() => anchor.getBoundingClientRect());
   return (
-    <nav aria-label="Views" className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] md:hidden">
-      <div className="glass pointer-events-auto relative grid w-full max-w-[380px] grid-cols-4 rounded-card p-1 shadow-float">
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-1 left-1 rounded-lg bg-surface shadow-lift transition-transform duration-(--duration-base) ease-out"
-          style={{ width: "calc((100% - 8px) / 4)", transform: `translateX(${index * 100}%)` }}
-        />
-        {VIEWS.map((v) => {
-          const on = v.value === view;
-          return (
-            <button
-              key={v.value}
-              type="button"
-              onClick={() => onView(v.value)}
-              aria-current={on ? "page" : undefined}
-              className={`relative flex h-[52px] flex-col items-center justify-center gap-[3px] rounded-lg text-caption-2 font-medium transition-colors duration-(--duration-fast) ${
-                on ? "text-ink" : "text-ink-3"
-              }`}
-            >
-              <span className={on ? "text-accent" : ""}>{v.icon}</span>
-              {v.label}
-            </button>
-          );
-        })}
-      </div>
-    </nav>
+    <Menu
+      anchor={rect}
+      trigger={anchor}
+      align={phone ? "end" : "start"}
+      label="Account"
+      className="w-[288px]"
+      header={
+        <div className="flex items-center gap-3 px-2.5 pt-2 pb-2.5">
+          <Avatar name={user.name} image={user.image} size={36} />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-footnote font-semibold text-ink">{user.name}</div>
+            <div className="truncate text-caption text-ink-3">{user.email}</div>
+          </div>
+        </div>
+      }
+      onClose={onClose}
+      entries={[
+        { separator: true },
+        ...(phone
+          ? [
+              {
+                label: "Progress",
+                icon: <ChartIcon size={16} />,
+                shortcut: today.total ? `${today.done}/${today.total} today` : undefined,
+                onSelect: onProgress,
+              },
+              { label: "Search", icon: <SearchIcon size={16} />, onSelect: onSearch },
+            ]
+          : []),
+        { label: "Settings", icon: <SlidersIcon size={16} />, shortcut: ",", onSelect: onSettings },
+        ...(phone ? [] : [{ label: "Keyboard shortcuts", icon: <KeyboardIcon size={16} />, shortcut: "?", onSelect: onShortcuts }]),
+        { separator: true },
+        { label: "Sign out", icon: <SignOutIcon size={16} />, onSelect: () => startSignOut(() => signOutAction()) },
+      ]}
+    />
   );
 }

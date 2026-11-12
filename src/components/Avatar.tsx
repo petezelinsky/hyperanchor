@@ -10,7 +10,7 @@ export function initials(name: string) {
 /** Google profile photo with an initials fallback. */
 export function Avatar({ name, image, size }: { name: string; image: string | null; size: number }) {
   const [broken, setBroken] = useState(false);
-  const style = { width: size, height: size, fontSize: Math.round(size * 0.4) };
+  const style = { width: size, height: size, fontSize: Math.round(size * 0.36) };
   if (image && !broken) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -27,7 +27,7 @@ export function Avatar({ name, image, size }: { name: string; image: string | nu
   return (
     <span
       style={style}
-      className="flex flex-none items-center justify-center rounded-full bg-gradient-to-b from-[#a3a3a3] to-[#737373] font-semibold text-white dark:from-[#5c5c5c] dark:to-[#3d3d3d]"
+      className="flex flex-none items-center justify-center rounded-full bg-line-2 font-semibold tracking-[0.02em] text-ink-2"
     >
       {initials(name)}
     </span>

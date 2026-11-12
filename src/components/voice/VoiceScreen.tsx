@@ -6,10 +6,11 @@ import { addDays, formatMedium, parseYmd, relativeDay, startOfWeek, ymd, type We
 import type { TaskDraft } from "@/lib/types";
 import { DRAFT_TEXT_MAX as TEXT_MAX } from "@/lib/validate";
 import { AutoTextarea } from "../AutoTextarea";
-import { ChevronDown, SphereIcon, StopIcon, XIcon } from "../icons";
+import { ChevronDown, StopIcon, XIcon } from "../icons";
 import { reducedMotion } from "../motion";
 import { Button, IconButton, Kbd, Menu, type MenuEntry } from "../ui";
 import { canListen, Dictation, readSpokenLanguage, saveSpokenLanguage, spokenLanguages, type StopReason } from "./dictation";
+import { Orb } from "./Orb";
 import { ParticleRing, type RingMode } from "./ParticleRing";
 
 type Draft = TaskDraft & { key: number };
@@ -26,9 +27,10 @@ const PROBLEMS: Record<string, string> = {
 };
 
 /**
- * Speak your tasks: a screen of its own. The sphere listens, the words appear under it, and when the person stops,
- * what they said comes back as tasks on their days — to look over, fix a day, drop one, and add. Typing (or pasting)
- * works the same way, and takes over where the browser can't listen.
+ * Speak your tasks: the whole screen, plain. The sphere listens in the middle, the words appear under it, and when the
+ * person stops, what they said comes back as tasks on their days — to look over, fix a day, drop one, and add. Typing
+ * (or pasting) works the same way, and takes over where the browser can't listen. The buttons sit at the foot, on the
+ * same white, with no bar behind them.
  */
 export function VoiceScreen({
   todayKey,
@@ -179,10 +181,12 @@ export function VoiceScreen({
 
   // The page behind holds still.
   useEffect(() => {
-    const s = document.documentElement.style;
+    const root = document.documentElement;
+    const s = root.style;
     const { overflow, scrollbarGutter } = s;
+    const scrolls = root.scrollHeight > root.clientHeight;
     s.overflow = "hidden";
-    s.scrollbarGutter = "stable";
+    if (scrolls) s.scrollbarGutter = "stable";
     return () => {
       s.overflow = overflow;
       s.scrollbarGutter = scrollbarGutter;
@@ -290,6 +294,24 @@ export function VoiceScreen({
           : "Press Speak again and say what you need to do.";
   const languageName = languages.find((l) => l.tag === language)?.name ?? "";
 
+  const languageButton = !typing && (
+    <Button
+      variant="plain"
+      aria-haspopup="menu"
+      aria-label={`Spoken language: ${languageName}`}
+      onClick={(e) => setLanguageMenu({ anchor: e.currentTarget.getBoundingClientRect(), trigger: e.currentTarget })}
+      className="gap-1 pr-1.5"
+    >
+      {languageName}
+      <ChevronDown size={12} strokeWidth={2} className="text-ink-3" />
+    </Button>
+  );
+  const typeButton = hears && (
+    <Button variant="plain" onClick={() => type(!typing)}>
+      {typing ? "Speak instead" : "Type instead"}
+    </Button>
+  );
+
   return createPortal(
     <div
       ref={dialog}
@@ -298,9 +320,9 @@ export function VoiceScreen({
       aria-label="Speak your tasks"
       tabIndex={-1}
       data-floating=""
-      className="fixed inset-0 z-[90] flex animate-[fade_var(--duration-fast)_var(--ease-out)_both] flex-col bg-canvas outline-none"
+      className="fixed inset-0 z-[90] flex animate-[fade_var(--duration-base)_var(--ease-out)_both] flex-col bg-surface outline-none"
     >
-      <header className="flex h-14 flex-none items-center justify-between gap-2 px-3 md:px-5">
+      <header className="flex h-[52px] flex-none items-center justify-between gap-2 px-3 md:h-14 md:px-4">
         <Button onClick={close} className="gap-2 pl-2.5">
           <XIcon size={14} strokeWidth={1.8} />
           Cancel
@@ -308,34 +330,19 @@ export function VoiceScreen({
             <Kbd>Esc</Kbd>
           </span>
         </Button>
-        <div className="flex items-center gap-1">
-          {!typing && (
-            <Button
-              variant="plain"
-              aria-haspopup="menu"
-              aria-label={`Spoken language: ${languageName}`}
-              onClick={(e) => setLanguageMenu({ anchor: e.currentTarget.getBoundingClientRect(), trigger: e.currentTarget })}
-              className="gap-1"
-            >
-              {languageName}
-              <ChevronDown size={12} strokeWidth={2} />
-            </Button>
-          )}
-          {hears && (
-            <Button variant="plain" onClick={() => type(!typing)}>
-              {typing ? "Speak instead" : "Type instead"}
-            </Button>
-          )}
+        <div className="flex items-center gap-1 max-sm:hidden">
+          {languageButton}
+          {typeButton}
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 justify-center px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:px-5 md:pb-5">
-        <section className="flex w-full max-w-[720px] flex-col overflow-hidden rounded-card bg-surface shadow-sheet">
-          {/* What is being said: the sphere and the words, or a field to type into. */}
+      {/* The middle: centered while it fits, scrolling from the top once the list grows long. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+        <div className="my-auto flex w-full flex-col items-center px-4 pt-2 pb-4 md:px-6 md:pb-6">
           {typing ? (
-            <div className="flex-none px-4 pt-5 pb-4 md:px-6 md:pt-6">
-              <h1 className="font-display text-title-2 font-semibold">Type your tasks</h1>
-              <p className="mt-0.5 text-footnote text-ink-2">
+            <div className="w-full max-w-[600px] pt-4">
+              <h1 className="font-display text-title-2 font-semibold tracking-[-0.02em]">Type your tasks</h1>
+              <p className="mt-1 text-body text-ink-2">
                 {hears ? "In any order, as it comes. Each thing to do becomes a task on its day." : "This browser can’t listen, so type or paste. Each thing to do becomes a task on its day."}
               </p>
               <AutoTextarea
@@ -347,14 +354,18 @@ export function VoiceScreen({
                 autoFocus={!hears}
                 aria-label="What you need to do"
                 placeholder="Tomorrow morning call the bank. On Friday book the dentist…"
-                className="mt-4 max-h-[32dvh] min-h-[88px] overflow-y-auto! rounded-sm bg-surface-2 p-3! text-callout shadow-ring-line focus-visible:shadow-ring-line-2"
+                className="mt-4 max-h-[36dvh] min-h-[112px] overflow-y-auto! rounded-lg bg-surface-2 p-3.5! text-[16px] leading-6 shadow-ring-line focus-visible:shadow-ring-line-2 md:text-callout"
               />
+              {(problem || hint) && <p className="mt-3 text-footnote text-ink-2">{problem ? problem.message : hint}</p>}
             </div>
           ) : (
-            <div className="flex flex-none flex-col items-center px-5 pb-5 md:px-6 md:pb-6">
-              <canvas ref={canvas} aria-hidden="true" className="size-[220px] flex-none text-ink md:size-[280px]" />
-              <p className="-mt-2 min-h-4 text-caption text-ink-3">{caption}</p>
-              <p aria-live="off" className="mt-2.5 line-clamp-4 min-h-[56px] w-full max-w-[520px] text-center text-headline font-medium text-balance md:min-h-[60px] md:text-[20px] md:leading-[30px]">
+            <>
+              <canvas ref={canvas} aria-hidden="true" className="size-[240px] flex-none text-ink md:size-[300px]" />
+              <p className="-mt-1.5 min-h-[18px] text-caption text-ink-3">{caption}</p>
+              <p
+                aria-live="off"
+                className="mt-2.5 line-clamp-4 min-h-[52px] w-full max-w-[560px] text-center text-headline font-medium text-balance md:min-h-[60px] md:text-[20px] md:leading-[30px] md:tracking-[-0.014em]"
+              >
                 {problem && phase !== "listening" ? (
                   <span className="font-normal text-ink-2">{problem.message}</span>
                 ) : said || saying ? (
@@ -366,70 +377,79 @@ export function VoiceScreen({
                   <span className="font-normal text-ink-3">{hint}</span>
                 )}
               </p>
-            </div>
+            </>
           )}
-          {typing && (problem || hint) && <p className="flex-none px-4 pb-3 text-footnote text-ink-2 md:px-6">{problem ? problem.message : hint}</p>}
 
           {/* What came back: tasks on their days. */}
-          <ul aria-label="Tasks to add" className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-line">
-            {drafts.map((d) => (
-              <li key={d.key} className="flex animate-rise items-center gap-3 pl-4 md:pl-6">
-                <span aria-hidden="true" className="size-[18px] flex-none rounded-full border-[1.5px] border-check-ring" />
-                {/* One line under the whole row, from where the text starts to the edge. */}
-                <div className="flex min-h-12 min-w-0 flex-1 items-center gap-2 border-b border-line pr-2 md:pr-4">
-                  <span className="flex min-w-0 flex-1 items-baseline gap-2.5">
-                    <span className="min-w-0 py-2 text-callout text-ink max-sm:line-clamp-2 sm:truncate sm:py-0">{d.title}</span>
-                    {d.description && <span className="min-w-0 flex-1 truncate text-body text-ink-3 max-sm:hidden">{d.description}</span>}
-                  </span>
-                  <Button
-                    size="sm"
-                    aria-haspopup="menu"
-                    aria-label={`Day: ${dayLabel(d.date)}. Change`}
-                    onClick={(e) => setDayMenu({ key: d.key, anchor: e.currentTarget.getBoundingClientRect(), trigger: e.currentTarget })}
-                    className="gap-1 pr-2"
-                  >
-                    {dayLabel(d.date)}
-                    <ChevronDown size={11} strokeWidth={2} className="text-ink-3" />
-                  </Button>
-                  <IconButton size="sm" label={`Leave out “${d.title}”`} tip="Leave out" onClick={() => setDrafts((list) => list.filter((x) => x.key !== d.key))}>
-                    <XIcon size={13} />
-                  </IconButton>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          <footer className="flex flex-none items-center justify-between gap-2 border-t border-line bg-surface-2 px-3 py-3 md:px-6">
-            {problem?.again ? (
-              <Button size="lg" disabled={busy} onClick={() => sort(problem.again!)} className="max-sm:flex-1">
-                Try again
-              </Button>
-            ) : typing ? (
-              <Button size="lg" disabled={busy || !text.trim()} onClick={() => sort(text)} className="max-sm:flex-1">
-                {busy ? "Sorting…" : "Sort into tasks"}
-              </Button>
-            ) : phase === "listening" ? (
-              <Button size="lg" onClick={stop} aria-label="Stop listening" className="max-sm:flex-1">
-                <StopIcon size={14} />
-                Stop
-              </Button>
-            ) : (
-              <Button size="lg" disabled={busy} onClick={listen} className="max-sm:flex-1">
-                <SphereIcon size={18} />
-                Speak again
-              </Button>
-            )}
-            <Button size="lg" variant="primary" disabled={!n || busy} onClick={add} className="gap-2 max-sm:flex-1">
-              {n ? `Add ${n} ${n === 1 ? "task" : "tasks"}` : "Add tasks"}
-              {n > 0 && !busy && (
-                <span className="pointer-coarse:hidden">
-                  <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-xs bg-on-primary/18 px-1.5 font-sans text-caption-2 font-medium">↵</kbd>
-                </span>
-              )}
-            </Button>
-          </footer>
-        </section>
+          {drafts.length > 0 && (
+            <ul aria-label="Tasks to add" className="mt-4 w-full max-w-[600px] border-t border-line md:mt-6">
+              {drafts.map((d) => (
+                <li key={d.key} className="flex animate-rise items-center gap-3 pl-1">
+                  <span aria-hidden="true" className="size-[18px] flex-none rounded-[6px] border-[1.5px] border-check-ring" />
+                  {/* One line under the whole row, from where the text starts to the edge. */}
+                  <div className="flex min-h-12 min-w-0 flex-1 items-center gap-2 border-b border-line">
+                    <span className="flex min-w-0 flex-1 items-baseline gap-2.5">
+                      <span className="min-w-0 py-2 text-[16px] leading-[22px] text-ink max-sm:line-clamp-2 sm:truncate sm:py-0 md:text-callout">{d.title}</span>
+                      {d.description && <span className="min-w-0 flex-1 truncate text-body text-ink-3 max-sm:hidden">{d.description}</span>}
+                    </span>
+                    <Button
+                      size="sm"
+                      aria-haspopup="menu"
+                      aria-label={`Day: ${dayLabel(d.date)}. Change`}
+                      onClick={(e) => setDayMenu({ key: d.key, anchor: e.currentTarget.getBoundingClientRect(), trigger: e.currentTarget })}
+                      className="gap-1 pr-2"
+                    >
+                      {dayLabel(d.date)}
+                      <ChevronDown size={11} strokeWidth={2} className="text-ink-3" />
+                    </Button>
+                    <IconButton size="sm" label={`Leave out “${d.title}”`} tip="Leave out" onClick={() => setDrafts((list) => list.filter((x) => x.key !== d.key))}>
+                      <XIcon size={13} />
+                    </IconButton>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
+
+      {/* The foot: the two next steps, side by side in the middle, on the same white. */}
+      <div className="flex flex-none items-center justify-center gap-2 px-4 pt-2 pb-3 md:px-6 md:pt-3 md:pb-9">
+        {problem?.again ? (
+          <Button size="lg" disabled={busy} onClick={() => sort(problem.again!)} className="max-sm:flex-1 md:h-10 md:min-w-[120px] md:rounded-[10px]">
+            Try again
+          </Button>
+        ) : typing ? (
+          <Button size="lg" disabled={busy || !text.trim()} onClick={() => sort(text)} className="max-sm:flex-1 md:h-10 md:rounded-[10px]">
+            {busy ? "Sorting…" : "Sort into tasks"}
+          </Button>
+        ) : phase === "listening" ? (
+          <Button size="lg" onClick={stop} aria-label="Stop listening" className="max-sm:flex-1 md:h-10 md:min-w-[120px] md:rounded-[10px]">
+            <StopIcon size={14} />
+            Stop
+          </Button>
+        ) : (
+          <Button size="lg" disabled={busy} onClick={listen} className="gap-2 max-sm:flex-1 md:h-10 md:rounded-[10px]">
+            <Orb size={20} />
+            Speak again
+          </Button>
+        )}
+        <Button size="lg" variant="primary" disabled={!n || busy} onClick={add} className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
+          {n ? `Add ${n} ${n === 1 ? "task" : "tasks"}` : "Add tasks"}
+          {n > 0 && !busy && (
+            <span className="pointer-coarse:hidden">
+              <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] bg-on-primary/18 px-1.5 font-sans text-caption-2 font-medium">↵</kbd>
+            </span>
+          )}
+        </Button>
+      </div>
+      {/* Phones: the language and typing, quietly under the buttons. */}
+      {(languageButton || typeButton) && (
+        <div className="flex flex-none justify-center gap-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
+          {languageButton}
+          {typeButton}
+        </div>
+      )}
 
       {/* For assistive tech: what state the screen is in, without reading every word as it is heard. */}
       <p role="status" className="sr-only">
