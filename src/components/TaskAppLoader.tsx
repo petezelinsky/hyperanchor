@@ -9,7 +9,10 @@ const TaskApp = dynamic(() => import("./TaskApp").then((m) => m.TaskApp), {
   loading: () => <div className="min-h-dvh" />,
 });
 
-/** `account`: the signed-in account's id; it names this account's waiting changes in the browser. */
-export function TaskAppLoader({ user, account }: { user: AppUser; account: string }) {
-  return <TaskApp user={user} account={account} />;
+/**
+ * `account`: the signed-in account's id; it names this account's waiting changes in the browser.
+ * `voice`: whether this server can sort what is said into tasks (the Speak screen).
+ */
+export function TaskAppLoader({ user, account, voice }: { user: AppUser; account: string; voice: boolean }) {
+  return <TaskApp user={user} account={account} voice={voice} />;
 }

@@ -51,6 +51,8 @@ npm run dev                  # http://localhost:3000
 | `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` | *необязательно:* ключ Sign in with Apple (`.p8`, можно одной строкой с `\n`): из него сервер сам подписывает client secret для сайта и для отзыва токенов при удалении аккаунта |
 | `AUTH_APPLE_SECRET` | *необязательно, вместо ключа:* готовый client secret для сайта (`npx auth add apple`, действует до 6 месяцев) |
 | `DATABASE_URL` | Supabase → Connect → Transaction pooler (порт `6543`), с паролем БД и `?sslmode=require` в конце |
+| `ANTHROPIC_API_KEY` | *для голоса:* ключ API Anthropic (Console → API keys). Сказанное или набранное на экране Speak сервер отправляет в Claude и получает задачи. Без ключа всё остальное работает, а кнопки Speak просто нет |
+| `ANTHROPIC_MODEL` | *необязательно:* другая модель вместо `claude-haiku-5-5` |
 
 ## Деплой на hyperanchor.app (Vercel)
 
@@ -106,11 +108,28 @@ select count(*) from users where last_seen_at > now() - interval '7 days';  -- �
 | `DELETE` | `/api/tasks/:id` | — |
 | `GET` | `/api/tasks/search?q=…` | до 50 задач, где `q` есть в названии или заметке, новые даты первыми |
 | `GET` | `/api/tasks/open?before=YYYY-MM-DD` | все незакрытые задачи до этой даты (до 500, свежие первыми) — то, что «Сегодня» предлагает перенести |
+| `POST` | `/api/tasks/parse` | `{ text, today (YYYY-MM-DD, дата пользователя), weekStart? (0 \| 1) }` → `{ tasks: [{ title, description, date }] }`: текст (расшифровка речи или набранное, до 6000 знаков) превращается в черновики задач по дням. Ничего не сохраняет: клиент показывает черновики и создаёт выбранные через `POST /api/tasks`. Ошибки с кодом в `error`: `not_configured` (503, нет ключа), `limit` (429, больше 60 запросов за день), `refused` (422), `busy` (503, Claude недоступен, можно повторить), `failed` (502) |
 | `GET` | `/api/export` | все задачи файлом CSV (`date,title,notes,done,created,updated`) |
 | `POST` | `/api/auth/mobile` | `{ provider: "google" \| "apple", idToken, nonce?, name? }` → `{ token, user: { name, email, image } }`: проверяет ID-токен провайдера по его JWKS (Google: `aud` — iOS- или веб-клиент; Apple: `aud` — Bundle ID; `nonce` — сырой, у Apple сверяется его SHA-256) и выдаёт собственный JWT сервера на 90 дней |
 | `DELETE` | `/api/account` | `{ authorizationCode? }` → `{ deleted, revoked }`: удаляет все задачи и запись пользователя; для Apple ещё и отзывает токен (приложение присылает свежий `authorizationCode`, сайт хранит refresh-токен Apple в зашифрованной сессии) |
 
 Свой порядок внутри дня — `position` (число; новая позиция при переносе — середина между соседями, `null` — по времени создания). Даты хранятся как локальные `YYYY-MM-DD` пользователя, неделя по умолчанию начинается с понедельника (в настройках можно выбрать воскресенье; это влияет только на отображение). Клиент обновляет данные оптимистично, ввод сохраняется с задержкой 600 мс, правки ждут в очереди (localStorage) и уходят по порядку для каждой задачи; данные с сервера показываются с ожидающими правками поверх.
+
+### Голос: текст → задачи
+
+Кнопка **Speak** (клавиша `V`; появляется, когда на сервере задан `ANTHROPIC_API_KEY`) открывает экран со сферой. Речь в текст превращает сам браузер (Web Speech API: Chrome, Edge,
+Safari; звук на наш сервер не попадает), а где браузер слушать не умеет (Firefox) или микрофон закрыт, тот же экран
+принимает набранный или вставленный текст. Когда человек замолкает или нажимает Stop, текст уходит на
+`POST /api/tasks/parse`: сервер одним запросом к Claude (`src/lib/drafts.ts`, модель `claude-haiku-5-5`, ответ строго по
+JSON-схеме) получает задачи с названием, заметкой и днём. Чтобы модель не считала дни недели сама, ей передаётся
+сегодняшняя дата пользователя и календарь на четыре недели. Ответ чистится (длины, реальные даты не раньше сегодня,
+повторы) и показывается для проверки: день можно сменить, лишнее убрать, и только потом «Add N tasks» создаёт задачи
+обычным способом (с очередью и Undo).
+
+В iOS-приложении этого экрана пока нет; эндпоинт уже принимает его bearer-токен.
+
+Слова нигде не сохраняются. В таблице `ai_usage` считается только число запросов и знаков на человека за день (UTC):
+это дневной лимит (60 запросов), он же защита счёта. Один разбор стоит доли цента.
 
 ## Структура
 
@@ -121,12 +140,14 @@ design/tokens.json       дизайн-токены (цвета светлой/т
 db/schema.sql            схема Postgres
 scripts/migrate.mjs      применяет схему
 src/auth.ts              Auth.js (Google, Apple)
-src/app/api/tasks        REST API задач и поиск
+src/app/api/tasks        REST API задач и поиск; parse — текст в черновики задач (голос)
 src/app/api/export       экспорт в CSV
 src/app/api/auth/mobile  вход iOS-приложения (ID-токен Google/Apple → bearer-токен)
 src/app/api/account      удаление аккаунта
 src/lib/db.ts            подключение к Postgres и автоматическое обновление схемы
 src/lib/users.ts         учёт пользователей (таблица users)
+src/lib/drafts.ts        разбор текста в задачи: запрос к Claude, календарь для модели, чистка ответа
+src/components/voice     экран Speak: VoiceScreen (сценарий), dictation.ts (распознавание речи браузером), ParticleRing.ts (сфера)
 src/lib/identity.ts      проверка токенов Google/Apple, client secret и отзыв токенов Apple
 src/lib/mobileToken.ts   bearer-токены iOS-приложения
 src/app/page.tsx         экран входа или приложение

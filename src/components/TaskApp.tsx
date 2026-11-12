@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { addDays, formatMedium, monthGrid, parseYmd, relativeDay, setWeekStart, startOfWeek, ymd, type WeekStart } from "@/lib/dates";
 import { statsRange, type Period } from "@/lib/stats";
 import { DEFAULT_SORT, placeBetween, placeOf, sortTasks, type Sort } from "@/lib/tasks";
-import type { AppUser, Task } from "@/lib/types";
+import type { AppUser, Task, TaskDraft } from "@/lib/types";
 import { AnalyticsView } from "./analytics/AnalyticsView";
 import { DayView, type Focus, type Welcome } from "./DayView";
 import { DragProvider, type DropTarget } from "./drag";
@@ -16,6 +16,7 @@ import { SettingsSheet, type SettingsTab } from "./SettingsSheet";
 import { MiniMonth, MobileHeader, Sidebar, TabBar, type View } from "./Sidebar";
 import type { Composer, Editing, Section, TableActions } from "./table/types";
 import { useTasks } from "./useTasks";
+import { VoiceScreen } from "./voice/VoiceScreen";
 import { WeekView } from "./WeekView";
 
 const SAVE_DELAY = 600; // ms of typing inactivity before a PATCH
@@ -60,7 +61,7 @@ function fromAddress(): { view: View; date: string | null } {
 /** One step that can be taken back: `run` says whether there was still something to take back. */
 type Undo = { run: () => boolean; done: string };
 
-export function TaskApp({ user, account }: { user: AppUser; account: string }) {
+export function TaskApp({ user, account, voice }: { user: AppUser; account: string; voice: boolean }) {
   const todayKey = useTodayKey();
   const [address] = useState(fromAddress);
   const [view, setView] = useState<View>(address.view);
@@ -97,6 +98,8 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
   const [focusOn, setFocusOn] = useState(false);
   const [later, setLater] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
+  // The voice screen: say (or type) everything at once, and it comes back as tasks on their days.
+  const [speaking, setSpeaking] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const scroller = useRef<HTMLElement>(null);
@@ -478,6 +481,34 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
     notify(list.length === 1 ? "Moved 1 task to today" : `Moved ${list.length} tasks to today`, { label: "Undo", run: () => undoThis(u) });
   };
 
+  /** What the voice screen sorted becomes tasks, in the order it was said; one Undo takes all of them back. */
+  const addDrafts = useCallback(
+    (drafts: TaskDraft[]) => {
+      const now = Date.now();
+      const ids = drafts.map((d, i) => create({ ...d, done: false, position: now + i }));
+      const n = ids.length;
+      const days = new Set(drafts.map((d) => d.date));
+      days.forEach(pulseDayOnRender);
+      const u = remember(() => {
+        const left = ids.filter((id) => latest.current.tasks[id]);
+        left.forEach(remove);
+        return left.length > 0;
+      }, n === 1 ? "Task removed" : `${n} tasks removed`);
+      // Where they went, when it's a single day: "Added 3 tasks for tomorrow".
+      const where = days.size === 1 ? ` for ${dayLabel([...days][0])}` : "";
+      notify(`Added ${n === 1 ? "1 task" : `${n} tasks`}${where}`, { label: "Undo", run: () => undoThis(u) });
+    },
+    [create, remove, remember, undoThis, notify, dayLabel],
+  );
+  const openVoice = useCallback(() => {
+    // A task being written is kept (as a click elsewhere would keep it) before the screen takes over.
+    if (latest.current.editing) actions.finishEdit();
+    if (latest.current.composer) actions.composerSubmit(false);
+    setSpeaking(true);
+  }, [actions]);
+  // Offered only where the server can do the sorting (it has an Anthropic key).
+  const speak = voice ? openVoice : undefined;
+
   // ── Order and drag and drop ─────────────────────────────────────────────────
   /** The open tasks of a day in list order, without `except`. */
   const openOf = useCallback((date: string, except?: string) => {
@@ -680,7 +711,8 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
       } else if (k === "n") {
         if (!table) setView("day");
         actions.openComposer(l.selected);
-      } else if (k === "ArrowLeft" || k === "ArrowRight") step(k === "ArrowLeft" ? -1 : 1);
+      } else if (k === "v" && speak) speak();
+      else if (k === "ArrowLeft" || k === "ArrowRight") step(k === "ArrowLeft" ? -1 : 1);
       else if (table && (k === "ArrowDown" || k === "ArrowUp") && l.visibleIds.length) {
         const n = l.visibleIds.length;
         const next = i < 0 ? (k === "ArrowDown" ? 0 : n - 1) : Math.min(n - 1, Math.max(0, i + (k === "ArrowDown" ? 1 : -1)));
@@ -701,7 +733,7 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("keydown", onKey);
     };
-  }, [actions, selectDate, showView, setFocus, nudge, undoLast]);
+  }, [actions, selectDate, showView, setFocus, nudge, undoLast, speak]);
 
   // The address follows the view and the date. A new view is a step in history, so Back returns to the last one; a new
   // date only replaces the address. A reload or a bookmark comes back to the same place.
@@ -761,7 +793,8 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
   return (
     <DragProvider ordered={sort.key === "manual"} scroller={scroller} onDrop={dropTask}>
     {/* In focus everything but the task steps back (globals.css); it comes back under the pointer or the keyboard. */}
-    <div data-focus={focusOn && view === "day" ? "on" : undefined} className="min-h-dvh md:flex md:h-dvh md:min-h-0 md:bg-canvas">
+    {/* While the voice screen is open, the app behind it is out of reach of the keyboard and of assistive tech. */}
+    <div data-focus={focusOn && view === "day" ? "on" : undefined} inert={speaking} className="min-h-dvh md:flex md:h-dvh md:min-h-0 md:bg-canvas">
       <Sidebar
         user={user}
         sync={sync}
@@ -809,11 +842,12 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
                 carried={carried}
                 focus={focus}
                 onFocus={() => setFocus(!focusOn)}
+                onSpeak={speak}
                 welcome={welcome}
               />
             )}
             {view === "week" && (
-              <WeekView selected={selected} sections={sections} state={tableState} actions={actions} onSelectDate={selectDate} />
+              <WeekView selected={selected} sections={sections} state={tableState} actions={actions} onSelectDate={selectDate} onSpeak={speak} />
             )}
             {view === "month" && (
               <MonthView
@@ -828,6 +862,7 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
                 onOpenDay={openDay}
                 onToggle={actions.toggle}
                 onCreate={(date, title) => create({ title, description: "", date, done: false })}
+                onSpeak={speak}
               />
             )}
             {view === "analytics" && (
@@ -850,8 +885,9 @@ export function TaskApp({ user, account }: { user: AppUser; account: string }) {
         </div>
       </div>
       <TabBar view={view} onView={showView} />
-      {sheet && <SettingsSheet tab={sheet} user={user} weekStart={weekStart} onWeekStart={changeWeekStart} onClose={() => setSheet(null)} />}
+      {sheet && <SettingsSheet tab={sheet} user={user} weekStart={weekStart} onWeekStart={changeWeekStart} voice={voice} onClose={() => setSheet(null)} />}
       {searching && <SearchPalette todayKey={todayKey} onOpen={openFound} onClose={() => setSearching(false)} />}
+      {speaking && <VoiceScreen todayKey={todayKey} weekStart={weekStart} onAdd={addDrafts} onClose={() => setSpeaking(false)} />}
 
       {/* One toast at a time: a new one takes the place of the last at once; the last one leaves gently. */}
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+90px)] z-[120] grid justify-center px-4 md:bottom-6">
