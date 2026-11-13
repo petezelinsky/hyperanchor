@@ -22,7 +22,7 @@ enum AppConfig {
 
 /// Launch arguments for working without a server: `-demo` (sample data, signed in), `-uitest` (the same,
 /// with fresh preferences), plus `-signedOut`, `-offline`, `-today YYYY-MM-DD`, `-appearance light|dark`,
-/// `-accent blue|orange|green` and `-tab day|week|month|analytics` for tests and screenshots.
+/// `-accent graphite|blue|orange|green` and `-tab day|week|month|analytics|goals|agent` for tests and screenshots.
 struct LaunchOptions {
     let demo: Bool
     let uiTest: Bool
@@ -130,6 +130,8 @@ final class AppModel {
         clock.refresh()
         guard let store else { return }
         Task { await store.refresh() }
+        // Today's AI allowance may have changed elsewhere (the web, another day): the figure is asked for again.
+        Task { await AIOffer.shared.refreshIfStale(session.backend, after: 30) }
     }
 
     func movedToBackground() {

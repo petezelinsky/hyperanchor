@@ -62,10 +62,10 @@ for (const t of tasksLib.sortTasks(tasks, tasksLib.DEFAULT_SORT)) {
 }
 const byDate = (key) => byDateMap.get(key) ?? [];
 
-// A day with nothing done, to exercise the "streak continues from yesterday" rule.
+// A day with nothing done yet, as on a quiet morning…
 const quietToday = "2026-03-11";
 for (const t of byDate(quietToday)) t.done = false;
-// …and a long run of active days before it.
+// …after a long run of active days.
 for (let d = parseYmd("2026-02-20"); ymd(d) < quietToday; d = addDays(d, 1)) {
   const list = byDate(ymd(d));
   if (list.length) list[0].done = true;
@@ -89,29 +89,33 @@ const summaryJSON = (s) => ({
   upcoming: s.upcoming,
 });
 
+// Weeks starting on Monday (the default) and on Sunday (Settings → Week starts on).
 const scenarios = [];
-for (const today of ["2026-10-22", "2026-01-01", quietToday, "2025-12-31"]) {
-  for (const period of ["week", "month", "year"]) {
-    for (const offset of [0, -1, -2, -13]) {
-      const b = stats.periodBounds(period, offset, today);
-      const days = stats.dayStats(b, today, byDate);
-      const sum = stats.summarize(days);
-      scenarios.push({
-        today,
-        period,
-        offset,
-        bounds: { start: ymd(b.start), end: ymd(b.end), days: b.days },
-        range: stats.statsRange(period, offset, today),
-        summary: summaryJSON(sum),
-        weekday: stats.weekdayStats(days).map(({ index, done, planned, days, avg, rate }) => ({ index, done, planned, days, avg, rate })),
-        months: period === "year" ? stats.monthStats(days).map(({ month, done, planned, rate, activeDays, elapsedDays }) => ({ month, done, planned, rate, activeDays, elapsedDays })) : null,
-        longest: stats.longestStreak(days),
-        current: stats.currentStreak(today, byDate),
-        labels: { avg: stats.fmt1(sum.avg), rate: sum.rate == null ? null : stats.pct(sum.rate) },
-      });
+for (const weekStart of [1, 0]) {
+  dates.setWeekStart(weekStart);
+  for (const today of ["2026-10-22", "2026-01-01", quietToday, "2025-12-31", "2026-11-15"]) {
+    for (const period of ["week", "month", "year"]) {
+      for (const offset of [0, -1, -2, -13]) {
+        const b = stats.periodBounds(period, offset, today);
+        const days = stats.dayStats(b, today, byDate);
+        const sum = stats.summarize(days);
+        scenarios.push({
+          weekStart,
+          today,
+          period,
+          offset,
+          bounds: { start: ymd(b.start), end: ymd(b.end), days: b.days },
+          range: stats.statsRange(period, offset, today),
+          summary: summaryJSON(sum),
+          weekday: stats.weekdayStats(days).map(({ index, done, planned, days, avg, rate }) => ({ index, done, planned, days, avg, rate })),
+          months: period === "year" ? stats.monthStats(days).map(({ month, done, planned, rate, activeDays, elapsedDays }) => ({ month, done, planned, rate, activeDays, elapsedDays })) : null,
+          labels: { avg: stats.fmt1(sum.avg), rate: sum.rate == null ? null : stats.pct(sum.rate) },
+        });
+      }
     }
   }
 }
+dates.setWeekStart(1);
 
 const dateCases = [];
 for (const key of ["2026-10-22", "2026-10-19", "2026-10-25", "2026-01-01", "2025-12-31", "2024-02-29", "2026-03-29", "2027-01-04"]) {
@@ -146,10 +150,25 @@ const sortSample = [
   ["d", "eclair", "2026-10-22T10:00:00.000Z"],
   ["e", "banana split", "2026-10-22T07:30:00.000Z"],
   ["f", "zebra", "2026-10-22T06:00:00.000Z"],
-].map(([id, title, createdAt]) => ({ id, date: "2026-10-22", title, description: id === "e" ? "Call Mom first" : "", done: false, createdAt, updatedAt: createdAt }));
-const SORTS = { orderAdded: { key: "added", dir: "asc" }, newestFirst: { key: "added", dir: "desc" }, nameAscending: { key: "title", dir: "asc" }, nameDescending: { key: "title", dir: "desc" } };
+].map(([id, title, createdAt]) => ({
+  id,
+  date: "2026-10-22",
+  title,
+  description: id === "e" ? "Call Mom first" : "",
+  done: false,
+  // Two of them were moved by hand: "d" to the top, "a" between "e" (07:30) and "c" (08:00). The rest sort by when they were added.
+  position: id === "d" ? 0 : id === "a" ? Date.parse("2026-10-22T07:45:00.000Z") : null,
+  createdAt,
+  updatedAt: createdAt,
+}));
+// The in-list filter (the iOS app's; the web searches on the server instead): title or notes contain the query.
+const matchesQuery = (t, query) => {
+  const q = query.trim().toLowerCase();
+  return !q || t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q);
+};
+const SORTS = { manual: { key: "manual", dir: "asc" }, orderAdded: { key: "added", dir: "asc" }, newestFirst: { key: "added", dir: "desc" }, nameAscending: { key: "title", dir: "asc" }, nameDescending: { key: "title", dir: "desc" } };
 const sorting = Object.fromEntries(Object.entries(SORTS).map(([name, sort]) => [name, tasksLib.sortTasks(sortSample, sort).map((t) => t.id)]));
-const matching = ["", "zeb", "MOM", "  apple ", "x"].map((q) => ({ query: q, ids: sortSample.filter((t) => tasksLib.matchesQuery(t, q)).map((t) => t.id) }));
+const matching = ["", "zeb", "MOM", "  apple ", "x"].map((q) => ({ query: q, ids: sortSample.filter((t) => matchesQuery(t, q)).map((t) => t.id) }));
 
 const numbers = {
   niceMax: [0, 3, 4, 4.5, 7, 10, 11, 33, 50, 51, 99, 100, 101, 260].map((v) => [v, stats.niceMax(v)]),

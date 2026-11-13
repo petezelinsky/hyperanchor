@@ -1,620 +1,534 @@
 import SwiftUI
+import UIKit
 
-/// Focus mode: one task at a time, on the top card of a small stack — the edges peeking out below are what's
-/// left. Done lifts the card away and the next one rises into place; Not now sends it to the back. The rest of
-/// the day is one quiet line, so there is nothing else to choose between. Made with ADHD in mind.
+/// Focus: the whole screen for one task (the web's FocusPanel). The task is a small card, a row of the list grown large —
+/// its box and its words — lying on a deck whose edges are the tasks still waiting. Ticking it draws the tick and crosses
+/// the words out, then the card turns to dust while the next one rises into its place; Later slips it to the back. Where
+/// the day stands and the timer sit in the bar above; a thought that comes up goes on the line below, kept for later
+/// without leaving. Leaving says how many were done here.
 struct FocusView: View {
     @Environment(TaskStore.self) private var store
     @Environment(Router.self) private var router
     @Environment(TodayClock.self) private var clock
     @Environment(Toaster.self) private var toaster
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(Preferences.self) private var prefs
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.palette) private var palette
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.legibilityWeight) private var legibilityWeight
+    @Environment(\.displayScale) private var displayScale
 
-    /// "Not now": sent to the back of the queue for this session.
+    /// Put off for later: at the back of the queue, in the order they were put off (thoughts jotted down too).
     @State private var later: [String] = []
-    /// Just ticked off: stays on top while its check plays.
-    @State private var settling: Set<String> = []
-    /// The card that just left the top, kept for a moment (as it last looked) so it can animate away.
-    @State private var departure: Departure?
+    /// Ticked just now: the card stays on top while its tick plays, then turns to dust.
+    @State private var finishing: String?
+    /// Put off beyond the deck: sinking behind it.
+    @State private var sinking: TaskItem?
+    @State private var dust: [Dust] = []
+    /// Where the card on top lies on the screen.
+    @State private var topFrame: CGRect = .zero
+    /// Tasks finished here, for the word on leaving.
+    @State private var doneHere = 0
+    @State private var putOffs = 0
     @State private var thought = ""
-    @State private var confetti = 0
-    /// The height of everything on screen, for centering it.
-    @State private var contentHeight: CGFloat = 0
+    /// "Added for later", said on the line itself for a moment.
+    @State private var kept = 0
     @FocusState private var capturing: Bool
-    /// The screen itself has keyboard focus (for → and Esc) whenever the field doesn't.
-    @FocusState private var keysHere: Bool
-    /// A hardware key was pressed here, so there is a keyboard (key hints show on iPad).
+    /// A key was pressed here, so there is a keyboard (key hints show on iPad).
     @State private var keysUsed = false
-    /// VoiceOver moves on to the next task's title when the card on top changes.
+    @State private var bottomInset: CGFloat = 0
+    /// VoiceOver moves on to the card that comes up (or to the finish).
     @AccessibilityFocusState private var spoken: String?
 
     private var day: DayKey { router.selected }
+    private var regular: Bool { sizeClass == .regular }
+    /// Where VoiceOver goes when nothing is left.
+    fileprivate static let finished = "focus.finished"
 
     var body: some View {
         let all = store.tasks(on: day)
         let queue = queue(all)
-        let task = queue.first
-        let next = queue.dropFirst().first
-        let done = all.count(where: \.done)
+        let waiting = Set(queue.map(\.id))
+        let done = all.count { $0.done && !waiting.contains($0.id) }
 
-        NavigationStack {
-            GeometryReader { geo in
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            if let task {
-                                FocusProgress(done: done, total: all.count)
-                                stack(task, hasNext: next != nil, waiting: queue.count - 1)
-                                    .padding(.top, 24)
-                                upNext(next, after: max(0, queue.count - 2))
-                                    .padding(.top, 40)
-                            } else if !all.isEmpty {
-                                AllDone(isToday: day == clock.today) { dismiss() }
-                            } else {
-                                Text("Nothing is planned for this day.")
-                                    .font(.body)
-                                    .foregroundStyle(.ink2)
-                                    .multilineTextAlignment(.center)
-                                    .modifier(Arrival(.rise))
-                            }
-
-                            capture
-                                .padding(.top, 32)
-                                .id("capture")
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 24)
-                        .frame(maxWidth: 600)
-                        // Centered on screen. When the next card is taller or shorter, its top edge stays where the
-                        // last one was (so it rises into the same place) and then everything glides back to the middle
-                        // (with Reduce Motion it simply re-centers).
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
-                            if contentHeight == 0 || reduceMotion {
-                                contentHeight = height
-                            } else {
-                                withAnimation(.smooth(duration: 0.4)) { contentHeight = height }
-                            }
-                        }
-                        .padding(.top, contentHeight > 0 ? max(0, (geo.size.height - contentHeight) / 2) : 0)
-                        .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: contentHeight > 0 ? .top : .center)
-                    }
-                    .scrollBounceBehavior(.basedOnSize)
-                    .scrollDismissesKeyboard(.interactively)
-                    // A hardware keyboard, as on the web: → puts the task off, Esc leaves (Space and N come from the
-                    // app's menu commands). The screen holds keyboard focus whenever the field doesn't, so the keys
-                    // reach it before the system's focus navigation does.
-                    .focusable()
-                    .focusEffectDisabled()
-                    .focused($keysHere)
-                    .onKeyPress(keys: [.rightArrow, .escape]) { press in
-                        keysUsed = true
-                        if capturing {
-                            // Typing: arrows move the caret; Esc leaves the field (as on the web), not focus mode.
-                            guard press.key == .escape else { return .ignored }
-                            capturing = false
-                            return .handled
-                        }
-                        if press.key == .escape {
-                            dismiss()
-                        } else if let task, next != nil, !task.done {
-                            putOff(task)
-                        }
-                        return .handled
-                    }
-                    .onAppear { keysHere = true }
-                    .onChange(of: capturing) { _, now in
-                        guard now else {
-                            keysHere = true
-                            return
-                        }
-                        Task {
-                            try? await Task.sleep(for: .milliseconds(350))
-                            withAnimation { proxy.scrollTo("capture", anchor: .bottom) }
-                        }
-                    }
-                }
-            }
-            .background(.canvas)
-            .overlay { ConfettiView(trigger: confetti) }
-            .navigationTitle(Dates.relative(day, today: clock.today) ?? Dates.dowFull[day.weekday])
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // In focus the header keeps one way out; new thoughts go into the field under the card.
-                ToolbarItem(placement: .topBarTrailing) { ExitButton { dismiss() } }
-            }
-            .toastHost()
+        VStack(spacing: 0) {
+            FocusBar(done: done, total: all.count, finished: queue.isEmpty, leave: leave)
+            stage(queue: queue, done: done, total: all.count)
+            ThoughtLine(text: $thought, capturing: $capturing, kept: kept > 0, regular: regular, submit: jot)
+                .padding(.bottom, bottomInset > 80 ? 8 : max(0, (regular ? 32 : 16) - bottomInset))
         }
-        .tint(.ink)
+        .background {
+            Color.canvas
+                .ignoresSafeArea()
+                .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: { bottomInset = $0 }
+        }
+        .background {
+            FocusKeys(active: !capturing, press: key)
+                .accessibilityHidden(true)
+        }
+        .overlay { DustLayer(clouds: dust) }
+        // Messages (an error, an undo) show above the line at the foot.
+        .overlay(alignment: .bottom) { ToastOverlay().padding(.bottom, regular ? 84 : 56) }
         .readsHardwareKeyboard(used: keysUsed)
-        .onChange(of: task == nil && !all.isEmpty) { was, now in
-            if now, !was { confetti += 1 }
+        .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.8), trigger: doneHere)
+        .sensoryFeedback(.selection, trigger: putOffs)
+        .sensoryFeedback(.impact(weight: .light), trigger: kept) { _, now in now > 0 }
+        .onDisappear {
+            if doneHere > 0 { toaster.show("\(doneHere) done in focus.") }
         }
-        // Space and N, from the app's keyboard commands.
+        // Space and N from the app's own key commands, for a moment when the screen doesn't hold the keyboard (after a menu).
         .onChange(of: router.focusCompleteRequest) { _, _ in
             keysUsed = true
-            if let task { complete(task) }
+            finishTop()
         }
         .onChange(of: router.focusCaptureRequest) { _, _ in
             keysUsed = true
             capturing = true
         }
+        // Another day (today after midnight): its own queue.
+        .onChange(of: day) { _, _ in
+            later = []
+            sinking = nil
+        }
+        .task(id: kept) {
+            guard kept > 0 else { return }
+            try? await Task.sleep(for: .seconds(2))
+            if !Task.isCancelled { kept = 0 }
+        }
+        // Writing the next thought: the line stops saying the last one was kept.
+        .onChange(of: thought) { _, now in
+            if !now.isEmpty { kept = 0 }
+        }
+        .accessibilityAction(.escape) { leave() }
     }
 
-    // MARK: Pieces
+    // MARK: The stage
 
-    /// The task on top of the stack; the edges under it are the tasks still waiting.
-    private func stack(_ task: TaskItem, hasNext: Bool, waiting: Int) -> some View {
-        FocusCard(task: task, hasNext: hasNext, spoken: $spoken, done: { complete(task) }, later: { putOff(task) })
-            .modifier(Arrival(departure == nil ? .none : .next))
-            .id(task.id)
-            .background(alignment: .bottom) { StackEdges(waiting: waiting) }
-            // Above the new card, so a taller one leaving never shows its edge from under it.
-            .overlay(alignment: .top) {
-                if let departure { departing(departure) }
+    private func stage(queue: [TaskItem], done: Int, total: Int) -> some View {
+        GeometryReader { geo in
+            ScrollView(.vertical) {
+                content(queue: queue, done: done, total: total)
+                    .padding(.horizontal, regular ? 40 : 16)
+                    .padding(.bottom, 40)
+                    .frame(maxWidth: .infinity, minHeight: geo.size.height)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.interactively)
+        }
     }
 
-    private func departing(_ departure: Departure) -> some View {
-        FocusCard(task: departure.task, hasNext: departure.hasNext, live: false)
-            .fixedSize(horizontal: false, vertical: true)
-            .modifier(Leave(finished: departure.finished))
-            .id(departure.id)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-    }
-
+    /// The deck with the two ways on under it; when nothing is left, where things stand.
     @ViewBuilder
-    private func upNext(_ next: TaskItem?, after: Int) -> some View {
-        Group {
-            if let next {
-                Text("Up next: ").foregroundStyle(.ink3)
-                    + Text(next.title).foregroundStyle(.ink2)
-                    + Text(after > 0 ? " · \(after) more after that" : "").foregroundStyle(.ink3)
-            } else {
-                Text("This is the last one.").foregroundStyle(.ink3)
+    private func content(queue: [TaskItem], done: Int, total: Int) -> some View {
+        if let top = queue.first {
+            let putOff: ((TaskItem) -> Void)? = queue.count > 1 ? { putOff($0) } : nil
+            VStack(spacing: 48) {
+                FocusDeck(cards: Array(queue.prefix(3)), finishing: finishing, sinking: sinking,
+                          position: "Task \(min(done + 1, total)) of \(total)", spoken: $spoken,
+                          tick: { finish($0) }, later: putOff, placed: { topFrame = $0 })
+                // The two ways on, quiet, under the deck (the box on the card finishes the task too).
+                FocusActions(canPutOff: queue.count > 1, done: { finish(top) }, later: { self.putOff(top) })
             }
+        } else if total > 0 {
+            AllDone(isToday: day == clock.today, spoken: $spoken, back: leave)
+        } else {
+            Text("Nothing is planned for this day.")
+                .font(.token(Tokens.Typography.callout))
+                .foregroundStyle(.ink2)
+                .multilineTextAlignment(.center)
         }
-        .font(.footnote)
-        .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
-        .multilineTextAlignment(.center)
-        .padding(.horizontal, 16)
     }
 
-    /// "Something else on your mind?" — a task for later, without leaving focus. A tap anywhere in the box types.
-    private var capture: some View {
-        CaptureField(thought: $thought, capturing: $capturing, submit: captureThought)
-            .frame(maxWidth: 420)
+    /// A key from a keyboard (FocusKeys).
+    private func key(_ key: FocusKeys.Key) {
+        keysUsed = true
+        switch key {
+        case .done: finishTop()
+        case .later: putOffTop()
+        case .jot: capturing = true
+        case .leave: leave()
+        }
     }
 
-    // MARK: Queue
+    // MARK: The queue
 
-    /// Open tasks in list order, "Not now" ones last; a task just ticked off stays first while its check plays.
+    /// What focus works through: the day's open tasks in the list's order, those put off last. A task just ticked stays
+    /// on top while its tick plays.
     private func queue(_ all: [TaskItem]) -> [TaskItem] {
-        let list = TaskSorting.sorted(all.filter { !$0.done || settling.contains($0.id) }, by: router.sort)
-        let deferred = later.compactMap { id in list.first { $0.id == id } }
-        return list.filter { !later.contains($0.id) } + deferred
+        let open = TaskSorting.sorted(all.filter { !$0.done || $0.id == finishing }, by: prefs.sort)
+        let deferred = later.compactMap { id in open.first { $0.id == id } }
+        return open.filter { !later.contains($0.id) } + deferred
     }
 
-    /// Changes the queue; when that changes the card on top, the old card stays a moment (as it looked) to animate away.
-    private func advance(_ change: () -> Void) {
-        let before = queue(store.tasks(on: day))
-        change()
-        let after = queue(store.tasks(on: day))
-        guard let was = before.first, was.id != after.first?.id else { return }
-        let leaving = Departure(task: was, hasNext: before.count > 1)
-        departure = leaving
+    private var current: [TaskItem] { queue(store.tasks(on: day)) }
+
+    // MARK: Done
+
+    private func finishTop() {
+        if let top = current.first { finish(top) }
+    }
+
+    /// Ticks the task (Undo can take it back): the tick draws and the words are crossed out, then the card turns to dust
+    /// and the next one rises into its place.
+    private func finish(_ task: TaskItem) {
+        guard finishing == nil, store.task(task.id)?.done == false, current.first?.id == task.id else { return }
+        doneHere += 1
+        store.toggle(task.id)
+        finishing = task.id
+        UIAccessibility.post(notification: .announcement, argument: "“\(task.title)” is done")
         Task {
-            try? await Task.sleep(for: .milliseconds(450))
-            if departure?.id == leaving.id { departure = nil }
+            try? await Task.sleep(for: .seconds(reduceMotion ? Tokens.Motion.reduced : Tokens.Motion.base))
+            turnToDust(task.id)
         }
-        if let now = after.first, UIAccessibility.isVoiceOverRunning {
+    }
+
+    private func turnToDust(_ id: String) {
+        guard finishing == id else { return }
+        let cloud = store.task(id).flatMap { $0.done ? picture(of: $0) : nil }
+        withTransaction(Transaction(animation: reduceMotion ? nil : Motion.travel)) {
+            finishing = nil
+            if let cloud { dust.append(cloud) }
+        }
+        if let cloud {
             Task {
-                try? await Task.sleep(for: .milliseconds(500))
-                spoken = now.id
+                try? await Task.sleep(for: .seconds(cloud.duration))
+                dust.removeAll { $0.id == cloud.id }
             }
         }
+        speakNext()
     }
 
-    private func complete(_ task: TaskItem) {
-        guard !task.done else { return }
-        settling.insert(task.id)
-        store.setDone(task.id, true)
+    /// The card as it was when it went (its face, its box ticked, its words crossed out), as a picture to turn to dust.
+    private func picture(of task: TaskItem) -> Dust? {
+        let frame = topFrame
+        guard frame.width > 4, frame.height > 4 else { return nil }
+        // A picture of a very tall card is drawn a little coarser (it's coming apart anyway).
+        let scale = min(displayScale, (1_500_000 / (frame.width * frame.height)).squareRoot())
+        let card = FocusCardFace(task: task, finished: true)
+            .frame(width: frame.width, height: frame.height, alignment: .top)
+            .background { FocusCardSurface(depth: 0, lifted: false) }
+            .environment(\.colorScheme, colorScheme)
+            .environment(\.palette, palette)
+            .environment(\.dynamicTypeSize, typeSize)
+            .environment(\.horizontalSizeClass, sizeClass)
+            .environment(\.legibilityWeight, legibilityWeight)
+            .environment(\.displayScale, scale)
+        let renderer = ImageRenderer(content: card)
+        renderer.scale = scale
+        renderer.isOpaque = false
+        renderer.proposedSize = ProposedViewSize(frame.size)
+        guard let image = renderer.cgImage else { return nil }
+        return Dust(image: image, scale: scale, frame: frame, face: colorScheme == .dark ? Tokens.surface.dark : Tokens.surface.light,
+                    reduced: reduceMotion)
+    }
+
+    // MARK: Later
+
+    private func putOffTop() {
+        if let top = current.first { putOff(top) }
+    }
+
+    /// Slips the card to the back of the deck (behind it, when more are waiting than the deck shows).
+    private func putOff(_ task: TaskItem) {
+        let queue = current
+        guard finishing == nil, !task.done, queue.count > 1, queue.first?.id == task.id else { return }
+        let beyond = queue.count > 3 && !reduceMotion
+        withAnimation(reduceMotion ? nil : Motion.travel) {
+            later = later.filter { $0 != task.id } + [task.id]
+            if beyond { sinking = task }
+        }
+        putOffs += 1
+        if beyond {
+            Task {
+                try? await Task.sleep(for: .milliseconds(420))
+                if sinking?.id == task.id { sinking = nil }
+            }
+        }
+        speakNext()
+    }
+
+    /// VoiceOver: on to the card that came up, or to the finish.
+    private func speakNext() {
+        guard UIAccessibility.isVoiceOverRunning else { return }
         Task {
-            try? await Task.sleep(for: .milliseconds(900))
-            advance { _ = settling.remove(task.id) }
+            try? await Task.sleep(for: .milliseconds(600))
+            spoken = current.first?.id ?? Self.finished
         }
     }
 
-    private func putOff(_ task: TaskItem) {
-        guard !task.done else { return }
-        advance { later = later.filter { $0 != task.id } + [task.id] }
-    }
+    // MARK: A thought for later
 
-    /// Adds a task on this day without leaving focus; it waits at the end of the queue.
-    private func captureThought() {
+    /// Adds the task on this day without leaving focus; it waits at the back of the queue. The line itself says it's kept.
+    private func jot() {
         let title = thought.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
         let task = store.create(title: String(title.prefix(TaskItem.titleMax)), date: day)
         later.append(task.id)
         thought = ""
-        toaster.show("Added for later")
+        kept += 1
+        UIAccessibility.post(notification: .announcement, argument: "Added for later")
+    }
+
+    // MARK: Leaving
+
+    private func leave() {
+        router.focus = false
     }
 }
 
-/// The card that just left the top of the stack.
-private struct Departure: Identifiable {
-    let id = UUID()
-    let task: TaskItem
-    /// It showed Not now as well; it keeps its buttons while it animates away.
-    let hasNext: Bool
-    /// Done lifts it away; Not now sends it to the back.
-    var finished: Bool { task.done }
-}
-
-// MARK: - The card
-
-private struct FocusCard: View {
-    let task: TaskItem
-    let hasNext: Bool
-    /// The card on top. The one leaving is a still copy: no shortcuts, no identifiers.
-    var live = true
-    var spoken: AccessibilityFocusState<String?>.Binding?
-    var done: () -> Void = {}
-    var later: () -> Void = {}
-
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    @Environment(\.dynamicTypeSize) private var typeSize
+/// Done and Later under the deck, with their keys on a keyboard: on iOS 26 two buttons of glass (Done the prominent
+/// one); before it, and with Reduce Transparency, quiet words as on the web.
+private struct FocusActions: View {
+    let canPutOff: Bool
+    let done: () -> Void
+    let later: () -> Void
     @Environment(\.showsKeyHints) private var keyHints
-
-    private var regular: Bool { sizeClass == .regular }
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.palette) private var palette
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 28) {
-            HStack(alignment: .top, spacing: 16) {
-                TaskCheckbox(task: task, size: 28, toggle: done)
-                    .padding(-8)
-                    .padding(.top, regular ? 4 : 1)
-                VStack(alignment: .leading, spacing: 8) {
-                    title
-                    if !task.notes.isEmpty {
-                        Text(task.notes)
-                            .font(.subheadline)
-                            .lineSpacing(4)
-                            .foregroundStyle(.ink2)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            buttons
-        }
-        .padding(regular ? 28 : 20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .elevation(Tokens.Shadow.float, cornerRadius: 24)
-    }
-
-    @ViewBuilder
-    private var title: some View {
-        let text = Text(task.title)
-            .font(regular ? .title.weight(.semibold) : .title2.weight(.semibold))
-            .tracking(regular ? -0.7 : -0.55)
-            .foregroundStyle(task.done ? .ink3 : .ink)
-            .fixedSize(horizontal: false, vertical: true)
-            .animation(.easeOut(duration: 0.3), value: task.done)
-            .accessibilityAddTraits(.isHeader)
-        if let spoken {
-            text.accessibilityFocused(spoken, equals: task.id)
+        if #available(iOS 26.0, *) {
+            if reduceTransparency { quiet } else { glass }
         } else {
-            text
+            quiet
         }
     }
 
-    /// Phones: two equal halves (Done takes the whole width for the last task); iPad: in a row under the title.
-    /// At the largest text sizes they stack.
-    @ViewBuilder
-    private var buttons: some View {
-        let stacked = typeSize.isAccessibilitySize
-        let fill = !regular || stacked
-        let layout = stacked ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
-        layout {
+    @available(iOS 26.0, *)
+    private var glass: some View {
+        GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+                Button(action: done) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark")
+                            .font(.footnote.weight(.semibold))
+                            .accessibilityHidden(true)
+                        Text("Done")
+                        if keyHints { KeyHint(key: "Space", tone: .onPrimary) }
+                    }
+                    // The accent's own ink on it: white on black, black on the light accent of dark mode.
+                    .foregroundStyle(palette.onAccent)
+                    .padding(.horizontal, 4)
+                }
+                .buttonStyle(.glassProminent)
+                .tint(palette.accent)
+                .accessibilityLabel("Done")
+                .accessibilityIdentifier("focus.done")
+                if canPutOff {
+                    Button(action: later) {
+                        HStack(spacing: 6) {
+                            Text("Later")
+                            if keyHints { KeyHint(key: "→") }
+                        }
+                        .foregroundStyle(.ink)
+                        .padding(.horizontal, 4)
+                    }
+                    .buttonStyle(.glass)
+                    .accessibilityLabel("Later")
+                    .accessibilityHint("Puts the task at the end of the queue")
+                    .accessibilityIdentifier("focus.later")
+                }
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .lineLimit(1)
+        .controlSize(.large)
+    }
+
+    private var quiet: some View {
+        HStack(spacing: 4) {
             Button(action: done) {
                 HStack(spacing: 8) {
-                    Image(systemName: "checkmark").font(.footnote.weight(.bold))
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .accessibilityHidden(true)
                     Text("Done")
-                    if keyHints { KeyHint(key: "Space", tone: .onPrimary).padding(.leading, 2) }
+                    if keyHints { KeyHint(key: "Space") }
                 }
-                .padding(.vertical, 6) // room once large text outgrows the button's height
             }
-            .buttonStyle(PrimaryButtonStyle(height: 46, fill: fill))
-            .disabled(task.done)
+            .buttonStyle(QuietButtonStyle())
             .accessibilityLabel("Done")
-            .accessibilityIdentifier(live ? "focus.done" : "")
-            if hasNext {
+            .accessibilityIdentifier("focus.done")
+            if canPutOff {
                 Button(action: later) {
                     HStack(spacing: 8) {
-                        Text("Not now")
-                        if keyHints { KeyHint(key: "→", tone: .onSecondary).padding(.leading, 2) }
+                        Text("Later")
+                        if keyHints { KeyHint(key: "→") }
                     }
-                    .padding(.vertical, 6)
-                    .frame(maxWidth: fill ? .infinity : nil)
                 }
-                .buttonStyle(SecondaryButtonStyle(height: 46))
-                .disabled(task.done)
-                .accessibilityLabel("Not now")
+                .buttonStyle(QuietButtonStyle())
+                .accessibilityLabel("Later")
                 .accessibilityHint("Puts the task at the end of the queue")
-                .accessibilityIdentifier(live ? "focus.later" : "")
+                .accessibilityIdentifier("focus.later")
             }
         }
-        .padding(.leading, fill ? 0 : 44)
     }
 }
 
-/// The edges of the cards still waiting, peeking out under the one on top.
-private struct StackEdges: View {
-    let waiting: Int
-
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            ZStack(alignment: .bottom) {
-                if waiting > 1 {
-                    edge(radius: 20, fill: .surface2)
-                        .padding(.horizontal, w * 0.09)
-                        .offset(y: 18)
-                        .transition(.opacity)
-                }
-                if waiting > 0 {
-                    edge(radius: 22, fill: .surface)
-                        .padding(.horizontal, w * 0.045)
-                        .offset(y: 9)
-                        .transition(.opacity)
-                }
-            }
-            .frame(width: w, height: geo.size.height, alignment: .bottom)
-        }
-        .animation(.easeOut(duration: 0.3), value: waiting)
-        .accessibilityHidden(true)
-    }
-
-    private func edge(radius: CGFloat, fill: Color) -> some View {
-        RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .fill(fill)
-            .frame(height: 64)
-            .elevation(Tokens.Shadow.lift, cornerRadius: radius)
+/// The web's plain button: gray words that darken when pressed, no frame.
+private struct QuietButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(configuration.isPressed ? Color.ink : Color.ink2)
+            .lineLimit(1)
+            .padding(.leading, 10)
+            .padding(.trailing, 8)
+            .frame(minHeight: 32)
+            .background(configuration.isPressed ? Color.line : .clear, in: RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
+            .tapTarget()
+            .animation(.easeOut(duration: Tokens.Motion.press), value: configuration.isPressed)
     }
 }
 
-// MARK: - Progress
-
-/// Where you are in the day: one segment per task (a plain bar for long days), the current one half-lit.
-private struct FocusProgress: View {
-    let done: Int
-    let total: Int
-    @Environment(\.palette) private var palette
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    var body: some View {
-        let label = "Task \(min(done + 1, total)) of \(total)"
-        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 12))
-        layout {
-            Group {
-                if total <= 12 {
-                    HStack(spacing: 4) {
-                        ForEach(0..<total, id: \.self) { i in
-                            Capsule()
-                                .fill(i < done ? palette.accent : i == done ? palette.accent.opacity(0.45) : palette.accentTrack)
-                                .frame(minWidth: 4, maxWidth: 20)
-                                .frame(height: 6)
-                        }
-                    }
-                } else {
-                    Capsule()
-                        .fill(palette.accentTrack)
-                        .frame(width: 160, height: 6)
-                        .overlay(alignment: .leading) {
-                            Capsule().fill(palette.accent).frame(width: 160 * Double(done) / Double(total))
-                        }
-                }
-            }
-            .accessibilityHidden(true)
-            Text(label)
-                .font(.footnote)
-                .foregroundStyle(.ink3)
-                .monospacedDigit()
-                .fixedSize()
-        }
-        .animation(.easeOut(duration: 0.5), value: done)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-// MARK: - Capture
-
-private struct CaptureField: View {
-    @Binding var thought: String
+/// The line at the foot: a thought that comes up on the way is written down here and kept for later, without leaving.
+/// When it's kept, the line says so itself for a moment.
+private struct ThoughtLine: View {
+    @Binding var text: String
     var capturing: FocusState<Bool>.Binding
+    let kept: Bool
+    let regular: Bool
     let submit: () -> Void
 
-    @Environment(\.palette) private var palette
     @Environment(\.showsKeyHints) private var keyHints
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         let focused = capturing.wrappedValue
-        HStack(spacing: 8) {
-            Image(systemName: "plus")
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(.ink3)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-            TextField("Something else on your mind? Jot it down", text: $thought)
+        HStack(spacing: 10) {
+            ZStack {
+                if kept {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.ink)
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)).combined(with: .offset(y: -3)))
+                } else {
+                    Image(systemName: Icon.plus)
+                        .font(.system(size: 13, weight: .light))
+                }
+            }
+            .frame(width: 16, height: 16)
+            .accessibilityHidden(true)
+            TextField("", text: $text)
                 .focused(capturing)
+                .foregroundStyle(.ink)
                 .submitLabel(.done)
                 .onSubmit(submit)
+                // Esc while typing leaves the line, not focus (as on the web).
+                .onKeyPress(.escape) {
+                    capturing.wrappedValue = false
+                    return .handled
+                }
+                .onChange(of: text) { _, now in
+                    if now.count > TaskItem.titleMax { text = String(now.prefix(TaskItem.titleMax)) }
+                }
                 .accessibilityLabel("Add a task for later")
                 .accessibilityIdentifier("focus.capture")
-            if keyHints, !focused { KeyHint(key: "N").allowsHitTesting(false) }
+                // The words on the empty line, in the ink as on the web; "Added for later" once a thought is kept.
+                .background(alignment: .leading) {
+                    if text.isEmpty {
+                        Text(kept ? "Added for later" : "Jot something down for later")
+                            .foregroundStyle(.ink)
+                            .lineLimit(1)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                }
+                .font(regular ? .footnote : .callout)
+            if keyHints, !focused { KeyHint(key: "N") }
         }
-        .font(.subheadline)
-        .padding(.leading, 14)
-        .padding(.trailing, 10)
-        .frame(minHeight: 44)
-        // The text field is one line tall; a tap anywhere else in the box starts typing too.
-        .background {
-            shape.fill(focused ? Color.surface : Color.surface2)
-                .onTapGesture { capturing.wrappedValue = true }
-        }
-        .overlay(shape.strokeBorder(focused ? palette.accent : Color.line).allowsHitTesting(false))
-        // The soft halo around the field while typing, as on the web.
-        .background {
-            if focused {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(palette.accentSoft, lineWidth: 4)
-                    .padding(-4)
-            }
-        }
-        .animation(.easeOut(duration: 0.15), value: focused)
+        .foregroundStyle(focused ? Color.ink2 : Color.ink3)
+        .modifier(ThoughtSurface(focused: focused))
+        .onTapGesture { capturing.wrappedValue = true }
+        .frame(maxWidth: 400)
+        .padding(.horizontal, 12)
+        .animation(Motion.out(Tokens.Motion.fast), value: focused)
+        .animation(reduceMotion ? Motion.reduced : Motion.out(Tokens.Motion.fast), value: kept)
     }
 }
 
-// MARK: - All done
+/// The line's surface: on iOS 26 a capsule of glass; before it, and with Reduce Transparency, the web's quiet line, white
+/// with a hairline while it's being typed in.
+private struct ThoughtSurface: ViewModifier {
+    let focused: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            if reduceTransparency { quiet(content) } else { glass(content) }
+        } else {
+            quiet(content)
+        }
+    }
+
+    private func quiet(_ content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
+        return content
+            .padding(.leading, 12)
+            .padding(.trailing, 8)
+            .frame(minHeight: 40)
+            .background { shape.fill(focused ? Color.surface : .clear) }
+            .overlay { shape.strokeBorder(focused ? Color.line2 : .clear, lineWidth: 1) }
+            .contentShape(shape)
+    }
+
+    @available(iOS 26.0, *)
+    private func glass(_ content: Content) -> some View {
+        GlassEffectContainer {
+            content
+                .padding(.leading, 16)
+                .padding(.trailing, 12)
+                .frame(minHeight: 44)
+                .glassEffect(.regular.interactive(), in: Capsule())
+                .contentShape(Capsule())
+        }
+    }
+}
+
+/// Everything is done: where things stand, plainly, and the way back.
 private struct AllDone: View {
     let isToday: Bool
+    var spoken: AccessibilityFocusState<String?>.Binding
     let back: () -> Void
-    @Environment(\.palette) private var palette
-    @State private var cheer = false
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 0) {
-                Burst(active: cheer, radius: 46) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundStyle(.onAccent)
-                        .frame(width: 64, height: 64)
-                        .background(palette.accent, in: Circle())
-                        .background(palette.accentSoft, in: Circle().inset(by: -8))
-                }
-                Text(isToday ? "All done for today." : "Everything on this day is done.")
-                    .font(.title2.weight(.semibold))
-                    .tracking(-0.44)
-                    .foregroundStyle(.ink)
-                    .padding(.top, 28)
-                Text("Nice work. Take a breath.")
-                    .font(.subheadline)
-                    .foregroundStyle(.ink2)
-                    .padding(.top, 6)
+            Text(isToday ? "That was the last one." : "Everything on this day is done.")
+                .font(.token(Tokens.Typography.title2, weight: .semibold))
+                .tracking(-0.02 * Tokens.Typography.title2.size)
+                .foregroundStyle(.ink)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityFocused(spoken, equals: FocusView.finished)
+            Text(isToday ? "Today’s list is finished." : "Nothing is left open here.")
+                .font(.token(Tokens.Typography.body))
+                .foregroundStyle(.ink2)
+                .padding(.top, 4)
+            Button(action: back) {
+                Text("Back to the list")
             }
-            .accessibilityElement(children: .combine)
-            Button("Back to the list", action: back)
-                .buttonStyle(SecondaryButtonStyle())
-                .padding(.top, 24)
-                .accessibilityIdentifier("focus.back")
+            .buttonStyle(OutlinedButtonStyle())
+            .padding(.top, 24)
+            .accessibilityIdentifier("focus.back")
         }
         .multilineTextAlignment(.center)
-        .modifier(Arrival(.rise))
-        .onAppear { cheer = true }
     }
 }
 
-// MARK: - Header
-
-/// "Exit focus" — the one way out, in the header (Esc on a keyboard).
-private struct ExitButton: View {
-    let action: () -> Void
-    @Environment(\.showsKeyHints) private var keyHints
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Text("Exit focus")
-                if keyHints { KeyHint(key: "Esc") }
-            }
-        }
-        .accessibilityLabel("Exit focus")
-        .accessibilityIdentifier("focus.exit")
-    }
-}
-
-// MARK: - Icon
-
-/// Focus mode's icon, as on the web: a viewfinder framing one point, the point in the accent. A toolbar takes a
-/// symbol's palette colors once rather than per appearance, so they are picked here for the current one.
-struct FocusIcon: View {
-    var enabled = true
-    @Environment(\.palette) private var palette
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        // Dimmed to 40% when there's nothing to focus on, as the web dims a disabled button.
-        let pick = { (color: ThemeColor) in
-            Color(uiColor: (colorScheme == .dark ? color.dark : color.light).uiColor).opacity(enabled ? 1 : 0.4)
-        }
-        Image(systemName: "dot.viewfinder")
-            .symbolRenderingMode(.palette)
-            .foregroundStyle(pick(palette.choice.palette.accent), pick(Tokens.ink))
-    }
-}
-
-// MARK: - Motion
-
-/// How a card or message comes in. Reduce Motion: a plain fade, no movement.
-private struct Arrival: ViewModifier {
-    enum Kind {
-        /// No animation (the first card: the screen itself slides up).
-        case none
-        /// The next card rises into place on the stack.
-        case next
-        /// A message rises a little (all done, nothing planned).
-        case rise
-    }
-
-    let kind: Kind
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var shown: Bool
-
-    init(_ kind: Kind) {
-        self.kind = kind
-        _shown = State(initialValue: kind == .none)
-    }
-
-    func body(content: Content) -> some View {
-        let still = shown || reduceMotion
-        content
-            .opacity(shown ? 1 : 0)
-            .scaleEffect(still || kind != .next ? 1 : 0.97)
-            .offset(y: still ? 0 : kind == .next ? 14 : 8)
-            .onAppear {
-                guard !shown else { return }
-                let ease: Animation = kind == .next
-                    ? .timingCurve(0.2, 0.8, 0.2, 1, duration: reduceMotion ? 0.3 : 0.45).delay(0.08)
-                    : .timingCurve(0.2, 0.8, 0.2, 1, duration: 0.32)
-                withAnimation(ease) { shown = true }
-            }
-    }
-}
-
-/// The card leaving the top: Done lifts it away, Not now sinks it to the back. Reduce Motion: it fades.
-private struct Leave: ViewModifier {
-    let finished: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var gone = false
-
-    func body(content: Content) -> some View {
-        let moving = gone && !reduceMotion
-        content
-            .opacity(gone ? 0 : 1)
-            .scaleEffect(moving ? (finished ? 0.98 : 0.94) : 1)
-            .offset(y: moving ? (finished ? -28 : 16) : 0)
-            .onAppear {
-                let ease: Animation = reduceMotion
-                    ? .easeOut(duration: 0.25)
-                    : finished ? .timingCurve(0.2, 0.8, 0.2, 1, duration: 0.4) : .easeIn(duration: 0.34)
-                withAnimation(ease) { gone = true }
-            }
+/// The web's secondary button: white with a hairline frame.
+private struct OutlinedButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
+        configuration.label
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(.ink)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 32)
+            .background(configuration.isPressed ? Color.surface3 : .surface, in: shape)
+            .overlay(shape.strokeBorder(.line2, lineWidth: 1))
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .tapTarget()
+            .animation(.easeOut(duration: Tokens.Motion.press), value: configuration.isPressed)
     }
 }

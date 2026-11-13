@@ -34,14 +34,17 @@ Hyperanchor is a calm, fast planner for your day, week and month.
 TODAY
 Write down what matters, check it off, move the rest to tomorrow with a swipe. Tasks left open on earlier days wait for you in one tap.
 
+SPEAK YOUR TASKS
+Say what you need to do, and when, in your own words and in your own language. It comes back as tasks on their days: reword one, move it to another day or leave it out, then add them all at once. Typing or pasting works the same way.
+
 FOCUS
 One task at a time. Done lifts it away and the next one rises; Not now sends it to the back. Jot down a stray thought without leaving.
 
 WEEK AND MONTH
 See the whole week day by day, and the month as a calendar with what's planned and what's done.
 
-ANALYTICS
-Completion rate, daily average, your streak, the best day of the week and a year of activity — so you can see your progress, not just your list.
+PROGRESS
+What got done this week, month or year, day by day and by weekday, a year of activity at a glance and what's still open, with a short summary when you want one — so you can see your progress, not just your list.
 
 EVERYWHERE YOU ARE
 The same tasks on iPhone, iPad and hyperanchor.app. Changes you make offline are kept and sent when you're back online. A Today widget shows what's left at a glance.
@@ -60,9 +63,29 @@ Do you or your third-party partners collect data from this app? — **Yes**. Н�
 | Contact Info | Name | Yes | App Functionality |
 | Contact Info | Email Address | Yes | App Functionality |
 | Identifiers | User ID | Yes | App Functionality |
-| User Content | Other User Content (задачи) | Yes | App Functionality |
+| User Content | Other User Content (задачи; текст, который сортируется в задачи) | Yes | App Functionality |
+| User Content | Audio Data (голос на экране Speak) | No | App Functionality |
 
 Всё остальное — Not collected. Это совпадает с `PrivacyInfo.xcprivacy` в приложении и с Privacy Policy на сайте.
+
+**Экран Speak — что куда уходит** (для ответов выше и для вопросов ревьюера):
+
+- Пока человек говорит, приложение пишет голос в файл (AAC, M4A) во временной папке. Когда он закончил, файл
+  отправляется на наш сервер (`POST /api/voice/transcribe`) и удаляется с устройства. Сервер ничего не сохраняет:
+  запись проходит дальше в OpenAI (speech-to-text), обратно приходит только текст. Провайдеру не передаются ни имя,
+  ни ID, ни email — поэтому Audio Data «not linked».
+- Текст (расшифровка или набранное вручную) уходит на сервер (`POST /api/tasks/parse`) и дальше в Anthropic (Claude),
+  который раскладывает его на задачи. Сохраняются только задачи, которые человек добавил, — это Other User Content.
+- Почему Audio Data всё же «collected»: по определению Apple данные собраны, если они доступны вам или партнёрам
+  дольше, чем нужно для ответа на запрос. API-провайдеры хранят содержимое запросов ограниченное время для контроля
+  злоупотреблений (и не обучают на нём модели). Если для ключа OpenAI включено zero data retention, Audio Data можно
+  отметить как Not collected.
+- Если на сервере нет расшифровки (нет ключа OpenAI), слова распознаёт сам iPhone через Apple Speech — на устройстве,
+  где это возможно; это обработка Apple, разработчик эти данные не получает.
+- Громкость и спектр для шара считаются на устройстве и никуда не отправляются. Расход ИИ сервер считает в токенах,
+  без слов.
+- Разрешения: микрофон (`NSMicrophoneUsageDescription`) и распознавание речи (`NSSpeechRecognitionUsageDescription`,
+  спрашивается только там, где слушает само устройство).
 
 ## Export Compliance
 

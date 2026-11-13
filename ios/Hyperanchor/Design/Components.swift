@@ -1,49 +1,7 @@
 import SafariServices
 import SwiftUI
 
-/// The logo: "h." — a lowercase h and a period in the brand blue (the blue accent, whatever accent is chosen).
-/// Drawn in a square box, the h 80% of its height and nudged toward its visual center, exactly like the launch
-/// screen's image (a 55-point box) and the app icon. ios/scripts/render-icon.swift has the same geometry.
-struct BrandMark: View {
-    /// The side of the box.
-    var size: CGFloat = 55
-
-    var body: some View {
-        Canvas { context, box in
-            let a = box.height * 0.8
-            let o = CGPoint(x: box.width / 2 + Self.origin.x * a, y: box.height / 2 + Self.origin.y * a)
-            context.stroke(Self.h(height: a, at: o), with: .color(Self.ink), style: StrokeStyle(lineWidth: Self.stroke * a, lineCap: .butt, lineJoin: .round))
-            let d = Self.dot * a
-            context.fill(Path(ellipseIn: CGRect(x: o.x + (Self.width + Self.gap) * a, y: o.y + (1.012 - Self.dot) * a, width: d, height: d)), with: .color(Self.blue))
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
-    }
-
-    // In units of the h's height.
-    private static let stroke: CGFloat = 0.14, width: CGFloat = 0.58, xHeight: CGFloat = 0.635, squareness: CGFloat = 0.68
-    private static let dot: CGFloat = 0.17, gap: CGFloat = 0.075
-    private static let origin = CGPoint(x: -(width + gap + dot) / 2 + 0.035, y: -0.5 - 0.02)
-
-    private static func h(height a: CGFloat, at o: CGPoint) -> Path {
-        let w = stroke * a, rc = (width * a - w) / 2
-        let top = o.y + a - xHeight * a + w / 2
-        let cy = top + rc, x0 = o.x + w / 2, x1 = o.x + width * a - w / 2, cx = o.x + width * a / 2
-        var p = Path()
-        p.move(to: CGPoint(x: x0, y: o.y))
-        p.addLine(to: CGPoint(x: x0, y: o.y + a))
-        p.move(to: CGPoint(x: x0, y: cy))
-        p.addCurve(to: CGPoint(x: cx, y: top), control1: CGPoint(x: x0, y: cy - squareness * rc), control2: CGPoint(x: cx - squareness * rc, y: top))
-        p.addCurve(to: CGPoint(x: x1, y: cy), control1: CGPoint(x: cx + squareness * rc, y: top), control2: CGPoint(x: x1, y: cy - squareness * rc))
-        p.addLine(to: CGPoint(x: x1, y: o.y + a))
-        return p
-    }
-
-    private static let ink = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? .white : UIColor(white: 10 / 255, alpha: 1) })
-    private static let blue = AccentChoice.blue.palette.accent.color
-}
-
-/// The account photo (Google) or initials on a gray gradient.
+/// The account photo (Google) or the initials on a quiet gray disc, as on the web (Avatar.tsx).
 struct Avatar: View {
     let user: AppUser
     var size: CGFloat = 30
@@ -54,6 +12,7 @@ struct Avatar: View {
                 AsyncImage(url: url) { phase in
                     if let img = phase.image { img.resizable().scaledToFill() } else { initials }
                 }
+                .background(.surface3)
             } else {
                 initials
             }
@@ -64,18 +23,21 @@ struct Avatar: View {
     }
 
     private var initials: some View {
-        let parts = user.name.split(whereSeparator: \.isWhitespace).prefix(2)
-        let letters = parts.compactMap(\.first).map(String.init).joined().uppercased()
-        return LinearGradient(colors: [Color(uiColor: Self.top), Color(uiColor: Self.bottom)], startPoint: .top, endPoint: .bottom)
+        Circle()
+            .fill(.line2)
             .overlay {
-                Text(letters.isEmpty ? "?" : letters)
-                    .font(.system(size: size * 0.4, weight: .semibold))
-                    .foregroundStyle(.white)
+                Text(verbatim: Self.initials(user.name))
+                    .font(.system(size: (size * 0.36).rounded(), weight: .semibold))
+                    .tracking(0.02 * (size * 0.36).rounded())
+                    .foregroundStyle(.ink2)
             }
     }
 
-    private static let top = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.36, alpha: 1) : UIColor(white: 0.64, alpha: 1) }
-    private static let bottom = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.24, alpha: 1) : UIColor(white: 0.45, alpha: 1) }
+    /// "Alex Morgan" → "AM": the first letters of the first two words.
+    static func initials(_ name: String) -> String {
+        let letters = name.split(whereSeparator: \.isWhitespace).prefix(2).compactMap(\.first).map(String.init).joined().uppercased()
+        return letters.isEmpty ? "?" : letters
+    }
 }
 
 /// Black (white in dark mode) — the primary action, as on the web.
@@ -117,6 +79,43 @@ struct SecondaryButtonStyle: ButtonStyle {
     }
 }
 
+/// The web's plain button (`Button`, secondary, md): the page's color with a hairline ring, 32 pt tall, a 13 pt label.
+/// `.danger` is the quiet red one ("Delete account…"), `.destructive` the filled red one ("Delete for good"). The tap
+/// area is at least 44 pt tall, as on the web's touch screens.
+struct OutlineButtonStyle: ButtonStyle {
+    enum Tone { case normal, danger, destructive }
+    var tone: Tone = .normal
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
+        configuration.label
+            .font(.token(Tokens.Typography.footnote, weight: .medium))
+            .labelStyle(OutlineLabelStyle())
+            .foregroundStyle(tone == .destructive ? Color.surface : tone == .danger ? .redInk : .ink)
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 32)
+            .background(tone == .destructive ? Color.redInk : configuration.isPressed ? (tone == .danger ? .redSoft : .surface3) : .surface, in: shape)
+            .overlay { if tone != .destructive { shape.strokeBorder(.line2, lineWidth: 1) } }
+            .opacity(isEnabled ? (tone == .destructive && configuration.isPressed ? 0.9 : 1) : 0.4)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: Tokens.Motion.press), value: configuration.isPressed)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+    }
+}
+
+/// An icon and its words, 6 pt apart, the icon a little smaller than the words (the web's buttons).
+private struct OutlineLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) {
+            configuration.icon.imageScale(.small)
+            configuration.title
+        }
+    }
+}
+
 /// A web page in Safari, inside the app (Privacy Policy, Terms of Service).
 struct SafariView: UIViewControllerRepresentable {
     let url: URL
@@ -132,44 +131,129 @@ extension URL: @retroactive Identifiable {
     public var id: String { absoluteString }
 }
 
-/// The toast: dark capsule above the tab bar, optional Undo.
+/// The toast (TaskApp.tsx `ToastView`), one at a time (ink, or Liquid Glass on iOS 26). It rises in; a new one
+/// takes the last one's place at once; one that times out, is acted on or swiped away leaves in 110 ms. Even padding
+/// when it has no button; the words wrap to a second line instead of being cut off. Reduce Motion: fades only.
 struct ToastOverlay: View {
+    /// From the bottom edge of the area it sits in (inside the safe area): the web's 20 pt on phones, 24 pt on iPad.
+    var bottom: CGFloat = 20
     @Environment(Toaster.self) private var toaster
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown: Toaster.Toast?
+    @State private var leaving = false
+    @State private var width: CGFloat = 390
 
     var body: some View {
-        VStack {
-            Spacer()
-            if let toast = toaster.current {
-                HStack(spacing: 12) {
-                    Text(toast.message)
-                        .font(.subheadline)
-                        .lineLimit(2)
-                        .foregroundStyle(.surface)
-                    if let label = toast.actionLabel {
-                        Button(label) { toaster.runAction() }
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.surface)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(.surface.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .accessibilityIdentifier("toast.action")
-                    }
-                }
-                .padding(.leading, 16)
-                .padding(.trailing, toast.actionLabel == nil ? 16 : 6)
-                .padding(.vertical, toast.actionLabel == nil ? 11 : 6)
-                .background(.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .elevation(Tokens.Shadow.float, cornerRadius: 12)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .id(toast.id)
-                .gesture(DragGesture(minimumDistance: 10).onEnded { if $0.translation.height > 10 { toaster.dismiss() } })
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("toast")
+        ZStack(alignment: .bottom) {
+            if let toast = shown {
+                ToastCard(toast: toast, textWidth: min(420, (width * 0.6).rounded())) { toaster.runAction() }
+                    .id(toast.id)
+                    .opacity(leaving ? 0 : 1)
+                    .offset(y: leaving && !reduceMotion ? 6 : 0)
+                    .transition(.asymmetric(insertion: reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 8)), removal: .identity))
+                    .gesture(DragGesture(minimumDistance: 10).onEnded { if $0.translation.height > 10 { toaster.dismiss() } })
             }
         }
-        .animation(.spring(duration: 0.35, bounce: 0.2), value: toaster.current)
+        .padding(.horizontal, 16)
+        .padding(.bottom, bottom)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .onAppear { shown = toaster.current }
+        .onChange(of: toaster.current) { _, next in
+            if let next {
+                // A new one takes the last one's place at once.
+                leaving = false
+                withAnimation(reduceMotion ? Motion.reduced : Motion.out()) { shown = next }
+            } else if shown != nil {
+                withAnimation(reduceMotion ? Motion.reduced : Motion.exit) {
+                    leaving = true
+                } completion: {
+                    guard toaster.current == nil else { return }
+                    shown = nil
+                    leaving = false
+                }
+            }
+        }
+    }
+}
+
+/// The web's look: ink, with the page's color for its words. On iOS 26 (unless Reduce Transparency is on) a Liquid Glass
+/// capsule instead, its button glass too.
+private struct ToastCard: View {
+    let toast: Toaster.Toast
+    let textWidth: CGFloat
+    let act: () -> Void
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        Group {
+            if #available(iOS 26, *) {
+                if reduceTransparency { solid } else { glass }
+            } else {
+                solid
+            }
+        }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("toast")
+    }
+
+    private var message: some View {
+        Text(toast.message)
+            .font(.token(Tokens.Typography.footnote))
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: textWidth, alignment: .leading)
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    @available(iOS 26, *)
+    private var glass: some View {
+        GlassEffectContainer {
+            HStack(spacing: 10) {
+                message.foregroundStyle(.ink)
+                if let label = toast.actionLabel {
+                    Button(action: act) {
+                        Text(label)
+                            .font(.token(Tokens.Typography.footnote, weight: .semibold))
+                            .foregroundStyle(.ink)
+                    }
+                    .buttonStyle(.glass)
+                    .tint(.ink)
+                    .contentShape(Rectangle().inset(by: -6))
+                    .accessibilityIdentifier("toast.action")
+                }
+            }
+            .padding(.leading, 18)
+            .padding(.trailing, toast.actionLabel == nil ? 18 : 6)
+            .padding(.vertical, 6)
+            .frame(minHeight: 44)
+            .glassEffect(.regular, in: .capsule)
+        }
+    }
+
+    private var solid: some View {
+        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
+        return HStack(spacing: 12) {
+            message.foregroundStyle(.surface)
+            if let label = toast.actionLabel {
+                Button(label, action: act)
+                    .font(.token(Tokens.Typography.footnote, weight: .semibold))
+                    .foregroundStyle(.surface)
+                    .padding(.horizontal, 10)
+                    .frame(minHeight: 28)
+                    .background(Color.surface.opacity(0.12), in: RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
+                    .contentShape(Rectangle().inset(by: -8))
+                    .buttonStyle(PressableStyle())
+                    .accessibilityIdentifier("toast.action")
+            }
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, toast.actionLabel == nil ? 16 : 6)
+        .padding(.vertical, toast.actionLabel == nil ? 8 : 6)
+        .frame(minHeight: 40)
+        .background(.ink, in: shape)
+        .elevation(Tokens.Shadow.float, in: shape)
     }
 }
 

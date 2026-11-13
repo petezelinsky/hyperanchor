@@ -7,7 +7,7 @@ import type { AppUser, Task, Usage } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
 import { useDrag } from "./drag";
-import { AgentIcon, ChartIcon, ChevronLeft, ChevronRight, EllipsisVerticalIcon, GoalIcon, HomeIcon, KeyboardIcon, SidebarIcon, SignOutIcon, SlidersIcon, TimelineIcon } from "./icons";
+import { AgentIcon, ChartIcon, ChevronLeft, ChevronRight, EllipsisVerticalIcon, GoalIcon, HomeIcon, KeyboardIcon, SearchIcon, SidebarIcon, SignOutIcon, SlidersIcon, TimelineIcon } from "./icons";
 import { SyncStatus, type Sync } from "./SyncStatus";
 import { ReturnButton, Stepper } from "./Toolbar";
 import { Burst, IconButton, Popover, ProgressRing } from "./ui";
@@ -396,8 +396,8 @@ const count = new Intl.NumberFormat("en-US");
 
 /**
  * The account's panel: who is signed in; how many tokens of the day's allowance are left for the AI (speaking tasks, the
- * summary); Settings and the keyboard shortcuts; and signing out as the last line. Phones, which have no sidebar, also
- * find the pages here.
+ * summary); Settings and the keyboard shortcuts; and signing out as the last line. Phones, which have no sidebar (nor a
+ * keyboard for / and Ctrl K), also find the pages and Search here.
  */
 export function AccountPanel({
   user,
@@ -406,6 +406,7 @@ export function AccountPanel({
   view,
   usage,
   onPage,
+  onSearch,
   onSettings,
   onShortcuts,
   onClose,
@@ -417,6 +418,7 @@ export function AccountPanel({
   /** undefined: not offered here (no AI on this server); null: still loading. */
   usage: Usage | null | undefined;
   onPage: (p: Page) => void;
+  onSearch: () => void;
   onSettings: () => void;
   onShortcuts: () => void;
   onClose: () => void;
@@ -463,6 +465,7 @@ export function AccountPanel({
       <Rule />
       {phone &&
         PAGES.map((p) => <PanelRow key={p.page} icon={p.icon} label={p.label} soon={p.soon} current={page === p.page} onClick={go(() => onPage(p.page))} />)}
+      {phone && <PanelRow icon={<SearchIcon size={16} />} label="Search" onClick={go(onSearch)} />}
       <PanelRow icon={<SlidersIcon size={16} />} label="Settings" onClick={go(onSettings)} />
       {!phone && <PanelRow icon={<KeyboardIcon size={16} />} label="Keyboard shortcuts" onClick={go(onShortcuts)} />}
       <Rule />

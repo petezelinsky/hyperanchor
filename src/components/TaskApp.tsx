@@ -1108,6 +1108,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
           usage={voice ? usage : undefined}
           onPage={goPage}
           onSettings={() => setSheet("general")}
+          onSearch={() => setSearching(true)}
           onShortcuts={() => setSheet("shortcuts")}
           onClose={() => setAccountMenu(null)}
         />

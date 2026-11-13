@@ -1,11 +1,11 @@
 import AuthenticationServices
 import SwiftUI
 
-/// The signed-out screen: the logo, one line about the app, Sign in with Apple and Google, the legal line. One calm
-/// screen with nothing to scroll — on purpose unlike the web's landing page.
-/// It takes over from the launch screen: while `splash` is on, the logo sits in the middle of the screen, where the
-/// launch screen drew it, and everything else is hidden; when it turns off, the logo glides to its place and the rest
-/// rises in. iPhone: the logo and the headline in the middle, the buttons at the bottom. iPad: all of it, centered.
+/// The signed-out screen: the name, the headline and one line about the app, Sign in with Apple and Google, the legal
+/// line — the web's words. One calm screen with nothing to scroll, on purpose unlike the web's landing page.
+/// It takes over from the launch screen: while `splash` is on, the launch screen's sign covers it (RootView); as the sign
+/// fades, the screen rises in. iPhone: the name on top, the headline in the middle, the buttons at the bottom. iPad: all
+/// of it together, centered.
 struct SignInView: View {
     var splash = false
     @Environment(AppModel.self) private var model
@@ -13,31 +13,34 @@ struct SignInView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.horizontalSizeClass) private var widthClass
     @Environment(\.verticalSizeClass) private var heightClass
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var working: SignInProvider?
     @State private var error: String?
     @State private var appleNonce = Nonce.make()
     @State private var legal: URL?
 
-    private static let screen = "signin.screen"
-
     var body: some View {
         GeometryReader { geo in
             let regular = widthClass == .regular && heightClass == .regular
-            let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
             ScrollView {
                 Group {
                     if regular {
                         VStack(spacing: 0) {
                             Spacer(minLength: 40)
-                            hero(headline: 40, center: center)
-                            actions.padding(.top, 48)
+                            Wordmark(size: 24)
+                                .rise(hidden: splash, delay: 0.06)
+                            hero(headline: 40)
+                                .padding(.top, 36)
+                            actions.padding(.top, 44)
                             Spacer(minLength: 40)
                         }
                     } else {
                         VStack(spacing: 0) {
+                            Wordmark(size: 24)
+                                .frame(minHeight: 44)
+                                .padding(.top, 8)
+                                .rise(hidden: splash, delay: 0.06)
                             Spacer(minLength: 40)
-                            hero(headline: 34, center: center)
+                            hero(headline: 34)
                             Spacer(minLength: 40)
                             actions
                         }
@@ -46,24 +49,12 @@ struct SignInView: View {
                 }
                 .padding(.horizontal, 24)
                 .frame(maxWidth: regular ? 400 : 440)
-                .frame(maxWidth: .infinity, minHeight: geo.size.height - geo.safeAreaInsets.top - geo.safeAreaInsets.bottom)
+                .frame(maxWidth: .infinity, minHeight: geo.size.height)
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollIndicators(.hidden)
-            .overlay {
-                // With Reduce Motion the logo doesn't travel: the launch screen's one fades out as the other fades in.
-                if reduceMotion {
-                    BrandMark()
-                        .position(center)
-                        .opacity(splash ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.35), value: splash)
-                        .allowsHitTesting(false)
-                }
-            }
         }
-        .coordinateSpace(.named(Self.screen))
-        .ignoresSafeArea()
-        .background(Color("LaunchBackground"))
+        .background(Color("LaunchBackground").ignoresSafeArea())
         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .environment(\.openURL, OpenURLAction { url in
             legal = url
@@ -72,26 +63,18 @@ struct SignInView: View {
         .sheet(item: $legal) { SafariView(url: $0).ignoresSafeArea() }
     }
 
-    /// The logo, the headline and the line under it.
-    private func hero(headline size: CGFloat, center: CGPoint) -> some View {
+    /// The headline and the lines under it.
+    private func hero(headline size: CGFloat) -> some View {
         VStack(spacing: 0) {
-            BrandMark()
-                .visualEffect { [splash, travel = !reduceMotion, space = Self.screen] content, proxy in
-                    // From the middle of the screen (the launch screen's logo) to its place.
-                    let frame = proxy.frame(in: .named(space))
-                    return content.offset(splash && travel ? CGSize(width: center.x - frame.midX, height: center.y - frame.midY) : .zero)
-                }
-                .opacity(splash && reduceMotion ? 0 : 1)
-                .animation(reduceMotion ? .easeInOut(duration: 0.35) : .timingCurve(0.22, 1, 0.36, 1, duration: 0.85), value: splash)
             Headline(size: size, moving: !splash)
-                .padding(.top, 22)
                 .rise(hidden: splash, delay: 0.12)
-            Text("Hyperanchor is a calm, fast planner.")
+            Text("Hyperanchor is a calm, fast planner.\nSign in to get started.")
                 .font(.callout)
+                .lineSpacing(3)
                 .foregroundStyle(.ink2)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 10)
+                .padding(.top, 12)
                 .rise(hidden: splash, delay: 0.18)
         }
     }
@@ -111,29 +94,31 @@ struct SignInView: View {
                     .foregroundStyle(.redInk)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 8)
                     .frame(maxWidth: .infinity)
-                    .background(.redSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .padding(.top, 14)
+                    .background(.redSoft, in: RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
+                    .padding(.top, 16)
                     .accessibilityIdentifier("signin.error")
             }
 
-            Text(legalText)
-                .font(.caption)
-                .lineSpacing(2)
-                .foregroundStyle(.ink3)
-                .tint(.ink2)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 300)
-                .padding(.top, 18)
+            // Two set lines: the documents always together on the second, neither name ever broken.
+            VStack(spacing: 3) {
+                Text("Free forever. By continuing, you agree to the")
+                Text(legalLinks)
+            }
+            .font(.caption)
+            .foregroundStyle(.ink2)
+            .tint(.ink2)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.top, 20)
         }
         .rise(hidden: splash, delay: 0.26)
     }
 
-    /// "Free forever…", the links underlined in a light gray (and never broken across lines).
-    private var legalText: AttributedString {
-        var text = (try? AttributedString(markdown: "Free forever. By continuing, you agree to the [Terms\u{A0}of\u{A0}Service](https://hyperanchor.app/terms) and [Privacy\u{A0}Policy](https://hyperanchor.app/privacy).")) ?? AttributedString()
+    /// "Terms of Service and Privacy Policy.", the names underlined in a light gray.
+    private var legalLinks: AttributedString {
+        var text = (try? AttributedString(markdown: "[Terms\u{A0}of\u{A0}Service](https://hyperanchor.app/terms) and [Privacy\u{A0}Policy](https://hyperanchor.app/privacy).")) ?? AttributedString()
         for run in text.runs where run.link != nil {
             text[run.range].underlineStyle = Text.LineStyle(pattern: .solid, color: .ink4)
         }
