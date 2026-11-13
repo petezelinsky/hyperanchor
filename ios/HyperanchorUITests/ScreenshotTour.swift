@@ -17,6 +17,8 @@ final class ScreenshotTour: XCTestCase {
     func testLight() { tour("light") }
     func testDark() { tour("dark") }
 
+    private var pad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+
     private func tour(_ appearance: String) {
         self.appearance = appearance
 
@@ -26,7 +28,7 @@ final class ScreenshotTour: XCTestCase {
 
         launch()
         snap("02 Today")
-        app.buttons["newTask"].tap()
+        app.buttons["newTask"].firstMatch.tap()
         if app.textFields["composer.title"].waitForExistence(timeout: 3) {
             app.textFields["composer.title"].typeText("Book a table for Friday")
         }
@@ -40,48 +42,66 @@ final class ScreenshotTour: XCTestCase {
         app.buttons["Call Mom"].firstMatch.swipeLeft()
         snap("05 Swipe")
 
+        launch()
+        app.buttons["bar.title"].firstMatch.tap()
+        snap("06 Pick a day")
+
         launch("-tab", "week")
-        snap("06 Week")
+        snap("07 Week")
         app.swipeUp()
-        snap("07 Week, scrolled")
+        snap("08 Week, scrolled")
 
         launch("-tab", "month")
-        snap("08 Month")
-        app.buttons["Thursday, October 22, 5 tasks, 2 done"].firstMatch.tap()
-        sleep(1)
-        snap("09 Month, day")
-        launch("-tab", "month")
-        app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Wednesday, October 28'")).firstMatch.tap()
-        if app.buttons["daysheet.open"].waitForExistence(timeout: 3) { app.buttons["daysheet.open"].tap() }
-        snap("09b Empty day")
+        snap("09 Month")
 
         launch("-tab", "analytics")
-        snap("10 Analytics, week")
+        snap("10 Progress, week")
         app.swipeUp()
-        snap("11 Analytics, week, scrolled")
-        app.swipeUp()
-        snap("12 Analytics, week, bottom")
+        snap("11 Progress, week, scrolled")
         launch("-tab", "analytics")
-        app.segmentedControls.buttons["Month"].firstMatch.tap()
-        snap("13 Analytics, month")
-        app.segmentedControls.buttons["Year"].firstMatch.tap()
-        snap("14 Analytics, year")
-        app.swipeUp()
-        snap("15 Analytics, year, scrolled")
+        app.buttons["Month"].firstMatch.tap()
+        snap("12 Progress, month")
+        app.buttons["Year"].firstMatch.tap()
+        snap("13 Progress, year")
+
+        launch("-tab", "goals")
+        snap("14 Goals")
+        launch("-tab", "agent")
+        snap("15 Agent")
 
         launch()
-        app.buttons["account"].tap()
-        snap("16 Account menu")
-        app.buttons["Settings"].firstMatch.tap()
+        app.buttons["account"].firstMatch.tap()
+        snap("16 Account")
+        app.buttons["settings"].firstMatch.tap()
         sleep(1)
         snap("17 Settings")
         app.swipeUp()
         snap("18 Settings, scrolled")
+        app.buttons["settings.account"].firstMatch.tap()
+        sleep(1)
+        snap("19 Settings, account")
 
         launch()
-        app.buttons["focus"].tap()
+        app.typeKey("k", modifierFlags: .command)
+        if app.textFields["search.field"].waitForExistence(timeout: 3) {
+            app.textFields["search.field"].typeText("plan")
+        }
         sleep(1)
-        snap("19 Focus")
+        snap("20 Search")
+
+        if pad {
+            launch()
+            app.typeKey("?", modifierFlags: .shift)
+            snap("21 Keyboard shortcuts")
+            launch()
+            app.buttons["sidebar.hide"].firstMatch.tap()
+            snap("22 Sidebar hidden")
+        }
+
+        launch()
+        app.buttons["focus"].firstMatch.tap()
+        sleep(1)
+        snap("23 Focus")
     }
 
     private func launch(_ arguments: String...) {

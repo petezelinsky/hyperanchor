@@ -77,18 +77,21 @@ struct AccentPalette: Sendable, Hashable {
     let heat2: ThemeColor
     let heat3: ThemeColor
     let heat4: ThemeColor
+    /// Text and marks drawn on the accent (white, or dark text on a light accent).
+    let onAccent: ThemeColor
 }
 
 /// The accent people can choose in Settings.
 enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
-    case blue, orange, green
+    case graphite, blue, orange, green
 
-    static let `default`: AccentChoice = .blue
+    static let `default`: AccentChoice = .graphite
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
+        case .graphite: "Graphite"
         case .blue: "Blue"
         case .orange: "Orange"
         case .green: "Green"
@@ -98,6 +101,7 @@ enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
     /// The light-theme accent, for showing the choice itself.
     var swatch: RGBA {
         switch self {
+        case .graphite: RGBA(hex: 0x171717)
         case .blue: RGBA(hex: 0x2563EB)
         case .orange: RGBA(hex: 0xF4511E)
         case .green: RGBA(hex: 0x16A34A)
@@ -106,6 +110,20 @@ enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
 
     var palette: AccentPalette {
         switch self {
+        case .graphite:
+            AccentPalette(
+                accent: ThemeColor(light: RGBA(hex: 0x171717), dark: RGBA(hex: 0xEDEDED)),
+                accentSolid: ThemeColor(light: RGBA(hex: 0x171717), dark: RGBA(hex: 0xEDEDED)),
+                accentHover: ThemeColor(light: RGBA(hex: 0x2E2E2E), dark: RGBA(hex: 0xFFFFFF)),
+                accentInk: ThemeColor(light: RGBA(hex: 0x171717), dark: RGBA(hex: 0xEDEDED)),
+                accentSoft: ThemeColor(light: RGBA(hex: 0xF2F2F2), dark: RGBA(hex: 0x242424)),
+                accentTrack: ThemeColor(light: RGBA(hex: 0xE2E2E2), dark: RGBA(hex: 0x2E2E2E)),
+                heat1: ThemeColor(light: RGBA(hex: 0xD4D4D4), dark: RGBA(hex: 0x3A3A3A)),
+                heat2: ThemeColor(light: RGBA(hex: 0xA3A3A3), dark: RGBA(hex: 0x5E5E5E)),
+                heat3: ThemeColor(light: RGBA(hex: 0x6B6B6B), dark: RGBA(hex: 0x9A9A9A)),
+                heat4: ThemeColor(light: RGBA(hex: 0x262626), dark: RGBA(hex: 0xE6E6E6)),
+                onAccent: ThemeColor(light: RGBA(hex: 0xFFFFFF), dark: RGBA(hex: 0x141414))
+            )
         case .blue:
             AccentPalette(
                 accent: ThemeColor(light: RGBA(hex: 0x2563EB), dark: RGBA(hex: 0x3B82F6)),
@@ -117,7 +135,8 @@ enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
                 heat1: ThemeColor(light: RGBA(hex: 0xDCE7FD), dark: RGBA(hex: 0x13254A)),
                 heat2: ThemeColor(light: RGBA(hex: 0xA6C0FA), dark: RGBA(hex: 0x1E4080)),
                 heat3: ThemeColor(light: RGBA(hex: 0x6995F2), dark: RGBA(hex: 0x2F62C6)),
-                heat4: ThemeColor(light: RGBA(hex: 0x2257D6), dark: RGBA(hex: 0x5B98F8))
+                heat4: ThemeColor(light: RGBA(hex: 0x2257D6), dark: RGBA(hex: 0x5B98F8)),
+                onAccent: ThemeColor(light: RGBA(hex: 0xFFFFFF), dark: RGBA(hex: 0xFFFFFF))
             )
         case .orange:
             AccentPalette(
@@ -130,7 +149,8 @@ enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
                 heat1: ThemeColor(light: RGBA(hex: 0xFDE3D6), dark: RGBA(hex: 0x3A1B10)),
                 heat2: ThemeColor(light: RGBA(hex: 0xF9B291), dark: RGBA(hex: 0x6A2B16)),
                 heat3: ThemeColor(light: RGBA(hex: 0xF57F50), dark: RGBA(hex: 0xB2441F)),
-                heat4: ThemeColor(light: RGBA(hex: 0xE4471A), dark: RGBA(hex: 0xFF7A3D))
+                heat4: ThemeColor(light: RGBA(hex: 0xE4471A), dark: RGBA(hex: 0xFF7A3D)),
+                onAccent: ThemeColor(light: RGBA(hex: 0xFFFFFF), dark: RGBA(hex: 0xFFFFFF))
             )
         case .green:
             AccentPalette(
@@ -143,7 +163,8 @@ enum AccentChoice: String, CaseIterable, Identifiable, Sendable {
                 heat1: ThemeColor(light: RGBA(hex: 0xD9F4E3), dark: RGBA(hex: 0x0F2B1B)),
                 heat2: ThemeColor(light: RGBA(hex: 0x9FDEB6), dark: RGBA(hex: 0x1A4F31)),
                 heat3: ThemeColor(light: RGBA(hex: 0x58BF80), dark: RGBA(hex: 0x25854B)),
-                heat4: ThemeColor(light: RGBA(hex: 0x138A40), dark: RGBA(hex: 0x36C46C))
+                heat4: ThemeColor(light: RGBA(hex: 0x138A40), dark: RGBA(hex: 0x36C46C)),
+                onAccent: ThemeColor(light: RGBA(hex: 0xFFFFFF), dark: RGBA(hex: 0xFFFFFF))
             )
         }
     }

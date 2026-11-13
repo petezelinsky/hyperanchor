@@ -160,14 +160,14 @@ final class TaskStore {
 
     // MARK: Changing
 
-    /// Adds a task and returns it.
+    /// Adds a task and returns it. `position` places it in the day's manual order (nil: by its creation time, the end).
     @discardableResult
-    func create(title: String, notes: String = "", date: DayKey, done: Bool = false) -> TaskItem {
+    func create(title: String, notes: String = "", date: DayKey, done: Bool = false, position: Double? = nil) -> TaskItem {
         // Strictly increasing, so tasks added in quick succession keep their order.
         let instant = max(Date.now, lastCreated.addingTimeInterval(0.001))
         lastCreated = instant
         let now = TaskItem.timestamp(instant)
-        let task = TaskItem(id: TaskItem.newID(), date: date, title: title, notes: notes, done: done, createdAt: now, updatedAt: now)
+        let task = TaskItem(id: TaskItem.newID(), date: date, title: title, notes: notes, done: done, position: position, createdAt: now, updatedAt: now)
         put(task)
         enqueue(task.id, .create(task))
         return task
@@ -237,8 +237,249 @@ final class TaskStore {
         outbox = []
         ranges = []
         inFlight = nil
+        undos = []
+        undoCount = 0
+        earlierLoaded = nil
         replaceAll([:])
         cache?.clear()
+    }
+
+    // MARK: Earlier days
+
+    /// The day before which every open task has been fetched (`GET /api/tasks/open`), once it has.
+    private(set) var earlierLoaded: DayKey?
+
+    /// Every task still open before `day` that the app knows about, most recent day first, newest first within a day:
+    /// what Today offers to bring along ("From earlier days").
+    func openBefore(_ day: DayKey) -> [TaskItem] {
+        tasks.values.filter { !$0.done && $0.date < day }
+            .sorted { $0.date != $1.date ? $0.date > $1.date : !TaskSorting.addedBefore($0, $1) }
+    }
+
+    /// Fetches every task left open before `today` (however old). Open tasks the app had from those days that the server
+    /// no longer lists open (done or deleted elsewhere) are dropped until their day is loaded again.
+    func loadEarlier(before today: DayKey) async {
+        do {
+            let fetched = try await backend.fetchOpenTasks(before: today)
+            var next = tasks
+            if fetched.count < 500 {
+                let listed = Set(fetched.map(\.id))
+                for t in tasks.values where t.date < today && !t.done && !listed.contains(t.id) && !isBusy(t.id) { next[t.id] = nil }
+            }
+            for t in fetched where !isBusy(t.id) { next[t.id] = t }
+            if next != tasks { replaceAll(next) }
+            earlierLoaded = today
+            setOnline(true)
+            saveSoon()
+        } catch APIError.offline {
+            setOnline(false)
+        } catch APIError.unauthorized {
+            onUnauthorized?()
+        } catch {
+            // The list simply stays as it was; the day's own tasks are unaffected.
+        }
+    }
+
+    // MARK: Manual order
+
+    /// A day's open tasks in the person's own order, without `excluding`.
+    func openInOrder(on day: DayKey, excluding: String? = nil) -> [TaskItem] {
+        TaskSorting.sorted(tasks(on: day).filter { !$0.done && $0.id != excluding }, by: .manual)
+    }
+
+    /// The position that puts a task at `index` of `list` (a day's open tasks without it). Splitting the same gap over
+    /// and over eventually leaves no number in between; then the day is renumbered, in its order, to make room again.
+    func position(at index: Int, in list: [TaskItem]) -> Double {
+        let before = index > 0 && index - 1 < list.count ? list[index - 1] : nil
+        let after = index < list.count ? list[index] : nil
+        let p = TaskSorting.placeBetween(before, after)
+        if before == nil || after == nil || (p > TaskSorting.place(of: before!) && p < TaskSorting.place(of: after!)) { return p }
+        let base = TaskSorting.place(of: list[0])
+        for (i, t) in list.enumerated() { edit(t.id, TaskPatch(position: base + Double(i) * 1024)) }
+        return base + (Double(index) - 0.5) * 1024
+    }
+
+    /// A new task written at the top of its day's open tasks, after `after` (the one written just before it), so a run
+    /// of new tasks lands in the order written.
+    @discardableResult
+    func createAtTop(title: String, notes: String = "", date: DayKey, after: String? = nil) -> TaskItem {
+        let open = openInOrder(on: date)
+        let prev = after.flatMap { id in open.first { $0.id == id } }
+        let next = prev.flatMap { p in open.firstIndex(of: p).flatMap { $0 + 1 < open.count ? open[$0 + 1] : nil } } ?? (prev == nil ? open.first : nil)
+        return create(title: title, notes: notes, date: date, position: TaskSorting.placeBetween(prev, next))
+    }
+
+    /// The way back after a task changed place: to its old day, at its old place among that day's open tasks.
+    private func placeBack(_ task: TaskItem) -> @MainActor () -> Bool {
+        let index = openInOrder(on: task.date).firstIndex { $0.id == task.id }
+        return { [weak self] in
+            guard let self, self.tasks[task.id] != nil else { return false }
+            let rest = self.openInOrder(on: task.date, excluding: task.id)
+            let position = index.map { self.position(at: min($0, rest.count), in: rest) } ?? task.position
+            self.edit(task.id, TaskPatch(date: task.date, position: position))
+            return true
+        }
+    }
+
+    /// A task dropped (or nudged) into `index` of `date`'s open tasks; nil index: the end of another day.
+    /// Returns the message for a toast when it went to another day.
+    @discardableResult
+    func place(_ id: String, on date: DayKey, at index: Int?, today: DayKey) -> Notice? {
+        guard let task = tasks[id] else { return nil }
+        let list = openInOrder(on: date, excluding: id)
+        let position: Double? = index.map { self.position(at: $0, in: list) } ?? (date != task.date ? TaskSorting.placeBetween(list.last, nil) : task.position)
+        if date == task.date && position == task.position { return nil }
+        let back = placeBack(task)
+        edit(id, TaskPatch(date: date, position: position))
+        if date == task.date {
+            remember("Order restored", back)
+            return nil
+        }
+        let step = remember("Moved back to \(Self.dayLabel(task.date, today: today))", back)
+        return Notice(message: "Moved to \(Self.dayLabel(date, today: today))", undo: step)
+    }
+
+    /// ⌥↑ / ⌥↓ (and the menu's Move up / Move down): one place up or down the day, in the person's own order.
+    func nudge(_ id: String, by direction: Int) {
+        guard let task = tasks[id], !task.done else { return }
+        let list = openInOrder(on: task.date)
+        guard let i = list.firstIndex(where: { $0.id == id }) else { return }
+        let j = i + direction
+        guard j >= 0, j < list.count else { return }
+        let back = placeBack(task)
+        edit(id, TaskPatch(position: position(at: j, in: list.filter { $0.id != id })))
+        remember("Order restored", back)
+    }
+
+    // MARK: Actions (each one can be taken back)
+
+    /// A message for the toast, and the step its Undo takes back.
+    struct Notice {
+        let message: String
+        let undo: UndoStep?
+    }
+
+    /// "today", "tomorrow", "yesterday" or "Thu, Nov 12" (`dayLabel` on the web).
+    static func dayLabel(_ day: DayKey, today: DayKey) -> String {
+        Dates.relative(day, today: today)?.lowercased() ?? Dates.medium(day)
+    }
+
+    /// Ticks a task, or opens it again.
+    func toggle(_ id: String) {
+        guard let task = tasks[id] else { return }
+        setDone(id, !task.done)
+        remember("“\(task.title)” is \(task.done ? "done" : "open") again") { [weak self] in
+            guard let self, let t = self.tasks[id], t.done != task.done else { return false }
+            self.setDone(id, task.done)
+            return true
+        }
+    }
+
+    /// Moves a task to another day (to the end of that day's own order).
+    func moveTo(_ id: String, _ date: DayKey, today: DayKey) -> Notice? {
+        guard let task = tasks[id], task.date != date else { return nil }
+        edit(id, TaskPatch(date: date))
+        let step = remember("Moved back to \(Self.dayLabel(task.date, today: today))") { [weak self] in
+            guard let self, self.tasks[id] != nil else { return false }
+            self.edit(id, TaskPatch(date: task.date))
+            return true
+        }
+        return Notice(message: "Moved to \(Self.dayLabel(date, today: today))", undo: step)
+    }
+
+    /// Deletes a task; Undo puts it back as it was.
+    func delete(_ id: String) -> Notice? {
+        guard let task = remove(id) else { return nil }
+        let step = remember("Restored “\(task.title)”") { [weak self] in
+            guard let self, self.tasks[id] == nil else { return false }
+            self.restore(task)
+            return true
+        }
+        return Notice(message: "Deleted “\(task.title)”", undo: step)
+    }
+
+    /// Brings tasks left open on earlier days to `today`.
+    func moveAllToToday(_ ids: [String], today: DayKey) -> Notice? {
+        let list = ids.compactMap { tasks[$0] }
+        guard !list.isEmpty else { return nil }
+        for t in list { edit(t.id, TaskPatch(date: today)) }
+        let step = remember(list.count == 1 ? "Moved back" : "Moved \(list.count) tasks back") { [weak self] in
+            guard let self else { return false }
+            let back = list.filter { self.tasks[$0.id] != nil }
+            for t in back { self.edit(t.id, TaskPatch(date: t.date)) }
+            return !back.isEmpty
+        }
+        return Notice(message: list.count == 1 ? "Moved 1 task to today" : "Moved \(list.count) tasks to today", undo: step)
+    }
+
+    /// What the voice screen sorted becomes tasks, in the order it was said; one Undo takes all of them back.
+    func addDrafts(_ drafts: [TaskDraft], today: DayKey) -> Notice? {
+        guard !drafts.isEmpty else { return nil }
+        let now = (Date.now.timeIntervalSince1970 * 1000).rounded()
+        let ids = drafts.enumerated().map { i, d in
+            create(title: d.title, notes: d.notes, date: d.date, position: now + Double(i)).id
+        }
+        let n = ids.count
+        let days = Set(drafts.map(\.date))
+        let step = remember(n == 1 ? "Task removed" : "\(n) tasks removed") { [weak self] in
+            guard let self else { return false }
+            let left = ids.filter { self.tasks[$0] != nil }
+            for id in left { self.remove(id) }
+            return !left.isEmpty
+        }
+        let whereTo = days.count == 1 ? " for \(Self.dayLabel(days.first!, today: today))" : ""
+        return Notice(message: "Added \(n == 1 ? "1 task" : "\(n) tasks")\(whereTo)", undo: step)
+    }
+
+    /// The end of editing a task's words: remembers the words it had before, for Undo.
+    func finishedEditing(_ id: String, before: TaskItem) {
+        flush(id)
+        guard let t = tasks[id], t.title != before.title || t.notes != before.notes else { return }
+        remember("Edit undone") { [weak self] in
+            guard let self, self.tasks[id] != nil else { return false }
+            self.edit(id, TaskPatch(title: before.title, notes: before.notes))
+            return true
+        }
+    }
+
+    // MARK: Undo
+
+    /// One action that can be taken back: `run` does it (false when it no longer applies); `done` is what to say after.
+    final class UndoStep {
+        let done: String
+        let run: @MainActor () -> Bool
+        init(done: String, run: @escaping @MainActor () -> Bool) {
+            self.done = done
+            self.run = run
+        }
+    }
+
+    /// How many steps can be taken back (the last 20 actions).
+    private(set) var undoCount = 0
+    @ObservationIgnored private var undos: [UndoStep] = [] {
+        didSet { if undoCount != undos.count { undoCount = undos.count } }
+    }
+
+    @discardableResult
+    func remember(_ done: String, _ run: @escaping @MainActor () -> Bool) -> UndoStep {
+        let step = UndoStep(done: done, run: run)
+        undos = Array((undos + [step]).suffix(20))
+        return step
+    }
+
+    /// A toast's own Undo: takes back that step, wherever it is in the list.
+    @discardableResult
+    func undo(_ step: UndoStep) -> Bool {
+        undos.removeAll { $0 === step }
+        return step.run()
+    }
+
+    /// ⌘Z / shake: takes back the latest action that still applies, and returns what to say.
+    func undoLast() -> String? {
+        while let step = undos.popLast() {
+            if step.run() { return step.done }
+        }
+        return nil
     }
 
     // MARK: Sync

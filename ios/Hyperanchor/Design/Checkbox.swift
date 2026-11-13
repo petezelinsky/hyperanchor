@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// The round checkbox. Completing a task: the circle pops, the tick draws itself and a ring ripples out —
-/// only for a change made just now, never for tasks that were already done. Reduce Motion: a plain fade.
+/// The checkbox: a square with soft corners, as on the web (ui.tsx `Checkbox`): an outlined box when open, filled with
+/// the accent (black and white by default) with the tick when done. Completing a task: the box pops, the tick draws
+/// itself and a ripple goes out — only for a change made just now, never for tasks that were already done.
+/// Reduce Motion: a plain fade.
 struct CheckCircle: View {
     let checked: Bool
     var size: CGFloat = 20
@@ -17,53 +19,60 @@ struct CheckCircle: View {
         _drawn = State(initialValue: checked ? 1 : 0)
     }
 
+    /// The web's corner radii: 5 for small boxes, 6 for the usual 20, 8 for large ones.
+    private var radius: CGFloat { size <= 16 ? 5 : size <= 20 ? 6 : size * 0.3 }
+    private var box: RoundedRectangle { RoundedRectangle(cornerRadius: radius, style: .continuous) }
+
     var body: some View {
         ZStack {
-            Circle()
+            box
+                .fill(.surface)
                 .strokeBorder(.checkRing, lineWidth: 1.5)
                 .opacity(checked ? 0 : 1)
-            Circle()
+            box
                 .fill(palette.accent)
-                .scaleEffect(checked ? 1 : 0.6)
+                .scaleEffect(checked ? 1 : 0.7)
                 .opacity(checked ? 1 : 0)
+            // The tick keeps about the same weight (1.6 pt) in a box of any size.
             Checkmark()
                 .trim(from: 0, to: drawn)
-                .stroke(.onAccent, style: StrokeStyle(lineWidth: size * 0.095, lineCap: .round, lineJoin: .round))
-                .frame(width: size * 0.6, height: size * 0.6)
+                .stroke(palette.onAccent, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                .frame(width: size * 0.72, height: size * 0.72)
         }
         .frame(width: size, height: size)
         .background {
             // The ripple.
-            Circle()
+            box
                 .fill(palette.accent)
                 .keyframeAnimator(initialValue: Ripple(), trigger: celebrations) { view, r in
                     view.scaleEffect(r.scale).opacity(r.opacity)
                 } keyframes: { _ in
                     KeyframeTrack(\.scale) {
                         LinearKeyframe(1, duration: 0)
-                        CubicKeyframe(2.1, duration: 0.55)
+                        CubicKeyframe(2.1, duration: Tokens.Motion.data)
                     }
                     KeyframeTrack(\.opacity) {
                         LinearKeyframe(0.4, duration: 0)
-                        CubicKeyframe(0, duration: 0.55)
+                        CubicKeyframe(0, duration: Tokens.Motion.data)
                     }
                 }
         }
         .keyframeAnimator(initialValue: 1.0, trigger: celebrations) { view, scale in
             view.scaleEffect(scale)
         } keyframes: { _ in
-            CubicKeyframe(0.75, duration: 0.02)
-            CubicKeyframe(1.12, duration: 0.18)
-            CubicKeyframe(1, duration: 0.17)
+            // The web's check-pop: 0.75 → 1.12 → 1 over 360 ms.
+            CubicKeyframe(0.75, duration: 0.01)
+            CubicKeyframe(1.12, duration: Tokens.Motion.move * 0.55)
+            CubicKeyframe(1, duration: Tokens.Motion.move * 0.45)
         }
         .animation(.easeOut(duration: 0.2), value: checked)
         .onChange(of: checked) { _, now in
             if now, !reduceMotion {
                 celebrations += 1
                 drawn = 0
-                withAnimation(.easeOut(duration: 0.32).delay(0.06)) { drawn = 1 }
+                withAnimation(Motion.out(Tokens.Motion.base).delay(0.06)) { drawn = 1 }
             } else {
-                withAnimation(.easeOut(duration: 0.15)) { drawn = now ? 1 : 0 }
+                withAnimation(.easeOut(duration: Tokens.Motion.fast)) { drawn = now ? 1 : 0 }
             }
         }
     }
@@ -100,8 +109,8 @@ struct TaskCheckbox: View {
         }
         .buttonStyle(.plain)
         .sensoryFeedback(trigger: task.done) { _, done in done ? .impact(flexibility: .soft, intensity: 0.8) : .selection }
-        .accessibilityLabel(task.done ? "Mark “\(task.title)” as not done" : "Mark “\(task.title)” as done")
-        .accessibilityValue(task.done ? "Done" : "Not done")
+        .accessibilityLabel(task.done ? "Mark “\(task.title)” as open" : "Mark “\(task.title)” as done")
+        .accessibilityValue(task.done ? "Done" : "Open")
         .accessibilityIdentifier("checkbox")
     }
 }

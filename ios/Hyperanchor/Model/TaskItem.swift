@@ -10,12 +10,26 @@ struct TaskItem: Codable, Identifiable, Hashable, Sendable {
     /// Up to 5000 characters.
     var notes: String
     var done: Bool
+    /// Manual order within the day (the web's `position`); nil until the task is moved, and then it sorts by its
+    /// creation time (see `TaskSorting.place(of:)`).
+    var position: Double?
     /// ISO 8601 timestamps; creation order sorts by `createdAt` as a string, as on the web.
     var createdAt: String
     var updatedAt: String
 
     enum CodingKeys: String, CodingKey {
-        case id, date, title, notes = "description", done, createdAt, updatedAt
+        case id, date, title, notes = "description", done, position, createdAt, updatedAt
+    }
+
+    init(id: String, date: DayKey, title: String, notes: String, done: Bool, position: Double? = nil, createdAt: String, updatedAt: String) {
+        self.id = id
+        self.date = date
+        self.title = title
+        self.notes = notes
+        self.done = done
+        self.position = position
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
 
     static let titleMax = 500
@@ -35,16 +49,27 @@ struct TaskPatch: Codable, Hashable, Sendable {
     var notes: String?
     var date: DayKey?
     var done: Bool?
+    /// A new place in the day's manual order (never cleared: a task once moved keeps a position).
+    var position: Double?
 
     enum CodingKeys: String, CodingKey {
-        case title, notes = "description", date, done
+        case title, notes = "description", date, done, position
     }
 
-    var isEmpty: Bool { title == nil && notes == nil && date == nil && done == nil }
+    init(title: String? = nil, notes: String? = nil, date: DayKey? = nil, done: Bool? = nil, position: Double? = nil) {
+        self.title = title
+        self.notes = notes
+        self.date = date
+        self.done = done
+        self.position = position
+    }
+
+    var isEmpty: Bool { title == nil && notes == nil && date == nil && done == nil && position == nil }
 
     /// `other`'s fields win.
     func merged(with other: TaskPatch) -> TaskPatch {
-        TaskPatch(title: other.title ?? title, notes: other.notes ?? notes, date: other.date ?? date, done: other.done ?? done)
+        TaskPatch(title: other.title ?? title, notes: other.notes ?? notes, date: other.date ?? date, done: other.done ?? done,
+                  position: other.position ?? position)
     }
 
     func applied(to task: TaskItem) -> TaskItem {
@@ -53,6 +78,19 @@ struct TaskPatch: Codable, Hashable, Sendable {
         if let notes { t.notes = notes }
         if let date { t.date = date }
         if let done { t.done = done }
+        if let position { t.position = position }
         return t
+    }
+
+    /// The patch that turns `task` back into `old` (fields that differ only). A position that was never set comes back as
+    /// the creation time it sorted by, which keeps the same place.
+    static func restoring(_ old: TaskItem, from task: TaskItem) -> TaskPatch {
+        var p = TaskPatch()
+        if old.title != task.title { p.title = old.title }
+        if old.notes != task.notes { p.notes = old.notes }
+        if old.date != task.date { p.date = old.date }
+        if old.done != task.done { p.done = old.done }
+        if old.position != task.position { p.position = TaskSorting.place(of: old) }
+        return p
     }
 }

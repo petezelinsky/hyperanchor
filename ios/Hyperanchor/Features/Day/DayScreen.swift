@@ -1,6 +1,8 @@
 import SwiftUI
 
-/// The selected day: what's left under "To do", finished tasks in a collapsible "Completed" group.
+/// The day: nothing but its tasks, in a column in the middle (edge to edge on iPhone). A new task (or speaking them)
+/// starts at the top; what's left follows; earlier days and what's done fold away under it. The day's name, date, count
+/// and Focus live in the bar above (the web's `DayView`).
 struct DayScreen: View {
     let user: AppUser
 
@@ -9,434 +11,431 @@ struct DayScreen: View {
     @Environment(TodayClock.self) private var clock
     @Environment(Preferences.self) private var prefs
     @Environment(Toaster.self) private var toaster
-    @Environment(\.palette) private var palette
+    @Environment(AppModel.self) private var model
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var editor = ListEditor()
-    @State private var confetti = 0
+    /// "From earlier days" is open, and how many of them show.
+    @State private var earlierOpen = false
+    @State private var earlierShown = DayEntry.firstEarlier
+    /// The week and the earlier days have been asked for (the welcome waits for both, so it never flashes).
+    @State private var weekLoaded = false
+    @State private var earlierLoaded = false
+    /// Speak is offered only where the server can sort speech into tasks (the app's one figure for the AI).
+    private var speaks: Bool { AIOffer.shared.offered }
+    @State private var width: CGFloat = 0
+    /// iPhone: what's being written in the bar at the bottom.
+    @State private var draft = ""
     @FocusState private var focus: TaskField?
 
     private var today: DayKey { clock.today }
     private var day: DayKey { router.selected }
     private var actions: TaskActions { TaskActions(store: store, toaster: toaster, today: today) }
+    private var wide: Bool { sizeClass == .regular }
+
+    /// First visit: a short welcome instead of an empty list (no tasks anywhere yet).
+    private var showsWelcome: Bool {
+        !prefs.welcomed && weekLoaded && earlierLoaded && store.tasks.isEmpty
+    }
 
     var body: some View {
-        @Bindable var router = router
-        @Bindable var editor = editor
-        let all = store.tasks(on: day)
-        let filtered = TaskSorting.sorted(all.filter { TaskSorting.matches($0, query: router.query) }, by: router.sort)
-        let open = filtered.filter { !$0.done || editor.isSettling($0.id) }
-        let completed = filtered.filter { $0.done && !editor.isSettling($0.id) }
-        let doneCount = all.count(where: \.done)
-        let allDone = !all.isEmpty && doneCount == all.count
-        let searching = !router.query.trimmingCharacters(in: .whitespaces).isEmpty
-        let composing = editor.composerDay == day
-
-        NavigationStack {
-            ScrollViewReader { proxy in
-                List {
-                    header(all: all, done: doneCount, allDone: allDone)
-                    if !searching { notices(open: all.filter { !$0.done }) }
-
-                    if all.isEmpty, !composing, !searching {
-                        EmptyDay(past: day < today) { openComposer(proxy) }
-                            .plainRow()
-                    } else if searching, filtered.isEmpty {
-                        ContentUnavailableView.search(text: router.query)
-                            .plainRow()
-                    } else {
-                        Section {
-                            ForEach(open) { row($0) }
-                            if open.isEmpty, !completed.isEmpty, !searching {
-                                ClearedRow(isToday: day == today)
-                            }
-                            if !searching {
-                                if composing {
-                                    ComposerRow(title: $editor.newTitle, notes: $editor.newNotes, focus: $focus) {
-                                        editor.submitComposer(store: store, keepOpen: true, focus: $focus)
-                                    }
-                                    .id("composer")
-                                    .listRowBackground(Color.surface3)
-                                } else {
-                                    AddTaskRow { openComposer(proxy) }
-                                        .listRowBackground(Color.surface)
-                                }
-                            }
-                        } header: {
-                            SectionHeader(title: "To do", count: open.count(where: { !$0.done }))
-                                .padding(.top, 14)
-                        }
-
-                        if !completed.isEmpty {
-                            Section {
-                                if prefs.completedExpanded {
-                                    ForEach(completed) { row($0) }
-                                }
-                            } header: {
-                                CompletedHeader(count: completed.count, expanded: prefs.completedExpanded) {
-                                    withAnimation(.snappy) { prefs.completedExpanded.toggle() }
-                                }
-                                .padding(.top, 18)
-                            }
-                        }
-                    }
+        Group {
+            if showsWelcome {
+                WelcomeNote(name: firstName, column: column, examples: addExamples) {
+                    prefs.welcomed = true
+                    openComposer(nil)
                 }
-                .listStyle(.plain)
-                .listSectionSpacing(0)
-                .environment(\.defaultMinListHeaderHeight, 0)
-                .scrollContentBackground(.hidden)
-                .background(.surface)
-                .scrollDismissesKeyboard(.interactively)
-                .readableContent()
-                .animation(.snappy(duration: 0.35), value: open.map(\.id))
-                .animation(.snappy(duration: 0.35), value: completed.map(\.id))
-                .navigationTitle(Dates.relative(day, today: today) ?? Dates.dowFull[day.weekday])
-                .searchable(text: $router.query, placement: .navigationBarDrawer, prompt: "Filter")
-                .toolbar { toolbar(hasOpen: all.contains { !$0.done }, proxy: proxy) }
-                .keyboardDoneButton(focus: $focus)
-                .overlay { ConfettiView(trigger: confetti) }
-                .onChange(of: router.composeRequest) { _, _ in
-                    if router.tab == .day { openComposer(proxy) }
-                }
-                .modifier(ListKeyboard(tab: .day, ids: (open + (prefs.completedExpanded ? completed : [])).map(\.id), editor: editor, focus: $focus, actions: actions, proxy: proxy))
+            } else {
+                list
             }
-            .toastHost()
         }
+        .background(.surface)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .onChange(of: focus) { old, new in editor.focusChanged(from: old, to: new, store: store, focus: $focus) }
-        .onChange(of: allDone) { was, now in
-            if now, !was, editor.justToggled { confetti += 1 }
+        .onChange(of: day) { _, _ in
+            editor.reset(store: store)
+            earlierOpen = false
+            earlierShown = DayEntry.firstEarlier
         }
-        .onChange(of: day) { _, _ in editor.reset(store: store) }
+        // Tasks written some other way (Speak) end the welcome too.
+        .onChange(of: showsWelcome) { was, now in if was, !now { prefs.welcomed = true } }
         .task(id: day.startOfWeek) {
             await store.load(day.startOfWeek...day.startOfWeek.adding(days: 6))
+            weekLoaded = true
+            noteWelcomed()
         }
         .task(id: today) {
-            // Today gathers what was left open during the past week.
-            await store.load(today.adding(days: -7)...today.adding(days: -1))
+            // Today gathers every task left open on an earlier day, however long ago.
+            await store.loadEarlier(before: today)
+            earlierLoaded = true
+            noteWelcomed()
+        }
+        .task { await askSpeak() }
+    }
+
+    // MARK: The list
+
+    private var list: some View {
+        let entries = entries()
+        let visible = entries.compactMap(\.visibleTaskID)
+        return ScrollViewReader { proxy in
+            List {
+                ForEach(entries) { row($0, proxy: proxy) }
+                    // My order: a task dragged within the day takes the place it's dropped in.
+                    .dropDestination(for: String.self) { ids, index in drop(ids, at: index, in: entries) }
+            }
+            .listStyle(.plain)
+            .environment(\.defaultMinListRowHeight, 0)
+            .scrollContentBackground(.hidden)
+            // iPad: a column in the middle, as wide as the web's (744 points of rows, 24 at least on each side).
+            .contentMargins(.horizontal, wide ? max(24, (width - Self.column) / 2) : 0, for: .scrollContent)
+            .contentMargins(.top, wide ? 12 : 4, for: .scrollContent)
+            .contentMargins(.bottom, wide ? 64 : 24, for: .scrollContent)
+            .scrollDismissesKeyboard(.interactively)
+            .keyboardDoneButton(focus: $focus)
+            .modifier(ListKeyboard(tab: .day, ids: visible, editor: editor, focus: $focus, actions: actions, proxy: proxy))
+            .onChange(of: router.composeRequest) { _, _ in
+                if router.tab == .day { openComposer(proxy) }
+            }
+            // Each day is a list of its own (it starts at the top, and rows never shuffle over from the day before).
+            .id(day)
+            // iPhone: new tasks are written at the bottom, where the thumb is; the list scrolls under the bar.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if !wide {
+                    DayComposerBar(text: $draft, focus: $focus, speaks: speaks) { addAtEnd(proxy) }
+                }
+            }
         }
     }
 
-    // MARK: Pieces
+    /// The column's width on iPad (the web's 792 less its padding).
+    static let column: CGFloat = 744
+
+    private var column: CGFloat { wide ? Self.column : .infinity }
 
     @ViewBuilder
-    private func header(all: [TaskItem], done: Int, allDone: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            AdaptiveStack(spacing: 6) {
-                let relative = Dates.relative(day, today: today) != nil
-                let year = day.year != today.year ? ", \(day.year)" : ""
-                Text((relative ? Dates.long(day) : "\(Dates.months[day.month - 1]) \(day.day)") + year)
-                Text("·").foregroundStyle(.ink4).accessibilityHidden(true).hiddenWhenStacked()
-                if all.isEmpty {
-                    Text("No tasks")
-                } else {
-                    HStack(spacing: 6) {
-                        Burst(active: allDone && editor.justToggled) {
-                            ProgressRing(value: Double(done) / Double(all.count), size: 14, lineWidth: 2.4)
-                        }
-                        Text(allDone ? "All done" : "\(done) of \(all.count) done")
-                            .fontWeight(allDone ? .medium : .regular)
-                            .foregroundStyle(allDone ? .ink : .ink2)
-                    }
-                }
-                Spacer(minLength: 8).hiddenWhenStacked()
-                if day != today {
-                    Button("Today") { router.selected = today }
-                        .buttonStyle(SecondaryButtonStyle(compact: true))
-                        .accessibilityIdentifier("day.today")
-                }
-            }
-            .font(.subheadline)
-            .foregroundStyle(.ink2)
-            .monospacedDigit()
-
-            WeekStrip(selected: day, today: today) { router.selected = $0 }
-        }
-        .plainRow(insets: EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
-    }
-
-    @ViewBuilder
-    private func notices(open: [TaskItem]) -> some View {
-        if day < today, !open.isEmpty {
-            Notice(text: open.count == 1 ? "1 task was left open on this day." : "\(open.count) tasks were left open on this day.") {
-                actions.moveToToday(open)
-            }
-        }
-        if day == today {
-            let carried = store.openTasks(in: today.adding(days: -7)...today.adding(days: -1))
-            if !carried.isEmpty {
-                Notice(
-                    text: carried.count == 1 ? "1 task is still open from earlier days" : "\(carried.count) tasks are still open from earlier days",
-                    detail: carried.map(\.title).joined(separator: ", ")
+    private func row(_ entry: DayEntry, proxy: ScrollViewProxy) -> some View {
+        switch entry.kind {
+        case .leftOpen(let open):
+            DayLeftOpenNotice(count: open.count) { actions.moveToToday(open) }
+        case .newTask:
+            if editor.composerDay == day {
+                ComposerRow(
+                    title: Binding(get: { editor.newTitle }, set: { editor.newTitle = $0 }),
+                    notes: Binding(get: { editor.newNotes }, set: { editor.newNotes = $0 }),
+                    focus: $focus,
+                    run: editor.composerRun,
+                    cancel: { editor.cancelComposer(focus: $focus) }
                 ) {
-                    actions.moveToToday(carried)
+                    editor.submitComposer(store: store, keepOpen: true, focus: $focus)
                 }
+            } else {
+                DayNewTaskRow(speaks: speaks, hairline: entry.hairline) { openComposer(proxy) }
+            }
+        case .task(let task, let order):
+            EditableTaskRow(task: task, editor: editor, focus: $focus, actions: actions, hairline: entry.hairline,
+                            order: order.map { (up: $0.up, down: $0.down) })
+                .modifier(TaskDrag(id: task.id, enabled: entry.draggable))
+        case .cleared(let words):
+            DayClearedLine(words: words)
+        case .fold(let fold, let count, let open):
+            DayFoldRow(label: fold.label, count: count, open: open, hairline: entry.hairline, identifier: fold.identifier) {
+                toggle(fold)
+            }
+        case .earlierHead(let carried):
+            DayEarlierHead(count: carried.count) { actions.moveToToday(carried) }
+        case .earlier(let task, let edge):
+            DayEarlierRow(task: task, edge: edge, today: today, foot: entry.foot) {
+                editor.toggle(task, actions: actions, focus: $focus)
+            } bring: {
+                actions.move(task, to: today)
+            } delete: {
+                actions.delete(task)
+            }
+        case .more(let count):
+            DayShowMore(count: count) {
+                withAnimation(TaskActions.motion(Motion.out())) { earlierShown += DayEntry.moreEarlier }
             }
         }
     }
 
-    private func row(_ task: TaskItem) -> some View {
-        EditableTaskRow(task: task, editor: editor, focus: $focus, actions: actions)
+    // MARK: What the list shows
+
+    /// The day's rows, top to bottom (`DayView` and `TaskTable` on the web).
+    private func entries() -> [DayEntry] {
+        let stored = store.tasks(on: day)
+        // Tasks on their way to another day stay a moment longer, where they were.
+        let here = Set(stored.map(\.id))
+        let settling = editor.settling
+        return DayEntry.rows(DayEntry.Input(
+            day: day,
+            today: today,
+            stored: stored,
+            leaving: editor.leaving.values.map(\.task).filter { $0.date == day && !here.contains($0.id) },
+            settling: settling,
+            sort: prefs.sort,
+            newTaskRow: wide,
+            composing: editor.composerDay == day,
+            picked: Set([router.selectedTask, editor.editing].compactMap { $0 }),
+            carried: day == today
+                ? DayEntry.earlier(open: store.openBefore(today),
+                                   ticked: settling.compactMap { store.task($0) }.filter { $0.date < today })
+                : [],
+            earlierOpen: earlierOpen,
+            earlierShown: earlierShown,
+            doneOpen: prefs.completedExpanded
+        ))
     }
 
-    @ToolbarContentBuilder
-    private func toolbar(hasOpen: Bool, proxy: ScrollViewProxy) -> some ToolbarContent {
-        @Bindable var router = router
-        ToolbarItem(placement: .topBarLeading) {
-            AccountMenu(user: user)
-        }
-        ToolbarItemGroup(placement: .topBarTrailing) {
-            Button { router.focus = true } label: {
-                Label { Text("Focus") } icon: { FocusIcon(enabled: hasOpen) }
-            }
-            .disabled(!hasOpen)
-            .accessibilityHint("One task at a time")
-            .accessibilityIdentifier("focus")
-            Menu("Sort", systemImage: "arrow.up.arrow.down") {
-                Picker("Sort by", selection: $router.sort) {
-                    ForEach(SortOption.allCases) { Text($0.label).tag($0) }
-                }
-            }
-            .accessibilityIdentifier("sort")
-            Button("New Task", systemImage: "plus") { openComposer(proxy) }
-                .accessibilityIdentifier("newTask")
-        }
-    }
+    // MARK: Doing
 
-    private func openComposer(_ proxy: ScrollViewProxy) {
-        router.query = ""
+    private func openComposer(_ proxy: ScrollViewProxy?) {
+        router.selectedTask = nil
+        guard wide else {
+            // iPhone: the bar at the bottom takes the keyboard.
+            editor.finishEditing(store: store)
+            Task { focus = .newTitle }
+            return
+        }
         editor.openComposer(on: day, store: store, focus: $focus)
+        withAnimation(TaskActions.motion(Motion.settle)) { proxy?.scrollTo("new", anchor: .top) }
+    }
+
+    /// iPhone: Return in the bar adds the task at the end of the day's open tasks (a run keeps the order it was written
+    /// in) and brings it into view just above the bar; the field stays open for the next one.
+    private func addAtEnd(_ proxy: ScrollViewProxy) {
+        let title = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        draft = ""
+        guard !title.isEmpty else { return }
+        let last = store.openInOrder(on: day).last
+        let added = withAnimation(TaskActions.motion(Motion.out())) {
+            store.create(title: String(title.prefix(TaskItem.titleMax)), date: day, position: TaskSorting.placeBetween(last, nil))
+        }
         Task {
-            try? await Task.sleep(for: .milliseconds(100))
-            withAnimation { proxy.scrollTo("composer", anchor: .center) }
+            try? await Task.sleep(for: .milliseconds(60))
+            // The field stays with the keyboard for the next one, whatever the list did meanwhile.
+            if focus != .newTitle { focus = .newTitle }
+            withAnimation(TaskActions.motion(Motion.settle)) { proxy.scrollTo(added.id, anchor: .bottom) }
         }
     }
-}
 
-/// A task row wired to a list's editor: tap to edit in place, swipe and long-press actions.
-struct EditableTaskRow: View {
-    let task: TaskItem
-    let editor: ListEditor
-    var focus: FocusState<TaskField?>.Binding
-    let actions: TaskActions
-    @Environment(\.palette) private var palette
-    @Environment(Router.self) private var router
-
-    var body: some View {
-        let isEditing = editor.editing == task.id
-        let isSelected = router.selectedTask == task.id
-        TaskRow(
-            task: task,
-            isEditing: isEditing,
-            focus: focus,
-            toggle: toggle,
-            startEditing: { editor.startEditing(task, field: $0, store: actions.store, focus: focus) },
-            change: { actions.store.edit(task.id, $0, debounce: true) },
-            commit: { focus.wrappedValue = nil }
-        )
-        .listRowBackground(isEditing || isSelected ? Color.surface3 : Color.surface)
-        .taskSwipeActions(task, actions: actions, accent: palette.accent, toggle: toggle)
-        .contextMenu {
-            TaskMenuItems(task: task, actions: actions, toggle: toggle) {
-                editor.startEditing(task, field: .title(task.id), store: actions.store, focus: focus)
+    /// Folds open and close by height, as the web's lists do (240 ms; easing out to open, in to close).
+    private func toggle(_ fold: DayEntry.Fold) {
+        router.selectedTask = nil
+        switch fold {
+        case .earlier:
+            let opening = !earlierOpen
+            withAnimation(TaskActions.motion(opening ? Motion.out() : Motion.in(Tokens.Motion.base))) {
+                earlierOpen = opening
+                if !opening { earlierShown = DayEntry.firstEarlier }
             }
-        }
-        .accessibilityIdentifier("task.\(task.title)")
-    }
-
-    private func toggle() { editor.toggle(task, actions: actions, focus: focus) }
-}
-
-/// "Completed 3 ⌄" — collapses the group; remembered.
-struct CompletedHeader: View {
-    let count: Int
-    let expanded: Bool
-    let toggle: () -> Void
-
-    var body: some View {
-        Button(action: toggle) {
-            HStack(spacing: 6) {
-                SectionHeader(title: "Completed", count: count)
-                Image(systemName: "chevron.down")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.ink3)
-                    .rotationEffect(.degrees(expanded ? 0 : -90))
-                Spacer()
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Completed, \(count)")
-        .accessibilityValue(expanded ? "Expanded" : "Collapsed")
-        .accessibilityIdentifier("completed.toggle")
-    }
-}
-
-extension View {
-    /// A "Done" button above the keyboard.
-    func keyboardDoneButton(focus: FocusState<TaskField?>.Binding) -> some View {
-        toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") { focus.wrappedValue = nil }.fontWeight(.semibold)
+        case .done:
+            let opening = !prefs.completedExpanded
+            withAnimation(TaskActions.motion(opening ? Motion.out() : Motion.in(Tokens.Motion.base))) {
+                prefs.completedExpanded = opening
             }
         }
     }
-}
 
-// MARK: - Small pieces
-
-extension View {
-    /// A list row without background or separators, for headers, notices and empty states.
-    func plainRow(insets: EdgeInsets = EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16)) -> some View {
-        listRowInsets(insets)
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.surface)
-    }
-}
-
-/// "To do 3"
-struct SectionHeader: View {
-    let title: String
-    let count: Int
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text(title).fontWeight(.semibold).foregroundStyle(.ink)
-            Text("\(count)").foregroundStyle(.ink3).monospacedDigit()
+    /// A drag in My order: the task takes the place it was dropped in among the day's open tasks.
+    private func drop(_ ids: [String], at index: Int, in entries: [DayEntry]) {
+        guard prefs.sort.allowsReordering, let id = ids.first, let task = store.task(id), !task.done, task.date == day else { return }
+        let at = entries.prefix(index).reduce(0) { n, entry in
+            guard case .task(let t, _) = entry.kind, !t.done, t.id != id else { return n }
+            return n + 1
         }
-        .font(.subheadline)
-        .textCase(nil)
-    }
-}
-
-/// A quiet one-line notice above the list, with "Move to Today".
-struct Notice: View {
-    let text: String
-    var detail: String?
-    let action: () -> Void
-
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) { label; button }
-            VStack(alignment: .leading, spacing: 10) { label; button }
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.line))
-        .plainRow(insets: EdgeInsets(top: 4, leading: 16, bottom: 12, trailing: 16))
-        .transition(.opacity.combined(with: .move(edge: .top)))
+        actions.place(task, on: day, at: at)
     }
 
-    private var label: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(text).foregroundStyle(detail == nil ? .ink2 : .ink)
-            if let detail {
-                Text(detail).font(.footnote).foregroundStyle(.ink3).lineLimit(1)
-            }
-        }
-        .font(.subheadline)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var button: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Text("Move to Today")
-                Image(systemName: "arrow.right").font(.caption.weight(.semibold))
-            }
-        }
-        .buttonStyle(SecondaryButtonStyle(compact: true))
-        .fixedSize()
-        .accessibilityIdentifier("moveToToday")
-    }
-}
-
-/// Shown in place of the To do list once everything is done.
-struct ClearedRow: View {
-    let isToday: Bool
-    @Environment(\.palette) private var palette
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(.onAccent)
-                .frame(width: 20, height: 20)
-                .background(palette.accent, in: Circle())
-            Text(isToday ? "All done for today. Nice work!" : "Everything on this day is done.")
-                .foregroundStyle(.ink2)
-        }
-        .font(.body)
-        .padding(.vertical, 4)
-        .listRowBackground(Color.surface)
-        .transition(.opacity)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// Nothing planned: an invitation to add the first task.
-struct EmptyDay: View {
-    let past: Bool
-    let add: () -> Void
-    @Environment(\.palette) private var palette
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Image(systemName: "sun.max")
-                .font(.system(size: 24, weight: .medium))
-                .foregroundStyle(palette.accentInk)
-                .frame(width: 56, height: 56)
-                .background(palette.accentSoft, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            Text(past ? "Nothing was planned" : "Nothing planned yet")
-                .font(.headline)
-                .foregroundStyle(.ink)
-                .padding(.top, 16)
-            Text("Tap + to add one.")
-                .font(.subheadline)
-                .foregroundStyle(.ink2)
-                .padding(.top, 6)
-            Button(action: add) {
-                Label("Add a task", systemImage: "plus")
-            }
-            .buttonStyle(SecondaryButtonStyle(compact: true))
-            .padding(.top, 20)
-            .accessibilityIdentifier("empty.add")
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 48)
-    }
-}
-
-/// A row that becomes a column at accessibility text sizes, so nothing truncates.
-struct AdaptiveStack<Content: View>: View {
-    var spacing: CGFloat = 8
-    @ViewBuilder let content: Content
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    var body: some View {
-        if typeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: spacing) { content }
-                .environment(\.stacked, true)
-        } else {
-            HStack(spacing: spacing) { content }
-                .lineLimit(1)
+    /// The welcome's examples, on today (for a touch screen: tap, swipe, focus).
+    private func addExamples() {
+        let titles = [
+            "Tick this off: tap the box, or swipe right",
+            "Swipe me left to move me to tomorrow",
+            "Tap the focus button to do one thing at a time",
+        ]
+        let now = (Date.now.timeIntervalSince1970 * 1000).rounded()
+        withAnimation(TaskActions.motion(Motion.out())) {
+            for (i, title) in titles.enumerated() { store.create(title: title, date: today, position: now + Double(i)) }
+            prefs.welcomed = true
         }
     }
+
+    /// Someone with tasks has nothing to be welcomed to.
+    private func noteWelcomed() {
+        if !prefs.welcomed, weekLoaded, earlierLoaded, !store.tasks.isEmpty { prefs.welcomed = true }
+    }
+
+    private var firstName: String {
+        user.name.split(separator: " ").first.map(String.init) ?? "there"
+    }
+
+    /// Asks the server what it offers, unless it said so a moment ago.
+    private func askSpeak() async {
+        await AIOffer.shared.refreshIfStale(model.session.backend)
+    }
 }
 
-extension EnvironmentValues {
-    @Entry var stacked = false
-}
+/// Lets a task be picked up and dropped elsewhere in its day (a long press, then a drag; the menu shows if it stays).
+private struct TaskDrag: ViewModifier {
+    let id: String
+    let enabled: Bool
 
-private struct HiddenWhenStacked: ViewModifier {
-    @Environment(\.stacked) private var stacked
     func body(content: Content) -> some View {
-        if !stacked { content }
+        if enabled { content.draggable(id) } else { content }
     }
 }
 
-extension View {
-    /// Separators and spacers that only make sense in a row.
-    func hiddenWhenStacked() -> some View { modifier(HiddenWhenStacked()) }
+
+/// One row of the day's list.
+struct DayEntry: Identifiable {
+    enum Kind {
+        /// A past day: "2 left open on this day", with the way to bring them along.
+        case leftOpen([TaskItem])
+        /// "New task", or the new task being written.
+        case newTask
+        /// A task; its place in My order when it can move up or down.
+        case task(TaskItem, Order?)
+        /// One quiet sentence where nothing is left.
+        case cleared(String)
+        case fold(Fold, count: Int, open: Bool)
+        /// The earlier days' first line, with "Move all to today".
+        case earlierHead([TaskItem])
+        case earlier(TaskItem, Edge)
+        /// "Show 40 more".
+        case more(Int)
+    }
+
+    enum Fold {
+        case earlier, done
+
+        var label: String { self == .earlier ? "From earlier days" : "Done" }
+        var identifier: String { self == .earlier ? "fold.earlier" : "fold.done" }
+    }
+
+    /// Where a line sits in the earlier days' framed list.
+    enum Edge { case only, first, middle, last }
+
+    struct Order {
+        let up: Bool
+        let down: Bool
+    }
+
+    /// How many tasks from earlier days show at first, and how many more each "Show more" adds.
+    static let firstEarlier = 12
+    static let moreEarlier = 40
+
+    let id: String
+    let kind: Kind
+    /// The hairline under it (where it has one): hidden over a picked row, whose edge takes its place.
+    var hairline = true
+    /// The last line of the earlier days' list: the fold's space under it.
+    var foot = false
+    /// A task row that can be picked up (My order). Every task row can, so a row keeps its identity — and the tick
+    /// playing in it — as it travels into Done; only what's left takes a new place when dropped.
+    var draggable = false
+
+    /// A task the keyboard's ↑ ↓ go through (the list's own rows, not the earlier days').
+    var visibleTaskID: String? {
+        if case .task(let task, _) = kind { task.id } else { nil }
+    }
+}
+
+extension DayEntry {
+    /// What decides the day's rows.
+    struct Input {
+        var day: DayKey
+        var today: DayKey
+        /// The day's tasks, as the store has them.
+        var stored: [TaskItem]
+        /// Tasks on their way to another day, still shown where they were.
+        var leaving: [TaskItem] = []
+        /// Tasks just ticked: they stay with what's left while the tick plays.
+        var settling: Set<String> = []
+        var sort: TaskSort = .manual
+        /// "New task" at the top (iPad, as the web); iPhone writes new tasks in the bar at the bottom.
+        var newTaskRow = true
+        var composing = false
+        /// The picked task (and the one being edited).
+        var picked: Set<String> = []
+        /// Today: every task still open from an earlier day, in the order shown (`earlier(open:ticked:)`).
+        var carried: [TaskItem] = []
+        var earlierOpen = false
+        var earlierShown = DayEntry.firstEarlier
+        var doneOpen = true
+    }
+
+    /// The day's rows, top to bottom: what's left open on a past day; "New task"; what's left (or one sentence when
+    /// nothing is); today's tasks from earlier days, folded; what's done, folded.
+    static func rows(_ input: Input) -> [DayEntry] {
+        let day = input.day, today = input.today
+        let past = day < today
+        let isToday = day == today
+        let manual = input.sort.allowsReordering
+        let sorted = TaskSorting.sorted(input.stored + input.leaving, by: input.sort)
+        let open = sorted.filter { !$0.done || input.settling.contains($0.id) }
+        let done = sorted.filter { $0.done && !input.settling.contains($0.id) }
+        let leavingIDs = Set(input.leaving.map(\.id))
+        // A row's hairline gives way to the edge of a picked row under it.
+        let line = { (next: TaskItem?) in !(next.map { input.picked.contains($0.id) } ?? false) }
+
+        var out: [DayEntry] = []
+        let leftOpen = input.stored.filter { !$0.done }
+        if past, !leftOpen.isEmpty { out.append(DayEntry(id: "left-open", kind: .leftOpen(leftOpen))) }
+
+        if input.newTaskRow { out.append(DayEntry(id: "new", kind: .newTask, hairline: line(open.first))) }
+
+        // My order: a task can go one place up or down among the open ones (not while its tick plays).
+        let reorderable = open.filter { !$0.done && !leavingIDs.contains($0.id) }
+        for (i, task) in open.enumerated() {
+            var order: Order?
+            if manual, let at = reorderable.firstIndex(where: { $0.id == task.id }) {
+                order = Order(up: at > 0, down: at < reorderable.count - 1)
+            }
+            out.append(DayEntry(id: task.id, kind: .task(task, order), hairline: line(i + 1 < open.count ? open[i + 1] : nil),
+                                draggable: manual))
+        }
+
+        if open.isEmpty, !input.composing {
+            let words = input.stored.isEmpty
+                ? past ? "Nothing was planned." : isToday ? "Nothing planned yet." : "Nothing planned for \(Dates.dayName(day)) yet."
+                : isToday ? "All done for today." : "Everything on this day is done."
+            out.append(DayEntry(id: "cleared", kind: .cleared(words)))
+        }
+
+        let carried = isToday ? input.carried : []
+        if !carried.isEmpty {
+            out.append(DayEntry(id: "fold.earlier", kind: .fold(.earlier, count: carried.count, open: input.earlierOpen)))
+            if input.earlierOpen {
+                out.append(DayEntry(id: "earlier.head", kind: .earlierHead(carried)))
+                let shown = Array(carried.prefix(input.earlierShown))
+                let more = carried.count - shown.count
+                for (i, task) in shown.enumerated() {
+                    let edge: Edge = shown.count == 1 ? .only : i == 0 ? .first : i == shown.count - 1 ? .last : .middle
+                    out.append(DayEntry(id: task.id, kind: .earlier(task, edge), foot: i == shown.count - 1 && more == 0))
+                }
+                if more > 0 { out.append(DayEntry(id: "earlier.more", kind: .more(min(moreEarlier, more)))) }
+            }
+        }
+
+        if !done.isEmpty {
+            out.append(DayEntry(id: "fold.done", kind: .fold(.done, count: done.count, open: input.doneOpen),
+                                hairline: !input.doneOpen || line(done[0])))
+            if input.doneOpen {
+                for (i, task) in done.enumerated() {
+                    out.append(DayEntry(id: task.id, kind: .task(task, nil), hairline: line(i + 1 < done.count ? done[i + 1] : nil),
+                                        draggable: manual))
+                }
+            }
+        }
+        return out
+    }
+
+    /// Every task left open on an earlier day (and one just ticked there, while its tick plays): the most recent day
+    /// first, and within a day in the order they were added (`carried` on the web).
+    static func earlier(open: [TaskItem], ticked: [TaskItem]) -> [TaskItem] {
+        let listed = Set(open.map(\.id))
+        let all = open + ticked.filter { !listed.contains($0.id) }
+        return all.sorted { $0.date != $1.date ? $0.date > $1.date : TaskSorting.addedBefore($0, $1) }
+    }
 }

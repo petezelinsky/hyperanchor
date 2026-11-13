@@ -41,6 +41,21 @@ protocol Backend: Sendable {
     /// `DELETE /api/account`
     func deleteAccount(appleAuthorizationCode: String?) async throws
     func setToken(_ token: String?)
+
+    /// `GET /api/tasks/open?before=`: every task left open before `before` (today), most recent first.
+    func fetchOpenTasks(before: DayKey) async throws -> [TaskItem]
+    /// `GET /api/tasks/search`: tasks whose title or notes contain `query`; today and the days ahead first.
+    func searchTasks(_ query: String, today: DayKey) async throws -> [TaskItem]
+    /// `GET /api/export`: every task as CSV (UTF-8 with a byte-order mark).
+    func exportCSV() async throws -> Data
+    /// `GET /api/usage`: today's AI allowance and what the server offers.
+    func usage() async throws -> Usage
+    /// `POST /api/voice/transcribe`: a recording → what was said. Throws `AIFailure`.
+    func transcribe(audio: Data, mimeType: String, seconds: Double, language: String?) async throws -> (text: String, left: Int)
+    /// `POST /api/tasks/parse`: text → task drafts. Throws `AIFailure`.
+    func parseTasks(text: String, today: DayKey, weekStart: Int) async throws -> (tasks: [TaskDraft], left: Int)
+    /// `POST /api/summary`: Progress's numbers → a short summary. Throws `AIFailure`.
+    func summarize(_ input: SummaryInput) async throws -> (summary: AISummary, tokens: Int, left: Int)
 }
 
 /// The real server, over HTTPS with a bearer token.
@@ -73,10 +88,10 @@ final class HTTPBackend: Backend {
 
     func createTask(_ task: TaskItem) async throws {
         struct Body: Encodable {
-            let id: String, title: String, description: String, date: DayKey, done: Bool
+            let id: String, title: String, description: String, date: DayKey, done: Bool, position: Double?
         }
         do {
-            _ = try await send(request("api/tasks", method: "POST", body: Body(id: task.id, title: task.title, description: task.notes, date: task.date, done: task.done)))
+            _ = try await send(request("api/tasks", method: "POST", body: Body(id: task.id, title: task.title, description: task.notes, date: task.date, done: task.done, position: task.position)))
         } catch APIError.server(409, _) {
             // Already there: an earlier attempt reached the server before the connection dropped.
         }
@@ -104,6 +119,72 @@ final class HTTPBackend: Backend {
     func deleteAccount(appleAuthorizationCode: String?) async throws {
         struct Body: Encodable { let authorizationCode: String? }
         _ = try await send(request("api/account", method: "DELETE", body: Body(authorizationCode: appleAuthorizationCode)))
+    }
+
+    func fetchOpenTasks(before: DayKey) async throws -> [TaskItem] {
+        var c = URLComponents(url: baseURL.appending(path: "api/tasks/open"), resolvingAgainstBaseURL: false)!
+        c.queryItems = [URLQueryItem(name: "before", value: before.description)]
+        let data = try await send(URLRequest(url: c.url!))
+        return try JSONDecoder().decode(TasksResponse.self, from: data).tasks
+    }
+
+    func searchTasks(_ query: String, today: DayKey) async throws -> [TaskItem] {
+        var c = URLComponents(url: baseURL.appending(path: "api/tasks/search"), resolvingAgainstBaseURL: false)!
+        c.queryItems = [URLQueryItem(name: "q", value: query), URLQueryItem(name: "today", value: today.description)]
+        let data = try await send(URLRequest(url: c.url!))
+        return try JSONDecoder().decode(TasksResponse.self, from: data).tasks
+    }
+
+    func exportCSV() async throws -> Data {
+        var r = URLRequest(url: baseURL.appending(path: "api/export"))
+        r.setValue("text/csv", forHTTPHeaderField: "Accept")
+        return try await send(r)
+    }
+
+    func usage() async throws -> Usage {
+        try JSONDecoder().decode(Usage.self, from: try await send(URLRequest(url: baseURL.appending(path: "api/usage"))))
+    }
+
+    func transcribe(audio: Data, mimeType: String, seconds: Double, language: String?) async throws -> (text: String, left: Int) {
+        struct Answer: Decodable { let text: String; let left: Int }
+        var c = URLComponents(url: baseURL.appending(path: "api/voice/transcribe"), resolvingAgainstBaseURL: false)!
+        c.queryItems = [URLQueryItem(name: "seconds", value: String(Int(seconds.rounded(.up))))] + (language.map { [URLQueryItem(name: "lang", value: $0)] } ?? [])
+        var r = URLRequest(url: c.url!)
+        r.httpMethod = "POST"
+        r.setValue(mimeType, forHTTPHeaderField: "Content-Type")
+        r.httpBody = audio
+        r.timeoutInterval = 60
+        let a = try JSONDecoder().decode(Answer.self, from: try await sendAI(r))
+        return (a.text, a.left)
+    }
+
+    func parseTasks(text: String, today: DayKey, weekStart: Int) async throws -> (tasks: [TaskDraft], left: Int) {
+        struct Body: Encodable { let text: String; let today: DayKey; let weekStart: Int }
+        struct Answer: Decodable { let tasks: [TaskDraft]; let left: Int }
+        var r = try request("api/tasks/parse", method: "POST", body: Body(text: text, today: today, weekStart: weekStart))
+        r.timeoutInterval = 60
+        let a = try JSONDecoder().decode(Answer.self, from: try await sendAI(r))
+        return (a.tasks, a.left)
+    }
+
+    func summarize(_ input: SummaryInput) async throws -> (summary: AISummary, tokens: Int, left: Int) {
+        struct Answer: Decodable { let summary: AISummary; let tokens: Int; let left: Int }
+        var r = try request("api/summary", method: "POST", body: input)
+        r.timeoutInterval = 60
+        let a = try JSONDecoder().decode(Answer.self, from: try await sendAI(r))
+        return (a.summary, a.tokens, a.left)
+    }
+
+    /// An AI call: the server's error codes become `AIFailure` (offline too); the session ending stays `unauthorized`.
+    private func sendAI(_ request: URLRequest) async throws -> Data {
+        do {
+            return try await send(request)
+        } catch APIError.offline {
+            throw AIFailure.offline
+        } catch APIError.server(let status, let message) {
+            if let failure = AIFailure(rawValue: message) { throw failure }
+            throw status == 429 ? AIFailure.limit : status == 413 ? AIFailure.tooLong : status >= 500 ? AIFailure.busy : AIFailure.failed
+        }
     }
 
     private func request(_ path: String, method: String, body: (some Encodable)? = nil as String?) throws -> URLRequest {
@@ -149,4 +230,15 @@ extension URLError {
             false
         }
     }
+}
+
+/// Stand-ins for backends that don't offer the newer calls (test doubles): nothing found, nothing offered.
+extension Backend {
+    func fetchOpenTasks(before: DayKey) async throws -> [TaskItem] { [] }
+    func searchTasks(_ query: String, today: DayKey) async throws -> [TaskItem] { [] }
+    func exportCSV() async throws -> Data { Data() }
+    func usage() async throws -> Usage { Usage(today: .init(used: 0, left: 0, limit: 0), features: .init(voice: false, transcribe: false, summary: false)) }
+    func transcribe(audio: Data, mimeType: String, seconds: Double, language: String?) async throws -> (text: String, left: Int) { throw AIFailure.notConfigured }
+    func parseTasks(text: String, today: DayKey, weekStart: Int) async throws -> (tasks: [TaskDraft], left: Int) { throw AIFailure.notConfigured }
+    func summarize(_ input: SummaryInput) async throws -> (summary: AISummary, tokens: Int, left: Int) { throw AIFailure.notConfigured }
 }

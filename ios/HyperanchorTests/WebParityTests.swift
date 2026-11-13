@@ -14,13 +14,12 @@ final class WebParityTests: XCTestCase {
             struct WeekdayJSON: Decodable { let index: Int, done: Int, planned: Int, days: Int, avg: Double, rate: Double? }
             struct MonthJSON: Decodable { let month: Int, done: Int, planned: Int, rate: Double?, activeDays: Int, elapsedDays: Int }
             struct Labels: Decodable { let avg: String; let rate: String? }
-            let today: String, period: String, offset: Int
+            let weekStart: Int, today: String, period: String, offset: Int
             let bounds: BoundsJSON
             let range: [String]
             let summary: SummaryJSON
             let weekday: [WeekdayJSON]
             let months: [MonthJSON]?
-            let longest: Int, current: Int
             let labels: Labels
         }
         struct DateCase: Decodable {
@@ -89,8 +88,17 @@ final class WebParityTests: XCTestCase {
 
     func testSortingAndFilter() {
         let sample = Self.fixtures.sortSample
-        for option in SortOption.allCases {
-            XCTAssertEqual(TaskSorting.sorted(sample, by: option).map(\.id), Self.fixtures.sorting[option.rawValue], option.label)
+        // The web's sorts by the names scripts/ios-fixtures.mjs gives them.
+        let sorts: [String: TaskSort] = [
+            "manual": .manual,
+            "orderAdded": TaskSort(key: .added, ascending: true),
+            "newestFirst": .newestFirst,
+            "nameAscending": .nameAscending,
+            "nameDescending": .nameDescending,
+        ]
+        for (name, expected) in Self.fixtures.sorting {
+            guard let sort = sorts[name] else { return XCTFail("No sort named \(name)") }
+            XCTAssertEqual(TaskSorting.sorted(sample, by: sort).map(\.id), expected, name)
         }
         for m in Self.fixtures.matching {
             XCTAssertEqual(sample.filter { TaskSorting.matches($0, query: m.query) }.map(\.id), m.ids, "query “\(m.query)”")
@@ -98,11 +106,14 @@ final class WebParityTests: XCTestCase {
     }
 
     func testAnalyticsMatchTheWeb() {
-        let byDateMap = Dictionary(grouping: TaskSorting.sorted(Self.fixtures.tasks, by: .orderAdded), by: \.date)
+        let byDateMap = Dictionary(grouping: TaskSorting.sorted(Self.fixtures.tasks, by: TaskSort(key: .added, ascending: true)), by: \.date)
         let byDate = { (d: DayKey) in byDateMap[d] ?? [] }
         XCTAssertFalse(Self.fixtures.scenarios.isEmpty)
+        XCTAssertEqual(Set(Self.fixtures.scenarios.map(\.weekStart)), [0, 1], "weeks starting on Monday and on Sunday")
+        defer { DayKey.weekStart = 1 }
         for s in Self.fixtures.scenarios {
-            let name = "\(s.period) \(s.offset) @ \(s.today)"
+            DayKey.weekStart = s.weekStart
+            let name = "\(s.period) \(s.offset) @ \(s.today), weeks from \(s.weekStart == 0 ? "Sunday" : "Monday")"
             let period = Stats.Period(rawValue: s.period)!
             let today = key(s.today)
             let b = Stats.bounds(period, offset: s.offset, today: today)
@@ -133,8 +144,6 @@ final class WebParityTests: XCTestCase {
                     XCTAssertEqual(m.rate, e.rate, name)
                 }
             }
-            XCTAssertEqual(Stats.longestStreak(days), s.longest, name)
-            XCTAssertEqual(Stats.currentStreak(today: today, byDate: byDate), s.current, name)
             XCTAssertEqual(Stats.fmt1(sum.avg), s.labels.avg, name)
             XCTAssertEqual(sum.rate.map(Stats.pct), s.labels.rate, name)
         }

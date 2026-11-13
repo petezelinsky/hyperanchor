@@ -55,6 +55,10 @@ extension ShapeStyle where Self == Color {
 struct Palette: Equatable, Sendable {
     let choice: AccentChoice
     let accent: Color
+    /// The accent behind text (4.5:1 against `onAccent`): today's date, a filled tile.
+    let accentSolid: Color
+    /// Text and marks on the accent: white, or dark text on graphite's light accent in dark mode.
+    let onAccent: Color
     let accentInk: Color
     let accentSoft: Color
     let accentTrack: Color
@@ -66,6 +70,8 @@ struct Palette: Equatable, Sendable {
         let p = choice.palette
         self.choice = choice
         accent = p.accent.color
+        accentSolid = p.accentSolid.color
+        onAccent = p.onAccent.color
         accentInk = p.accentInk.color
         accentSoft = p.accentSoft.color
         accentTrack = p.accentTrack.color

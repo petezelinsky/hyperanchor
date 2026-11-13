@@ -1,12 +1,13 @@
 import SwiftUI
 import UIKit
 
-/// Signed out: the sign-in screen. Signed in: the tabs. Applies the appearance and accent everywhere.
-/// At launch the app takes over from the launch screen (the logo in the middle): the sign-in screen moves the logo
-/// to its place; the tabs show from under it as it fades away.
+/// Signed out: the sign-in screen. Signed in: the planner. Applies the appearance and accent everywhere.
+/// At launch the app takes over from the launch screen (the "hy" sign in the middle of the page's color): the app draws
+/// the same sign in the same place, then it fades away while the screen under it settles in.
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var phase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var splash = true
 
     var body: some View {
@@ -21,15 +22,15 @@ struct RootView: View {
             }
         }
         .overlay {
-            if splash, model.session.user != nil {
+            if splash {
                 LaunchCurtain()
-                    .transition(.opacity.combined(with: .scale(scale: 1.04)))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 1.04)))
             }
         }
         .animation(.easeInOut(duration: 0.25), value: model.session.user == nil)
-        .animation(.easeOut(duration: 0.4), value: splash)
+        .animation(.easeOut(duration: reduceMotion ? Tokens.Motion.reduced * 2 : 0.4), value: splash)
         .task {
-            // A beat on the launch screen's logo, then hand over.
+            // A beat on the launch screen's sign, then hand over.
             try? await Task.sleep(for: .milliseconds(250))
             splash = false
         }
@@ -56,12 +57,13 @@ struct RootView: View {
     }
 }
 
-/// The launch screen, drawn by the app so it can fade away: the logo in the middle of the launch color.
+/// The launch screen, drawn by the app so it can fade away: the sign in the middle of the launch color, exactly where
+/// and as large as the system's launch screen shows it (the same image).
 private struct LaunchCurtain: View {
     var body: some View {
         ZStack {
             Color("LaunchBackground")
-            BrandMark()
+            Image("LaunchMark")
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)

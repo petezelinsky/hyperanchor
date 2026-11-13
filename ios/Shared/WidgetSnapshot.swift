@@ -38,7 +38,7 @@ struct WidgetSnapshot: Codable, Equatable, Sendable {
                 Item(title: "Review the design feedback", done: false), Item(title: "Call Mom", done: false),
                 Item(title: "30-minute walk", done: false)],
         signedIn: true,
-        accent: [0x2563EB, 0x3B82F6],
-        track: [0xD5E2FD, 0x1A3263]
+        accent: [0x171717, 0xEDEDED],
+        track: [0xE2E2E2, 0x2E2E2E]
     )
 }

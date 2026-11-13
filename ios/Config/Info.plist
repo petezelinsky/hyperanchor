@@ -19,6 +19,10 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>When you speak your tasks, Hyperanchor listens and turns what you say into tasks on their days. The recording isn’t kept.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>When you speak your tasks, Hyperanchor writes down what you say as you say it, on this device where it can.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
