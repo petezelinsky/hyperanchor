@@ -41,6 +41,7 @@ private struct GeneralSettings: View {
     @Environment(Router.self) private var router
     @Environment(\.colorScheme) private var scheme
     @Environment(\.settingsMargin) private var margin
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var legal: URL?
     @State private var exporting = false
     @State private var exported: CSVFile?
@@ -127,9 +128,11 @@ private struct GeneralSettings: View {
                     .padding(.top, 20)
                     .padding(.bottom, 12)
                     .accessibilityIdentifier("settings.version")
+
+                if typeSize.isAccessibilitySize { foot }
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { foot }
+        .safeAreaInset(edge: .bottom, spacing: 0) { if !typeSize.isAccessibilitySize { foot } }
         .settingsChrome("Settings")
         .sheet(item: $legal) { SafariView(url: $0).ignoresSafeArea() }
         .fileExporter(isPresented: Binding(get: { exported != nil }, set: { if !$0 { exported = nil } }),
@@ -139,28 +142,50 @@ private struct GeneralSettings: View {
         }
     }
 
-    /// Privacy · Terms · Support, and Sign out.
+    /// Privacy · Terms · Support, and Sign out: one row while it fits, then Sign out under the links, then the links
+    /// under each other too. Words are never broken. At accessibility sizes it ends the page instead of staying pinned.
     private var foot: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 14) {
-                link("Privacy", AppConfig.privacyURL)
-                link("Terms", AppConfig.termsURL)
-                link("Support", AppConfig.supportURL)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                links(stacked: false)
+                Spacer(minLength: 0)
+                signOut
             }
-            Spacer(minLength: 0)
-            Button {
-                router.showSettings = false
-                model.signOut()
-            } label: {
-                Label("Sign out", systemImage: Icon.signOut)
+            VStack(alignment: .leading, spacing: 2) {
+                links(stacked: false)
+                signOut
             }
-            .buttonStyle(OutlineButtonStyle())
-            .accessibilityIdentifier("settings.signOut")
+            VStack(alignment: .leading, spacing: 2) {
+                links(stacked: true)
+                signOut
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, margin)
         .padding(.vertical, 6)
         .background(.elevated)
         .hairline(.top)
+    }
+
+    private func links(stacked: Bool) -> some View {
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0)) : AnyLayout(HStackLayout(spacing: 14))
+        return layout {
+            link("Privacy", AppConfig.privacyURL)
+            link("Terms", AppConfig.termsURL)
+            link("Support", AppConfig.supportURL)
+        }
+        .fixedSize(horizontal: !stacked, vertical: false)
+    }
+
+    private var signOut: some View {
+        Button {
+            router.showSettings = false
+            model.signOut()
+        } label: {
+            Label("Sign out", systemImage: Icon.signOut)
+        }
+        .buttonStyle(OutlineButtonStyle())
+        .accessibilityIdentifier("settings.signOut")
     }
 
     private func link(_ title: String, _ url: URL) -> some View {

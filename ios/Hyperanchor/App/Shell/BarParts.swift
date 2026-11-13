@@ -4,8 +4,9 @@ import SwiftUI
 // buttons, a segmented switch, the arrows in one frame.
 
 /// The web's SegmentedControl: a recessed track (a little darker than the page, with a hairline ring) and a raised
-/// thumb that slides to the picked segment in 240 ms. Segments are all as wide as the widest, or share `width` equally.
-/// VoiceOver reads each segment as a button, the picked one selected.
+/// thumb that slides to the picked segment in 240 ms. Segments are all as wide as the widest (or share `width` when that
+/// is wider); a label is never cut. VoiceOver reads each segment as a button, the picked one selected; at the largest text
+/// sizes a long press shows it enlarged (the bar stops growing).
 struct SegmentedSwitch<Value: Hashable>: View {
     let label: String
     let options: [(value: Value, label: String)]
@@ -20,16 +21,18 @@ struct SegmentedSwitch<Value: Hashable>: View {
     @Namespace private var thumb
 
     var body: some View {
-        EqualWidthHStack(fills: width != nil) {
+        EqualWidthHStack(minWidth: width.map { $0 - 4 } ?? 0) {
             ForEach(Array(options.enumerated()), id: \.offset) { i, option in
                 segment(option.value, option.label, symbol: i < symbols.count ? symbols[i] : nil)
             }
         }
-        .frame(width: width.map { $0 - 4 })
         .padding(2)
         .background(.surface2, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(.line, lineWidth: 1))
-        .fixedSize(horizontal: width == nil, vertical: true)
+        .fixedSize()
+        // Like iOS's own segmented control it stops growing (here at the first accessibility size); a long press on a
+        // segment shows it enlarged.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(label)
         .sensoryFeedback(.selection, trigger: selection)
@@ -62,20 +65,22 @@ struct SegmentedSwitch<Value: Hashable>: View {
         .buttonStyle(.plain)
         .accessibilityLabel(text)
         .accessibilityAddTraits(on ? .isSelected : [])
+        .accessibilityShowsLargeContentViewer()
     }
 }
 
-/// Lays its children out in a row, each as wide as the widest of them; with `fills`, they share the width offered.
+/// Lays its children out in a row, each as wide as the widest of them (sharing `minWidth` when that is wider). It never
+/// takes less, whatever it is offered, so no child is ever cut.
 struct EqualWidthHStack: Layout {
     var spacing: CGFloat = 0
-    var fills = false
+    var minWidth: CGFloat = 0
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let n = CGFloat(subviews.count)
         guard n > 0 else { return .zero }
         let gaps = spacing * (n - 1)
         let natural = (subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0) * n + gaps
-        let width = fills ? (proposal.width ?? natural) : min(proposal.width ?? natural, natural)
+        let width = max(natural, minWidth)
         let column = max(0, (width - gaps) / n)
         let height = subviews.map { $0.sizeThatFits(ProposedViewSize(width: column, height: nil)).height }.max() ?? 0
         return CGSize(width: width, height: height)
@@ -154,6 +159,7 @@ struct StepperArrows: View {
         .buttonStyle(PressableStyle())
         .disabled(disabled)
         .accessibilityLabel(label)
+        .accessibilityShowsLargeContentViewer { Label(label, systemImage: symbol) }
     }
 }
 
@@ -175,6 +181,7 @@ struct ReturnButton: View {
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel(label)
+        .accessibilityShowsLargeContentViewer { Label(label, systemImage: Icon.back) }
         .accessibilityIdentifier("bar.back")
     }
 }

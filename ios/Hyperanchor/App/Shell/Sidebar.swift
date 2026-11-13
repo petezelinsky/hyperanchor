@@ -39,6 +39,8 @@ struct Sidebar: View {
         .frame(maxHeight: .infinity)
         .background(.canvas)
         .overlay(alignment: .trailing) { Rectangle().fill(.line).frame(width: 1) }
+        // The keyboard comes up over the work area; the sidebar stays whole.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Sidebar")
@@ -407,31 +409,5 @@ extension Router {
             focus = false
             open(page)
         }
-    }
-}
-
-/// Goals and Agent until they're built: what they will be, marked Soon.
-struct SoonPage: View {
-    let page: Router.Page
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                SoonTag()
-                Text(page == .goals ? "Goals, step by step." : "Nothing needs you.")
-                    .font(.system(.title, weight: .semibold))
-                    .tracking(-0.5)
-                    .foregroundStyle(.ink)
-                Text(page == .goals
-                     ? "A goal is a card with steps. Tap a step and it becomes a task. A task done ticks the step, and once a week there is a check-in."
-                     : "An AI agent that leads your life and makes it better.")
-                    .font(.callout)
-                    .foregroundStyle(.ink2)
-            }
-            .padding(24)
-            .frame(maxWidth: 560, alignment: .leading)
-            .frame(maxWidth: .infinity)
-        }
-        .background(.surface)
     }
 }
