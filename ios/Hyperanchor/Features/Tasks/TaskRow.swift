@@ -46,9 +46,7 @@ struct EditableTaskRow: View {
                 .padding(.leading, -13)
                 .padding(.trailing, -1)
                 .frame(height: firstLine)
-            words(picked: picked, editing: editing)
-                .padding(.vertical, (wide ? 13 : 14) * scale)
-                .padding(.trailing, 8)
+            words(picked: picked, editing: editing, padding: (wide ? 13 : 14) * scale)
                 .frame(maxWidth: .infinity, alignment: .leading)
             more(wide: wide)
                 .frame(height: firstLine)
@@ -83,8 +81,9 @@ struct EditableTaskRow: View {
     // MARK: Pieces
 
     /// The title, and the notes: beside it on one quiet line; in full under it once picked; fields while edited.
+    /// `padding` is the space above and below them (part of what answers a tap).
     @ViewBuilder
-    private func words(picked: Bool, editing: Bool) -> some View {
+    private func words(picked: Bool, editing: Bool, padding: CGFloat) -> some View {
         let title = Font.token(Tokens.Typography.callout)
         let notes = Font.token(Tokens.Typography.body)
         if editing {
@@ -116,39 +115,47 @@ struct EditableTaskRow: View {
                     .accessibilityLabel("Notes")
                     .accessibilityIdentifier("task.notes.field")
             }
+            .padding(.vertical, padding)
+            .padding(.trailing, 8)
         } else {
-            Group {
-                if picked {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(task.title)
-                            .font(title)
-                            .foregroundStyle(task.done ? .ink3 : .ink)
-                        if !task.notes.isEmpty {
-                            Text(task.notes)
-                                .font(notes)
-                                .foregroundStyle(.ink2)
+            // A button rather than a tap gesture: it answers at once in a row that can also be dragged.
+            Button(action: tap) {
+                Group {
+                    if picked {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(task.title)
+                                .font(title)
+                                .foregroundStyle(task.done ? .ink3 : .ink)
+                            if !task.notes.isEmpty {
+                                Text(task.notes)
+                                    .font(notes)
+                                    .foregroundStyle(.ink2)
+                            }
                         }
-                    }
-                    .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Text(task.title)
-                            .font(title)
-                            .foregroundStyle(task.done ? .ink3 : .ink)
-                            .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
-                            .layoutPriority(1)
-                        if !task.notes.isEmpty {
-                            Text(task.notes.replacing(/\s*\n\s*/, with: " · "))
-                                .font(notes)
-                                .foregroundStyle(.ink3)
-                                .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text(task.title)
+                                .font(title)
+                                .foregroundStyle(task.done ? .ink3 : .ink)
+                                .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
+                                .layoutPriority(1)
+                            if !task.notes.isEmpty {
+                                Text(task.notes.replacing(/\s*\n\s*/, with: " · "))
+                                    .font(notes)
+                                    .foregroundStyle(.ink3)
+                                    .lineLimit(1)
+                            }
                         }
                     }
                 }
+                .multilineTextAlignment(.leading)
+                .padding(.vertical, padding)
+                .padding(.trailing, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture(perform: tap)
+            .buttonStyle(RowTapStyle())
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(picked ? [.isButton, .isSelected] : .isButton)
             .accessibilityValue(task.done ? "Done" : "Open")
@@ -249,6 +256,11 @@ struct EditableTaskRow: View {
     private func save(title: String) {
         actions.store.edit(task.id, TaskPatch(title: String(title.prefix(TaskItem.titleMax))), debounce: true)
     }
+}
+
+/// A tap on a row's words: nothing changes under the finger (the row answers by being picked).
+private struct RowTapStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { configuration.label }
 }
 
 /// A row's background: the surface, or the box a picked row becomes.
