@@ -9,7 +9,7 @@ import { AutoTextarea } from "../AutoTextarea";
 import { ChevronDown, XIcon } from "../icons";
 import { reducedMotion } from "../motion";
 import { Button, IconButton, Kbd, Menu, type MenuEntry } from "../ui";
-import { canListen, Dictation, readLanguageChoice, spokenLanguage, type StopReason } from "./dictation";
+import { canListen, Dictation, spokenLanguage, type StopReason } from "./dictation";
 import { canMeter, Meter } from "./meter";
 import { Orb } from "./Orb";
 import { ParticleRing, type RingMode } from "./ParticleRing";
@@ -184,9 +184,11 @@ export function VoiceScreen({
       setProblem(null);
       try {
         const q = new URLSearchParams({ seconds: audio.seconds.toFixed(1) });
-        // A language picked in Settings is passed on; otherwise the speech model works it out (mixed ones too).
-        const picked = readLanguageChoice();
-        if (picked) q.set("lang", picked.split("-")[0].toLowerCase());
+        // No language is named: the speech model hears it, and a mix of them (Russian with English words in it) stays a
+        // mix. What it gets instead is the person's latest task titles, as the words that came before: their names,
+        // their terms, and the way they mix languages, so those come back written the same way.
+        const context = sample.slice(0, 12).join(". ").slice(0, 400);
+        if (context) q.set("context", context);
         const res = await fetch(`/api/voice/transcribe?${q}`, { method: "POST", headers: { "Content-Type": audio.blob.type || "audio/webm" }, body: audio.blob });
         if (!alive.current) return;
         if (res.status === 401) return window.location.reload(); // the session ran out: back to signing in
@@ -210,7 +212,7 @@ export function VoiceScreen({
         setProblem({ message: "You’re offline. What you said is kept: try again when you’re back.", audio });
       }
     },
-    [sort],
+    [sort, sample],
   );
 
   const recorded = useCallback(

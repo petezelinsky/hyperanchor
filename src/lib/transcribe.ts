@@ -42,13 +42,16 @@ export class TranscribeError extends Error {
 }
 
 /**
- * Writes down what is said in `audio`. `language` (ISO 639-1, "ru") when the person picked one; otherwise the model
- * works it out. `onUsage` hears what it cost as soon as the service has answered.
+ * Writes down what is said in `audio`. `language` (ISO 639-1, "ru") only to fix one; otherwise the model works it out,
+ * mixed languages too. `context`: text that came before (the person's latest task titles), so their names and terms,
+ * and the way they mix languages, are written the same way. `onUsage` hears what it cost as soon as the service has
+ * answered.
  */
 export async function transcribe(
   audio: Blob,
   filename: string,
   language: string | null,
+  context: string,
   seconds: number,
   onUsage: (spend: Spend) => void,
 ): Promise<string> {
@@ -58,6 +61,7 @@ export async function transcribe(
   form.append("model", MODEL);
   form.append("response_format", "json");
   if (language) form.append("language", language);
+  if (context) form.append("prompt", context);
 
   let res: Response;
   try {
