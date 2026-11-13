@@ -28,7 +28,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <Strong>What you say or type on the Speak screen.</Strong> While you speak, your browser records your voice; when you are done,
-            the recording is sent to our server and on to our speech-to-text provider, which turns it into text. Where that isn’t set up,
+            the recording is sent to our server and on to our speech-to-text provider, which turns it into text; the titles of your latest
+            tasks go along with it, so the names and words you use are written down right. Where that isn’t set up,
             your browser turns your speech into text itself, which may involve the browser maker’s own speech service (for example Google’s
             in Chrome or Apple’s in Safari). The text, or anything you type on that screen, is then sent to our AI provider to be sorted into
             tasks. We do not keep the recording or the text: only the tasks you choose to add are saved. The screen also reads how loud the

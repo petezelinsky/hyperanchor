@@ -37,7 +37,7 @@ The text is a raw speech transcript. It may ramble, repeat itself, lack punctuat
 
 Write one task for each separate thing the person needs to do.
 
-title: the thing to do, short and concrete, starting with a verb where that is natural ("Call the bank about the card limit"). Sentence case, no period at the end. Keep names, numbers and places exactly as said. Write it in the language the person used; if they mixed languages, use the one they mostly used.
+title: the thing to do, short and concrete, starting with a verb where that is natural ("Call the bank about the card limit"). Sentence case, no period at the end. Keep names, numbers and places exactly as said. Write it in the language the person used. If they mixed languages (Russian with English words in it, say), write in the one they mostly used, and keep each word they said in the other language as they said it, in its own script: never translate or transliterate it ("Созвон с Мартой по roadmap", not "Созвон с Мартой по дорожной карте").
 
 note: details that belong to the task but not in its title: a time of day ("In the morning", "Before 6 pm"), a condition, a reason, a person or a number to have at hand. An empty string when there are none. Never repeat the title, and never add details the person did not say.
 

@@ -176,18 +176,13 @@ export function SettingsSheet({
               <Go title="Keyboard shortcuts" onClick={() => setPage("shortcuts")} top />
             </div>
 
-            {voice && (transcribe ? canRecord() : canListen()) && (
+            {/* Heard on the server, the language needs no setting: the model hears it, and a mix of them. */}
+            {voice && !(transcribe && canRecord()) && canListen() && (
               <>
                 <Band>Voice</Band>
                 <Row
                   title="Spoken language"
-                  hint={
-                    language
-                      ? "Always listens in this language."
-                      : transcribe
-                        ? "Worked out from what you say, mixed languages too."
-                        : `Worked out from your tasks and your browser: ${guessed} right now.`
-                  }
+                  hint={language ? "Always listens in this language." : `Worked out from your tasks and your browser: ${guessed} right now.`}
                   last
                 >
                   <Pick

@@ -10,7 +10,8 @@ const failure = (code: string, status: number) => NextResponse.json({ error: cod
 
 /**
  * A recording → what was said in it: the body is the audio itself (`Content-Type: audio/webm`, `audio/mp4`, …), with
- * `?seconds=` (its length, for the allowance) and `?lang=ru` when the person picked a language. Answers
+ * `?seconds=` (its length, for the allowance), `?context=` (the person's latest task titles: their names, terms and mix
+ * of languages, for the model to write the same way) and, rarely, `?lang=ru` to fix the language. Answers
  * `{ text, left }` (`left`: tokens left today). Nothing is stored. Errors: `not_configured` (503), `limit` (429),
  * `too_long` (413), `busy` (503), `failed` (502).
  */
@@ -31,13 +32,15 @@ export async function POST(req: NextRequest) {
   const seconds = Math.min(AUDIO_MAX_SECONDS, Math.max(1, Number(q.get("seconds")) || audio.size / 6000));
   const lang = q.get("lang");
   const language = lang && /^[a-z]{2,3}$/.test(lang) ? lang : null;
+  // Plain text only, and short: it is a hint, not instructions.
+  const context = (q.get("context") ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 500);
 
   // Set aside before the call, so the day's allowance holds even when requests arrive side by side.
   const hold = await reserve(userId, hearingEstimate(seconds));
   if (!hold) return failure("limit", 429);
   const cost: { spend: Spend | null } = { spend: null };
   try {
-    const text = await transcribe(new Blob([audio], { type }), `speech.${ext}`, language, seconds, (spend) => {
+    const text = await transcribe(new Blob([audio], { type }), `speech.${ext}`, language, context, seconds, (spend) => {
       cost.spend = spend;
     });
     const spent = cost.spend ? cost.spend.input + cost.spend.output : hold.estimate;
