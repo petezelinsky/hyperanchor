@@ -22,7 +22,8 @@ struct VoiceButtonStyle: ButtonStyle {
             .font(size == .lg ? .token(Tokens.Typography.callout, weight: .medium) : .token(Tokens.Typography.footnote, weight: .medium))
             .foregroundStyle(foreground(pressed))
             .multilineTextAlignment(.center)
-            .padding(.horizontal, size == .lg ? 20 : size == .md ? 12 : 10)
+            // Stretched buttons share the row, so their padding is only a minimum (two fit side by side on an SE).
+            .padding(.horizontal, size == .lg ? (fill ? 12 : 20) : size == .md ? 12 : 10)
             .padding(.vertical, 4)
             .frame(minWidth: size == .lg && wide && variant == .primary ? 140 : nil)
             .frame(maxWidth: fill ? .infinity : nil, minHeight: height)

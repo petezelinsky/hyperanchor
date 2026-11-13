@@ -192,7 +192,8 @@ private struct SpeakScreen: View {
                         .strokeBorder(typingFocused ? Color.line2 : .line, lineWidth: 1)
                 }
                 .focused($typingFocused)
-                .disabled(model.busy)
+                // Under the window it can't take the keyboard back ("Type more" gives it back).
+                .disabled(model.busy || model.review)
                 .padding(.top, 16)
                 .accessibilityLabel("What you need to do")
                 .accessibilityIdentifier("speak.field")
