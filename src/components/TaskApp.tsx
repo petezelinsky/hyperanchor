@@ -52,7 +52,7 @@ const monthOf = (key: string) => {
   return { y: d.getFullYear(), m: d.getMonth() };
 };
 
-const VIEW_NAMES: View[] = ["day", "week", "month", "analytics", "goals", "agent"];
+const VIEW_NAMES: View[] = ["day", "week", "month", "analytics", "timeline", "goals", "agent"];
 
 /** The view and the date in the address (?view=week&date=2026-11-12). A plain address is Day, today. */
 function fromAddress(): { view: View; date: string | null } {
@@ -930,7 +930,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
       nextDisabled: stats.offset === 0,
       back: stats.offset !== 0 ? { label: `Back to this ${stats.period}`, onClick: goToday } : undefined,
     };
-  } else head = { title: view === "goals" ? "Goals" : "Agent" };
+  } else head = { title: view === "timeline" ? "Timeline" : view === "goals" ? "Goals" : "Agent" };
   const center =
     view === "analytics" ? (
       <SegmentedControl
@@ -1072,7 +1072,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
                 onPlan={() => showView(stats.period === "week" ? "week" : "month")}
               />
             )}
-            {(view === "goals" || view === "agent") && <ComingSoon page={view} />}
+            {(view === "timeline" || view === "goals" || view === "agent") && <ComingSoon page={view} />}
           </main>
         </div>
       </div>

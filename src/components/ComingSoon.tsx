@@ -5,17 +5,82 @@ import { SoonTag } from "./Sidebar";
 import { ProgressRing } from "./ui";
 
 /**
- * Pages that aren't open yet: Goals and Agent. Each says in a few lines what it will be (the words are Bodymove's, the
- * agent this app grows into) and shows it with a quiet example that can't be touched.
+ * Pages that aren't open yet: Timeline, Goals and Agent. Each says in a few lines what it will be (the words are
+ * Bodymove's, the agent this app grows into) and shows it with a quiet example that can't be touched.
  */
-export function ComingSoon({ page }: { page: "goals" | "agent" }) {
+export function ComingSoon({ page }: { page: "timeline" | "goals" | "agent" }) {
   return (
     <div className="mx-auto w-full max-w-[600px] px-5 pt-12 pb-16 md:px-8 md:pt-[min(12vh,120px)]">
-      <div className="animate-rise">
+      <div key={page} className="animate-rise">
         <SoonTag />
-        {page === "goals" ? <Goals /> : <Agent />}
+        {page === "timeline" ? <Timeline /> : page === "goals" ? <Goals /> : <Agent />}
       </div>
     </div>
+  );
+}
+
+/** Two weeks of November, Monday first: how many tasks each day held. */
+const LOAD = [4, 6, 5, 7, 3, 1, 0, 5, 8, 6, 4, 3, 2, 1];
+/** The day pointed at: Thursday, November 12. */
+const PICK = 10;
+const TOP = 8;
+const GAP = 5;
+
+function Timeline() {
+  const letters = ["M", "T", "W", "T", "F", "S", "S"];
+  return (
+    <>
+      <h2 className="mt-4 font-display text-[28px] leading-[34px] font-semibold tracking-[-0.022em] text-ink">Where the week went.</h2>
+      <p className="mt-3 max-w-[520px] text-callout text-ink-2">
+        The line of time: day, week, month, year. Bars show the load; point at one to see what was there.
+      </p>
+
+      {/* An example: two weeks as bars, one day pointed at, and what was on it. */}
+      <figure aria-label="Example: two weeks of November, with Thursday, November 12 pointed at" className="mt-9 rounded-lg bg-surface shadow-[0_0_0_1px_var(--line-2),0_1px_2px_rgb(0_0_0/0.04)]">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+          <div className="min-w-0">
+            <div className="text-callout font-semibold text-ink">Thu, Nov 12</div>
+            <div className="mt-0.5 text-footnote text-ink-3">3 of 4 done</div>
+          </div>
+          <span aria-hidden="true" className="flex flex-none items-center rounded-[8px] bg-surface-2 p-0.5 text-caption font-medium text-ink-3 shadow-ring-line">
+            {["Day", "Week", "Month", "Year"].map((s) => (
+              <span key={s} className={`rounded-[6px] px-2 py-[3px] ${s === "Day" ? "bg-surface text-ink shadow-[0_0_0_1px_var(--line-2)]" : ""}`}>
+                {s}
+              </span>
+            ))}
+          </span>
+        </div>
+        <div aria-hidden="true" className="px-5 pt-6 pb-3">
+          <div className="relative h-[76px]">
+            <div className="grid h-full grid-cols-14 items-end" style={{ gap: GAP }}>
+              {LOAD.map((v, i) => (
+                <span key={i} className={`rounded-[3px] ${i === PICK ? "bg-ink" : "bg-line-2"}`} style={{ height: `${Math.max(5, (v / TOP) * 100)}%` }} />
+              ))}
+            </div>
+            {/* The finger: a hairline from the top down to the day it points at. */}
+            <span
+              className="absolute top-0 w-px -translate-x-1/2 bg-ink"
+              style={{ left: `calc((100% - ${13 * GAP}px) / 14 * ${PICK + 0.5} + ${PICK * GAP}px)`, height: `calc(${(1 - LOAD[PICK] / TOP) * 100}% - 4px)` }}
+            >
+              <span className="absolute -top-[3px] left-1/2 size-[7px] -translate-x-1/2 rounded-full bg-ink" />
+            </span>
+          </div>
+          <div className="mt-2 grid grid-cols-14 text-center text-caption-2" style={{ gap: GAP }}>
+            {LOAD.map((_, i) => (
+              <span key={i} className={i === PICK ? "font-semibold text-ink" : "text-ink-3"}>
+                {letters[i % 7]}
+              </span>
+            ))}
+          </div>
+        </div>
+        <ol className="border-t border-line px-5 py-2">
+          <Step state="done" title="Call the bank about the card limit" />
+          <Step state="done" title="Review Jonas’s pull request" />
+          <Step state="done" title="Gym" />
+          <Step state="todo" title="Book the dentist" />
+        </ol>
+      </figure>
+    </>
   );
 }
 

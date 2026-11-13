@@ -1,6 +1,9 @@
-// Line icons on a 16px grid, one family: every icon is drawn with the same hairline, 1.25px on screen whatever its
-// size (the stroke doesn't scale with the icon; see `svg[data-icon]` in globals.css), with round caps and joins.
-// Decorative: hidden from assistive tech.
+// Line icons on a 16px grid, one family: every icon is drawn with the same hairline, 1.1px on screen whatever its size
+// (the stroke doesn't scale with the icon; see `svg[data-icon]` in globals.css), with round caps and joins, and built
+// from a few plain shapes with soft corners. Decorative: hidden from assistive tech.
+
+/** The one line weight of the family, in px on screen. */
+export const ICON_STROKE = 1.1;
 
 type IconProps = { size?: number; className?: string };
 
@@ -13,7 +16,7 @@ function Svg({ size = 16, className, children }: IconProps & { children: React.R
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.25}
+      strokeWidth={ICON_STROKE}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -219,19 +222,26 @@ export const FocusIcon = (p: IconProps) => (
   </Svg>
 );
 
-/** Goals: a flag on its pole. */
+/** Goals: a milestone, the diamond a plan marks its goals with, its corners softened like the family's frames. */
 export const GoalIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M3.75 14V2.5" />
-    <path d="M3.75 3h8.4l-2 2.75 2 2.75h-8.4" />
+    <path d="M8.85 3.05 12.95 7.15a1.2 1.2 0 0 1 0 1.7l-4.1 4.1a1.2 1.2 0 0 1-1.7 0l-4.1-4.1a1.2 1.2 0 0 1 0-1.7l4.1-4.1a1.2 1.2 0 0 1 1.7 0Z" />
   </Svg>
 );
 
-/** The agent (and anything the AI does): a four-pointed spark, with a small one beside it. */
+/** Timeline: three spans of time, one after another, as on a plan laid out along the days. */
+export const TimelineIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2" y="2.5" width="7" height="2.5" rx="1.25" />
+    <rect x="5" y="6.75" width="9" height="2.5" rx="1.25" />
+    <rect x="3.5" y="11" width="6" height="2.5" rx="1.25" />
+  </Svg>
+);
+
+/** The agent, and anything the AI does: one four-pointed spark with slender points. */
 export const SparkIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M7 2.5c.35 2.6 1.15 3.4 3.75 3.75C8.15 6.6 7.35 7.4 7 10c-.35-2.6-1.15-3.4-3.75-3.75C5.85 5.9 6.65 5.1 7 2.5Z" />
-    <path d="M11.75 9.75c.2 1.3.6 1.7 1.9 1.9-1.3.2-1.7.6-1.9 1.9-.2-1.3-.6-1.7-1.9-1.9 1.3-.2 1.7-.6 1.9-1.9Z" />
+    <path d="M8 2.25C8.3 6.3 9.7 7.7 13.75 8 9.7 8.3 8.3 9.7 8 13.75 7.7 9.7 6.3 8.3 2.25 8 6.3 7.7 7.7 6.3 8 2.25Z" />
   </Svg>
 );
 export const AgentIcon = SparkIcon;
