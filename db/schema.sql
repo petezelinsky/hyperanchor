@@ -31,6 +31,10 @@ create table if not exists users (
 
 alter table users enable row level security;
 
+-- An account's own daily AI allowance in tokens, in place of everyone's (AI_DAILY_TOKENS, 10,000 by default); null: the
+-- usual one. Set by hand: update users set ai_daily_tokens = 1000000 where email = '…';
+alter table users add column if not exists ai_daily_tokens integer;
+
 -- Turning text into tasks (voice): how many requests each person made on a day (UTC), and how much text. The daily
 -- allowance is counted here; the words themselves are never stored.
 create table if not exists ai_usage (
