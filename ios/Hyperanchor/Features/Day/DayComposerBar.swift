@@ -38,6 +38,8 @@ struct DayComposerBar: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 8)
+        // Toasts float just above the bar, not over it.
+        .toastInset(height + 16 + 8)
     }
 
     private var field: some View {

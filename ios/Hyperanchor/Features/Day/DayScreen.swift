@@ -21,7 +21,8 @@ struct DayScreen: View {
     /// The week and the earlier days have been asked for (the welcome waits for both, so it never flashes).
     @State private var weekLoaded = false
     @State private var earlierLoaded = false
-    @State private var speaks = SpeakOffer.known ?? false
+    /// Speak is offered only where the server can sort speech into tasks (the app's one figure for the AI).
+    private var speaks: Bool { AIOffer.shared.offered }
     @State private var width: CGFloat = 0
     /// iPhone: what's being written in the bar at the bottom.
     @State private var draft = ""
@@ -269,12 +270,9 @@ struct DayScreen: View {
         user.name.split(separator: " ").first.map(String.init) ?? "there"
     }
 
-    /// Speak is offered only where the server can sort speech into tasks.
+    /// Asks the server what it offers, unless it said so a moment ago.
     private func askSpeak() async {
-        if SpeakOffer.known == nil, let usage = try? await model.session.backend.usage() {
-            SpeakOffer.known = usage.features?.voice != false
-        }
-        speaks = SpeakOffer.known ?? false
+        await AIOffer.shared.refreshIfStale(model.session.backend)
     }
 }
 
@@ -288,11 +286,6 @@ private struct TaskDrag: ViewModifier {
     }
 }
 
-/// Whether the server offers speaking tasks (`Usage.features.voice`): asked once, then known while the app runs.
-@MainActor
-private enum SpeakOffer {
-    static var known: Bool?
-}
 
 /// One row of the day's list.
 struct DayEntry: Identifiable {
