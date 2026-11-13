@@ -27,7 +27,7 @@ export function ComingSoon({ page }: { page: Soon }) {
           {p.title}
           <SoonTag />
         </h2>
-        <p className="mt-1.5 text-body text-ink-3">{p.line}</p>
+        <p className="mt-1.5 text-body text-balance text-ink-3">{p.line}</p>
       </div>
     </div>
   );
