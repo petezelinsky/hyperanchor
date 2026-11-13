@@ -131,7 +131,7 @@ extension URL: @retroactive Identifiable {
     public var id: String { absoluteString }
 }
 
-/// The toast (TaskApp.tsx `ToastView`): ink, with the page's color for its words, one at a time. It rises in; a new one
+/// The toast (TaskApp.tsx `ToastView`), one at a time (ink, or Liquid Glass on iOS 26). It rises in; a new one
 /// takes the last one's place at once; one that times out, is acted on or swiped away leaves in 110 ms. Even padding
 /// when it has no button; the words wrap to a second line instead of being cut off. Reduce Motion: fades only.
 struct ToastOverlay: View {
@@ -177,21 +177,65 @@ struct ToastOverlay: View {
     }
 }
 
+/// The web's look: ink, with the page's color for its words. On iOS 26 (unless Reduce Transparency is on) a Liquid Glass
+/// capsule instead, its button glass too.
 private struct ToastCard: View {
     let toast: Toaster.Toast
     let textWidth: CGFloat
     let act: () -> Void
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
+        Group {
+            if #available(iOS 26, *) {
+                if reduceTransparency { solid } else { glass }
+            } else {
+                solid
+            }
+        }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("toast")
+    }
+
+    private var message: some View {
+        Text(toast.message)
+            .font(.token(Tokens.Typography.footnote))
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: textWidth, alignment: .leading)
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    @available(iOS 26, *)
+    private var glass: some View {
+        GlassEffectContainer {
+            HStack(spacing: 10) {
+                message.foregroundStyle(.ink)
+                if let label = toast.actionLabel {
+                    Button(action: act) {
+                        Text(label)
+                            .font(.token(Tokens.Typography.footnote, weight: .semibold))
+                            .foregroundStyle(.ink)
+                    }
+                    .buttonStyle(.glass)
+                    .tint(.ink)
+                    .contentShape(Rectangle().inset(by: -6))
+                    .accessibilityIdentifier("toast.action")
+                }
+            }
+            .padding(.leading, 18)
+            .padding(.trailing, toast.actionLabel == nil ? 18 : 6)
+            .padding(.vertical, 6)
+            .frame(minHeight: 44)
+            .glassEffect(.regular, in: .capsule)
+        }
+    }
+
+    private var solid: some View {
         let shape = RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous)
-        HStack(spacing: 12) {
-            Text(toast.message)
-                .font(.token(Tokens.Typography.footnote))
-                .foregroundStyle(.surface)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: textWidth, alignment: .leading)
-                .fixedSize(horizontal: true, vertical: false)
+        return HStack(spacing: 12) {
+            message.foregroundStyle(.surface)
             if let label = toast.actionLabel {
                 Button(label, action: act)
                     .font(.token(Tokens.Typography.footnote, weight: .semibold))
@@ -210,9 +254,6 @@ private struct ToastCard: View {
         .frame(minHeight: 40)
         .background(.ink, in: shape)
         .elevation(Tokens.Shadow.float, in: shape)
-        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("toast")
     }
 }
 

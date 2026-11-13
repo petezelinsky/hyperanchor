@@ -15,6 +15,7 @@ struct MainView: View {
     @Environment(\.palette) private var palette
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var sync = SyncState()
     /// iPhone: how far the page has scrolled; the bar's second row goes up with it.
     @State private var scrolled: CGFloat = 0
@@ -32,22 +33,30 @@ struct MainView: View {
             VStack(spacing: 0) {
                 if wide {
                     AppBar()
-                } else {
-                    PhoneTopBar(user: user, scrolled: scrolled > 4)
-                        .zIndex(1)
                 }
+                // iPhone: both rows sit on the page, so it scrolls on under them. The second slides up under the first;
+                // where the first turns to glass (iOS 26), the second fades as it goes, so only the page shows through.
+                let slide = min(max(scrolled, 0), dateBarHeight)
+                let glass = PhoneTopBar.usesGlass(reduceTransparency: reduceTransparency)
                 PageContent(user: user)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .safeAreaInset(edge: .top, spacing: 0) {
                         if !wide {
                             PhoneDateBar()
                                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { dateBarHeight = $0 }
-                                .offset(y: -min(max(scrolled, 0), dateBarHeight))
+                                .offset(y: -slide)
+                                .opacity(glass ? 1 - slide / max(dateBarHeight, 1) : 1)
+                        }
+                    }
+                    .safeAreaInset(edge: .top, spacing: 0) {
+                        if !wide {
+                            PhoneTopBar(user: user, scrolled: scrolled > 4)
                         }
                     }
                     .modifier(ScrollTracker(offset: $scrolled, enabled: !wide))
             }
-            .toastHost(bottom: wide ? 24 : 20)
+            // iPhone's Day keeps New task and Speak in a bar at the bottom: toasts float above it.
+            .toastHost(bottom: wide ? 24 : 20, lift: !wide && router.tab == .day ? 64 : 0)
         }
         .background(.surface)
         .tint(palette.accent)
@@ -161,9 +170,27 @@ private struct DayPickerSheet: View {
 }
 
 extension View {
-    /// Toasts show above the bottom edge of the area this is applied to (20 pt on iPhone, 24 on iPad, as on the web).
-    func toastHost(bottom: CGFloat = 20) -> some View {
-        overlay(alignment: .bottom) { ToastOverlay(bottom: bottom) }
+    /// Toasts show above the bottom edge of the area this is applied to (20 pt on iPhone, 24 on iPad, as on the web),
+    /// lifted above a bar the page keeps at the bottom: by what the page says with `toastInset(_:)`, else by `lift`.
+    func toastHost(bottom: CGFloat = 20, lift: CGFloat = 0) -> some View {
+        overlayPreferenceValue(ToastInsetKey.self) { inset in
+            ToastOverlay(bottom: bottom + (inset ?? lift))
+        }
+    }
+
+    /// A page with a bar of its own at the bottom (iPhone's Day: New task and Speak) gives its height here, and toasts
+    /// float that much higher.
+    func toastInset(_ height: CGFloat) -> some View {
+        preference(key: ToastInsetKey.self, value: height)
+    }
+}
+
+/// How high a page's own bottom bar is (nil: it has none).
+struct ToastInsetKey: PreferenceKey {
+    static let defaultValue: CGFloat? = nil
+
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) {
+        if let next = nextValue() { value = max(value ?? 0, next) }
     }
 }
 
