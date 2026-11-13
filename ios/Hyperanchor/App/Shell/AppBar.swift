@@ -4,15 +4,20 @@ import SwiftUI
 /// On the left, what's on screen: the arrows, then its name and date (the arrows come first, so they stay put however
 /// long the date is), and the way back to the present once away from it. In the middle, the switch (Day / Week / Month,
 /// or Progress's periods). On the right, the day's count beside Focus. With the sidebar hidden, the button that brings
-/// it back is the only thing before the arrows, and saving's status moves to the right.
+/// it back is the only thing before the arrows, and saving's status moves to the right. Short of room (in portrait beside
+/// the sidebar, a narrow window) the switch narrows and moves beside the page's actions and Focus shows just its sign,
+/// so the date keeps at least its short form. The bar stops growing at the larger text sizes (a long press enlarges a
+/// control, as in iOS's own bars).
 struct AppBar: View {
     @Environment(Router.self) private var router
     @Environment(TodayClock.self) private var clock
     @Environment(Preferences.self) private var prefs
+    @State private var width: CGFloat = 1000
 
     var body: some View {
         let bar = BarModel(router: router, today: clock.today)
-        HStack(spacing: 16) {
+        let tight = width < 800
+        HStack(spacing: tight ? 12 : 16) {
             HStack(spacing: 8) {
                 if prefs.sidebarHidden {
                     SidebarButton(hide: false)
@@ -21,24 +26,31 @@ struct AppBar: View {
                 BarLeading(bar: bar, wide: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            BarSwitch()
-            HStack(spacing: 12) {
-                if prefs.sidebarHidden { SyncStatus() }
-                BarActions(wide: true)
+            if tight {
+                if prefs.sidebarHidden { SyncStatus(short: true) }
+                BarSwitch(compact: true)
+                BarActions(wide: false)
+            } else {
+                BarSwitch()
+                HStack(spacing: 12) {
+                    if prefs.sidebarHidden { SyncStatus() }
+                    BarActions(wide: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 56)
         .background(.surface)
         .hairline(.bottom)
-        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .dynamicTypeSize(...DynamicTypeSize.xLarge)
     }
 }
 
 /// iPhone, the first row: the app's name, the switch and the account. It stays on top while the page scrolls and draws
-/// its edge only once something is under it. Where the row is short of room (large text), the switch narrows, then the
-/// name steps aside.
+/// its edge only once something is under it. It keeps its size at every text size, like iOS's own bars (a long press
+/// enlarges a control); where it is still short of room, the switch narrows, then the name steps aside — nothing is cut.
 struct PhoneTopBar: View {
     let user: AppUser
     /// Something has scrolled under the row.
@@ -60,7 +72,7 @@ struct PhoneTopBar: View {
             Rectangle().fill(.line).frame(height: 1).opacity(scrolled ? 1 : 0)
         }
         .animation(.easeOut(duration: Tokens.Motion.fast), value: scrolled)
-        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+        .dynamicTypeSize(...DynamicTypeSize.large)
     }
 
     private func row(name: Bool, compact: Bool) -> some View {
@@ -93,7 +105,7 @@ struct PhoneDateBar: View {
         .frame(minHeight: 48)
         .background(.surface)
         .hairline(.bottom)
-        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+        .dynamicTypeSize(...DynamicTypeSize.xLarge)
     }
 }
 
@@ -153,10 +165,13 @@ struct BarTitle: View {
             .buttonStyle(PressableStyle())
             .accessibilityLabel(spoken)
             .accessibilityHint("Pick a day")
+            .accessibilityShowsLargeContentViewer { Text(spoken) }
             .accessibilityIdentifier("bar.title")
             .popover(isPresented: Binding(get: { wide && router.showDayPicker }, set: { router.showDayPicker = $0 }), arrowEdge: .top) {
                 DayPicker(large: false)
+                    .padding(12)
                     .frame(width: 284)
+                    .presentationBackground(.elevated)
                     .presentationCompactAdaptation(.popover)
             }
         } else {
@@ -177,10 +192,13 @@ struct BarTitle: View {
                 .lineLimit(1)
                 .fixedSize()
             if let soft = head.soft {
+                // In full where it fits, else short, else as much of the short one as fits ("Sat, …"); the name alone
+                // only when there's no room for even that.
                 ViewThatFits(in: .horizontal) {
                     if wide { date(soft) }
                     date(head.softShort ?? soft)
-                    date(head.softShort ?? soft).truncationMode(.tail).frame(minWidth: 0)
+                    date(head.softShort ?? soft).frame(minWidth: 36, idealWidth: 36, maxWidth: .infinity, alignment: .leading)
+                    Color.clear.frame(width: 0, height: 0)
                 }
             }
         }
@@ -271,6 +289,7 @@ struct FocusButton: View {
         .disabled(!hasOpen)
         .accessibilityLabel("Focus")
         .accessibilityHint("One task at a time")
+        .accessibilityShowsLargeContentViewer { Label("Focus", systemImage: Icon.focus) }
         .accessibilityIdentifier("focus")
     }
 }
@@ -295,6 +314,7 @@ struct AccountButton: View {
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel("\(user.name): account")
+        .accessibilityShowsLargeContentViewer { Label(user.name, systemImage: "person.crop.circle") }
         .accessibilityIdentifier("account")
         .popover(isPresented: $router.showAccount, arrowEdge: .top) {
             AccountPanel(user: user, phone: true)
@@ -322,6 +342,7 @@ struct SidebarButton: View {
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel(hide ? "Hide sidebar" : "Show sidebar")
+        .accessibilityShowsLargeContentViewer { Label(hide ? "Hide sidebar" : "Show sidebar", systemImage: Icon.sidebar) }
         .accessibilityIdentifier(hide ? "sidebar.hide" : "sidebar.show")
     }
 }

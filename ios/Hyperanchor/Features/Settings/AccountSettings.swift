@@ -9,6 +9,7 @@ struct AccountSettings: View {
     @Environment(Router.self) private var router
     @Environment(\.settingsMargin) private var margin
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var asking = false
     @State private var deleting = false
     @State private var failed = false
@@ -19,7 +20,7 @@ struct AccountSettings: View {
             VStack(alignment: .leading, spacing: 0) {
                 Color.clear.frame(height: 6)
                 SettingsRow(title: "Name") { value(user.name) }
-                SettingsRow(title: "Email", last: provider == nil) { value(user.email) }
+                SettingsRow(title: "Email", last: provider == nil) { value(user.email, address: true) }
                 if let provider {
                     SettingsRow(title: "Signed in with", last: true) { value(provider) }
                 }
@@ -48,11 +49,14 @@ struct AccountSettings: View {
         }
     }
 
-    private func value(_ text: String) -> some View {
+    /// Beside the title, one line cut in the middle. At accessibility sizes, under it, a name wraps and an address
+    /// shrinks rather than break (a hyphen in an address would read as part of it).
+    private func value(_ text: String, address: Bool = false) -> some View {
         Text(text)
             .font(.token(Tokens.Typography.body))
             .foregroundStyle(.ink3)
-            .lineLimit(1)
+            .lineLimit(typeSize.isAccessibilitySize && !address ? 3 : 1)
+            .minimumScaleFactor(typeSize.isAccessibilitySize && address ? 0.5 : 1)
             .truncationMode(.middle)
     }
 

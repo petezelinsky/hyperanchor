@@ -90,22 +90,27 @@ struct SettingsGoRow<Lead: View>: View {
     var last = false
     @ViewBuilder let lead: Lead
     @Environment(\.settingsMargin) private var margin
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         HStack(spacing: 16) {
             HStack(spacing: 12) {
                 lead
+                // One line each, cut in the middle. At accessibility sizes the name wraps, and the hint (an address)
+                // shrinks rather than break.
                 VStack(alignment: .leading, spacing: 0) {
                     Text(title)
                         .font(.token(Tokens.Typography.body, weight: .medium))
                         .foregroundStyle(.ink)
+                        .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
                     if let hint {
                         Text(hint)
                             .font(.token(Tokens.Typography.caption))
                             .foregroundStyle(.ink3)
+                            .lineLimit(1)
+                            .minimumScaleFactor(typeSize.isAccessibilitySize ? 0.5 : 1)
                     }
                 }
-                .lineLimit(1)
                 .truncationMode(.middle)
             }
             Spacer(minLength: 0)
@@ -145,6 +150,7 @@ struct SettingsPick<Value: Hashable>: View {
     var value: String?
     /// A divider after the first option (the language list: Automatic, then the languages).
     var dividerAfterFirst = false
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         Menu {
@@ -174,7 +180,9 @@ struct SettingsPick<Value: Hashable>: View {
             .foregroundStyle(.ink)
             .padding(.leading, 12)
             .padding(.trailing, 10)
-            .frame(width: 176)
+            // 176 points beside the row's title; at accessibility sizes, under it, the row's whole width.
+            .frame(width: typeSize.isAccessibilitySize ? nil : 176)
+            .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : nil)
             .frame(minHeight: 32)
             .background(.surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous).strokeBorder(.line2, lineWidth: 1))
