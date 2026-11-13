@@ -44,6 +44,8 @@ struct BarChart: View {
                 HStack(alignment: .top, spacing: gap) {
                     ForEach(bars) { label($0, dense: dense) }
                 }
+                // The axis keeps its geometry: its labels grow up to a point (VoiceOver reads each column whole).
+                .dynamicTypeSize(...DynamicTypeSize.xxLarge)
                 .accessibilityHidden(true)
             }
         }
@@ -69,6 +71,7 @@ struct BarChart: View {
             }
         }
         .frame(width: 24, height: height, alignment: .topTrailing)
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .accessibilityHidden(true)
     }
 
@@ -97,6 +100,7 @@ struct BarChart: View {
                 .background(.surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.xs, style: .continuous))
                 .elevation(Tokens.Shadow.lift, cornerRadius: Tokens.Radius.xs)
                 .fixedSize()
+                .dynamicTypeSize(...DynamicTypeSize.xxLarge)
                 .offset(y: -4)
         }
         .frame(maxHeight: .infinity, alignment: .bottom)

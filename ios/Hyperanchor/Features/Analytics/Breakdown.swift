@@ -116,36 +116,59 @@ struct OpenCard: View {
 
     private func row(_ item: Stats.OpenTask, last: Bool) -> some View {
         let title = item.task.title
-        return HStack(spacing: 12) {
-            Button { tick(item) } label: {
-                CheckCircle(checked: ticked.contains(item.id), size: 18)
+        let check = Button { tick(item) } label: {
+            CheckCircle(checked: ticked.contains(item.id), size: 18)
+        }
+        .buttonStyle(.plain)
+        .modifier(WideHitArea())
+        .accessibilityLabel("Mark “\(title)” as done")
+        let name = Text(title)
+            .type(Tokens.Typography.body)
+            .foregroundStyle(.ink)
+        let date = Text(Dates.short(item.day.key))
+            .type(Tokens.Typography.caption)
+            .foregroundStyle(.ink3)
+            .monospacedDigit()
+            .fixedSize()
+        let move = Button { moveToToday(item) } label: {
+            HStack(spacing: 4) {
+                Text("Today")
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .accessibilityHidden(true)
             }
-            .buttonStyle(.plain)
-            .modifier(WideHitArea())
-            .accessibilityLabel("Mark “\(title)” as done")
-            Text(title)
-                .type(Tokens.Typography.body)
-                .foregroundStyle(.ink)
-                .lineLimit(typeSize.isAccessibilitySize ? 3 : 1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Text(Dates.short(item.day.key))
-                .type(Tokens.Typography.caption)
-                .foregroundStyle(.ink3)
-                .monospacedDigit()
-                .fixedSize()
-            Button { moveToToday(item) } label: {
-                HStack(spacing: 4) {
-                    Text("Today")
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .accessibilityHidden(true)
+            .type(Tokens.Typography.footnote, weight: .medium)
+            .foregroundStyle(.ink)
+            .fixedSize()
+        }
+        .buttonStyle(TodayButtonStyle())
+        .modifier(WideHitArea(horizontal: 4, vertical: 8))
+        .accessibilityLabel("Move “\(title)” to today")
+
+        return Group {
+            if typeSize.isAccessibilitySize {
+                // Large text: the title gets the whole line, its day and Today go under it.
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    check
+                    VStack(alignment: .leading, spacing: 4) {
+                        name.fixedSize(horizontal: false, vertical: true)
+                        HStack {
+                            date
+                            Spacer(minLength: 8)
+                            move
+                        }
+                    }
                 }
-                .type(Tokens.Typography.footnote, weight: .medium)
-                .foregroundStyle(.ink)
+            } else {
+                HStack(spacing: 12) {
+                    check
+                    name
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    date
+                    move
+                }
             }
-            .buttonStyle(TodayButtonStyle())
-            .modifier(WideHitArea(horizontal: 4, vertical: 8))
-            .accessibilityLabel("Move “\(title)” to today")
         }
         .padding(.vertical, 8)
         .frame(minHeight: 44)
@@ -343,6 +366,7 @@ struct HistoryCard: View {
     let pick: (Stats.Target) -> Void
 
     @Environment(\.progressLayout) private var layout
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var sort: Stats.HistorySort = .date
     @State private var ascending = false
     @State private var all = false
@@ -444,7 +468,7 @@ struct HistoryCard: View {
                     .fontWeight(.medium)
                     .foregroundStyle(.ink)
                     .underline(hovered == r.id, color: .ink4)
-                    .lineLimit(1),
+                    .lineLimit(typeSize.isAccessibilitySize ? 2 : 1),
                 Text("\(r.done)").foregroundStyle(.ink),
                 Text("\(r.planned)").foregroundStyle(.ink2),
                 Text(r.rate.map(Stats.pct) ?? "—")
