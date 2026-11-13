@@ -11,6 +11,7 @@ struct AnalyticsScreen: View {
     @Environment(Router.self) private var router
     @Environment(TodayClock.self) private var clock
     @Environment(AppModel.self) private var model
+    @Environment(Preferences.self) private var prefs
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var lens = LensDriver()
@@ -24,7 +25,9 @@ struct AnalyticsScreen: View {
         let period = router.period
         let offset = router.periodOffset
         let report = Stats.Report(period: period, offset: offset, today: today, firstDay: store.firstDay, byDate: store.progressTasks(on:))
-        let layout = ProgressLayout(width: viewport.width, compact: sizeClass == .compact, typeSize: typeSize)
+        // The iPad's sidebar is beside the page as it is on the web (MainView shows it in regular width).
+        let sidebar: CGFloat = sizeClass == .regular && !prefs.sidebarHidden ? 248 : 0
+        let layout = ProgressLayout(width: viewport.width, beside: sidebar, typeSize: typeSize)
 
         ScrollView {
             Group {
@@ -35,7 +38,7 @@ struct AnalyticsScreen: View {
                 }
             }
             .padding(.horizontal, layout.margin)
-            .padding(.top, layout.phone ? 12 : 24)
+            .padding(.top, layout.top)
             .padding(.bottom, 40)
             .frame(maxWidth: 1480)
             .frame(maxWidth: .infinity)

@@ -1,20 +1,21 @@
 import SwiftUI
 
-/// How Progress lays itself out for the room it has (the web's breakpoints, measured on the page itself rather than
-/// the window, so the iPad sidebar is taken into account).
+/// How Progress lays itself out for the room it has: the web's breakpoints (`sm` 640, `md` 768, `lg` 1024, `xl` 1280),
+/// which measure the window, so the iPad sidebar beside the page counts as it does on the web.
 struct ProgressLayout: Equatable {
-    /// Panels side by side on the twelve-column grid (the web's `lg`).
+    /// Panels side by side on the twelve-column grid (`lg`).
     var wide = false
-    /// The four figures in one row (the web's `xl`).
+    /// The four figures in one row (`xl`).
     var figuresInOneRow = false
-    /// History shows Planned and Tasks too (hidden on phones, as on the web; on iPad whenever they fit).
+    /// History shows Planned and Tasks too (hidden below `sm`, as on phones).
     var fullTable = false
-    /// A phone's width: figure labels keep two lines, so numbers side by side line up.
+    /// Below `sm`: figure labels keep two lines so numbers side by side line up, Summarize takes the whole width.
     var phone = true
     /// Large text: the figures stack.
     var accessibilityText = false
     /// Around the panels, and between them.
     var margin: CGFloat = 12
+    var top: CGFloat = 12
     var gap: CGFloat = 12
     /// Inside a panel, and inside a figure.
     var padding: CGFloat = 20
@@ -22,16 +23,20 @@ struct ProgressLayout: Equatable {
 
     init() {}
 
-    init(width: CGFloat, compact: Bool, typeSize: DynamicTypeSize) {
-        wide = width >= 760
-        figuresInOneRow = width >= 1032
-        fullTable = width >= 520
+    /// `width`: the page's; `beside`: what else shares the window with it (the sidebar).
+    init(width: CGFloat, beside: CGFloat, typeSize: DynamicTypeSize) {
+        let window = width + beside
+        let md = window >= 768
+        wide = window >= 1024
+        figuresInOneRow = window >= 1280
+        fullTable = window >= 640
+        phone = window < 640
         accessibilityText = typeSize.isAccessibilitySize
-        phone = compact && width < 600
-        margin = phone ? 12 : wide ? 32 : 24
-        gap = phone ? 12 : 16
-        padding = phone ? 20 : 24
-        figurePadding = phone ? 16 : 20
+        margin = wide ? 32 : md ? 24 : 12
+        top = md ? 24 : 12
+        gap = md ? 16 : 12
+        padding = md ? 24 : 20
+        figurePadding = md ? 20 : 16
     }
 }
 
@@ -207,6 +212,7 @@ struct DeltaLabel: View {
                 .type(Tokens.Typography.caption, weight: .semibold)
                 .monospacedDigit()
                 .foregroundStyle(tone)
+                .fixedSize()
             Text(delta.vs)
                 .type(Tokens.Typography.caption)
                 .foregroundStyle(.ink3)
