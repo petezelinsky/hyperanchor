@@ -379,29 +379,6 @@ struct DayPicker: View {
     }
 }
 
-/// What the server offers of the AI (speaking tasks, the summary) and how many of today's tokens are left, as
-/// `GET /api/usage` last said: asked when the app opens and each time the account panel opens.
-@MainActor
-@Observable
-final class AIOffer {
-    static let shared = AIOffer()
-    private(set) var usage: Usage?
-
-    /// Speaking tasks; nil until the server has answered (servers that don't say offer everything).
-    var voice: Bool? { usage.map { $0.features?.voice ?? true } }
-    /// Speech written down on the server (any language, worked out from the voice).
-    var transcribe: Bool? { usage.map { $0.features?.transcribe ?? true } }
-
-    func refresh(_ backend: Backend) async {
-        if let usage = try? await backend.usage() { self.usage = usage }
-    }
-
-    /// Signed out: the next account has its own allowance.
-    func reset() {
-        usage = nil
-    }
-}
-
 extension Router {
     /// A page from the sidebar or the account panel.
     func go(to page: Page, today: DayKey) {

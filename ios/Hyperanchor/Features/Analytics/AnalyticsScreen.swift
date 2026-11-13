@@ -17,8 +17,8 @@ struct AnalyticsScreen: View {
     @State private var lens = LensDriver()
     @State private var viewport: CGSize = .zero
     /// Today's AI allowance and whether the server offers the summary (nil until it answers).
-    @State private var usage: Usage?
-    @State private var left: Int?
+    /// The AI on offer and today's tokens left: one figure for the whole app.
+    private let offer = AIOffer.shared
 
     var body: some View {
         let today = clock.today
@@ -63,12 +63,12 @@ struct AnalyticsScreen: View {
     @ViewBuilder
     private func panels(_ r: Stats.Report, layout: ProgressLayout) -> some View {
         VStack(spacing: layout.gap) {
-            if usage?.features?.summary ?? true {
+            if offer.summary ?? true {
                 SummaryPanel(
                     input: r.summaryInput,
                     key: SummaryArchive.key(account: model.session.accountID ?? user.email, period: r.period, start: r.bounds.start),
                     noun: r.period.rawValue,
-                    left: $left,
+                    left: Binding(get: { offer.left }, set: { if let tokens = $0 { offer.left(tokens) } }),
                     lens: lens
                 )
             }
@@ -146,9 +146,7 @@ struct AnalyticsScreen: View {
     }
 
     private func loadUsage() async {
-        guard let answer = try? await model.session.backend.usage() else { return }
-        usage = answer
-        left = answer.today.left
+        await offer.refresh(model.session.backend)
     }
 }
 

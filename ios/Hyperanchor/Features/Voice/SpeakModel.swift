@@ -134,7 +134,7 @@ final class SpeakModel {
         self.context = context
         language = SpokenLanguage.picked(context.language).map(SpokenLanguage.withRegion)
             ?? SpokenLanguage.guess(sample: context.sample, preferred: Locale.preferredLanguages)
-        let offer = VoiceOffer.shared
+        let offer = AIOffer.shared
         if let known = offer.usage {
             begin(known)
             Task {
@@ -318,7 +318,7 @@ final class SpeakModel {
             let answer = try await context.backend.transcribe(
                 audio: audio.data, mimeType: Recording.mimeType, seconds: audio.seconds, language: SpokenLanguage.picked(context.language))
             guard alive else { return }
-            VoiceOffer.shared.left(answer.left)
+            AIOffer.shared.left(answer.left)
             let words = answer.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !words.isEmpty else {
                 phase = .idle
@@ -357,7 +357,7 @@ final class SpeakModel {
         do {
             let answer = try await context.backend.parseTasks(text: clean, today: context.today(), weekStart: context.weekStart())
             guard alive else { return }
-            VoiceOffer.shared.left(answer.left)
+            AIOffer.shared.left(answer.left)
             said = ""
             text = ""
             if answer.tasks.isEmpty {

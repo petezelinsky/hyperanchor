@@ -130,6 +130,8 @@ final class AppModel {
         clock.refresh()
         guard let store else { return }
         Task { await store.refresh() }
+        // Today's AI allowance may have changed elsewhere (the web, another day): the figure is asked for again.
+        Task { await AIOffer.shared.refreshIfStale(session.backend, after: 30) }
     }
 
     func movedToBackground() {
