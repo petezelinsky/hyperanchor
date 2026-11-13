@@ -7,30 +7,31 @@ import type { AppUser, Task, Usage } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
 import { useDrag } from "./drag";
-import { AgentIcon, ChartIcon, ChevronLeft, ChevronRight, EllipsisVerticalIcon, GoalIcon, HomeIcon, KeyboardIcon, SidebarIcon, SignOutIcon, SlidersIcon } from "./icons";
+import { AgentIcon, ChartIcon, ChevronLeft, ChevronRight, EllipsisVerticalIcon, GoalIcon, HomeIcon, KeyboardIcon, SidebarIcon, SignOutIcon, SlidersIcon, TimelineIcon } from "./icons";
 import { SyncStatus, type Sync } from "./SyncStatus";
 import { ReturnButton, Stepper } from "./Toolbar";
 import { Burst, IconButton, Popover, ProgressRing } from "./ui";
 
-export type View = "day" | "week" | "month" | "analytics" | "goals" | "agent";
+export type View = "day" | "week" | "month" | "analytics" | "timeline" | "goals" | "agent";
 
 /** The planner's own views (Home): the day, the week, the month. */
 export const isPlanner = (v: View) => v === "day" || v === "week" || v === "month";
 
 /** The pages of the app, as the sidebar (and the phone's account panel) lists them. */
-export type Page = "home" | "analytics" | "goals" | "agent";
+export type Page = "home" | "analytics" | "timeline" | "goals" | "agent";
 export const pageOf = (v: View): Page => (isPlanner(v) ? "home" : (v as Page));
 
 const PAGES: { page: Page; label: string; icon: React.ReactNode; soon?: boolean }[] = [
   { page: "home", label: "Home", icon: <HomeIcon size={16} /> },
   { page: "analytics", label: "Progress", icon: <ChartIcon size={16} /> },
+  { page: "timeline", label: "Timeline", icon: <TimelineIcon size={16} />, soon: true },
   { page: "goals", label: "Goals", icon: <GoalIcon size={16} />, soon: true },
   { page: "agent", label: "Agent", icon: <AgentIcon size={16} />, soon: true },
 ];
 
 /**
  * Computers: the sidebar, on the left for the whole height, and it can be hidden. The name on top, the pages (Home: the
- * day, the week, the month; Progress; Goals and Agent, coming), and the account at the foot.
+ * day, the week, the month; Progress; Timeline, Goals and Agent, coming), and the account at the foot.
  */
 export function Sidebar({
   user,
