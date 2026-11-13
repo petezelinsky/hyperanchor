@@ -139,7 +139,7 @@ struct SearchView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel([task.title, task.done ? "done" : nil, notes.isEmpty ? nil : notes].compactMap { $0 }.joined(separator: ", "))
         .accessibilityHint("Opens its day")
-        .accessibilityAddTraits(active ? .isSelected : [])
+        .accessibilityAddTraits(active ? [.isButton, .isSelected] : .isButton)
         .accessibilityIdentifier("search.result")
     }
 

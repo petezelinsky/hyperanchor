@@ -14,7 +14,6 @@ struct Sidebar: View {
                 Wordmark(size: 18)
                 Spacer(minLength: 0)
                 SidebarButton(hide: true)
-                    .padding(.trailing, -8)
             }
             .padding(.leading, 20)
             .padding(.trailing, 12)

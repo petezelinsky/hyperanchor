@@ -171,7 +171,7 @@ struct ReturnButton: View {
                 .frame(width: 32, height: 32)
                 .background(.surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous).strokeBorder(.line2, lineWidth: 1))
-                .tapTarget()
+                .tapArea()
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel(label)
@@ -287,5 +287,13 @@ struct SoonTag: View {
             .padding(.horizontal, 6)
             .frame(minHeight: 18)
             .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(.line2, lineWidth: 1))
+    }
+}
+
+extension View {
+    /// Answers taps `extra` points beyond the control on every side (44 pt around a 32 pt control) without taking more
+    /// room, so the bar keeps its spacing (the web's `tap` utility).
+    func tapArea(_ extra: CGFloat = 6) -> some View {
+        contentShape(Rectangle().inset(by: -extra))
     }
 }

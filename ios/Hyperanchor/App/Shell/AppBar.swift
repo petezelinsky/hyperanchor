@@ -265,7 +265,7 @@ struct FocusButton: View {
             .background(.surface, in: shape)
             .overlay(shape.strokeBorder(.line2, lineWidth: 1))
             .opacity(hasOpen ? 1 : 0.4)
-            .tapTarget()
+            .tapArea()
         }
         .buttonStyle(PressableStyle())
         .disabled(!hasOpen)
@@ -291,7 +291,7 @@ struct AccountButton: View {
                     Circle().strokeBorder(.ink, lineWidth: 1.5).opacity(router.showAccount ? 1 : 0)
                 }
                 .padding(-3.5)
-                .tapTarget()
+                .contentShape(Circle().inset(by: -7))
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel("\(user.name): account")
@@ -318,7 +318,7 @@ struct SidebarButton: View {
                 .font(.system(size: 15, weight: .regular))
                 .foregroundStyle(hide ? .ink3 : .ink2)
                 .frame(width: hide ? 28 : 32, height: hide ? 28 : 32)
-                .tapTarget()
+                .tapArea(hide ? 8 : 6)
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel(hide ? "Hide sidebar" : "Show sidebar")
