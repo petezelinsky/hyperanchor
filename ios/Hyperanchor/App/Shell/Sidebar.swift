@@ -177,7 +177,8 @@ struct AccountPanel: View {
             if phone {
                 ForEach(Router.Page.allCases) { page in
                     PanelRow(title: page.label, symbol: Icon.symbol(for: page), soon: page.soon, current: router.page == page) {
-                        go { router.go(to: page, today: clock.today) }
+                        router.showAccount = false
+                        router.go(to: page, today: clock.today)
                     }
                     .accessibilityIdentifier("page.\(page.rawValue)")
                 }

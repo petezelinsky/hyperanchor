@@ -73,7 +73,7 @@ struct MainView: View {
             Button("Undo") { model.keyboard.undo() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .deviceDidShake)) { _ in
-            guard store.undoCount > 0, !router.showSettings, !router.showSearch, !router.showDayPicker, !router.focus, !router.showSpeak else { return }
+            guard store.undoCount > 0, !router.showSettings, !router.showSearch, !router.showDayPicker, !router.showAccount, !router.focus, !router.showSpeak else { return }
             askUndo = true
         }
         // The keyboard shortcut list now lives in Settings.
