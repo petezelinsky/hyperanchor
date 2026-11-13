@@ -179,10 +179,12 @@ struct BarTitle: View {
                 .lineLimit(1)
                 .fixedSize()
             if let soft = head.soft {
+                // In full where it fits, else short, else the start of it; with no room at all, the name alone.
                 ViewThatFits(in: .horizontal) {
                     if wide { date(soft) }
                     date(head.softShort ?? soft)
-                    date(head.softShort ?? soft).truncationMode(.tail).frame(minWidth: 0)
+                    date(head.softShort ?? soft).frame(width: 56, alignment: .leading)
+                    Color.clear.frame(width: 0, height: 0)
                 }
             }
         }

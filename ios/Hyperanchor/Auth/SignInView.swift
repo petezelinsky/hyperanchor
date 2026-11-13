@@ -112,7 +112,6 @@ struct SignInView: View {
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, 20)
-            .accessibilityElement(children: .combine)
         }
         .rise(hidden: splash, delay: 0.26)
     }
