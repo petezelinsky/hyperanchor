@@ -184,6 +184,9 @@ struct AccountPanel: View {
                     }
                     .accessibilityIdentifier("page.\(page.rawValue)")
                 }
+                // A phone has no keyboard for ⌘K or /: Search sits here, beside Settings.
+                PanelRow(title: "Search", symbol: Icon.search) { go { router.showSearch = true } }
+                    .accessibilityIdentifier("account.search")
             }
             PanelRow(title: "Settings", symbol: Icon.settings) { go { router.openSettings() } }
                 .accessibilityIdentifier("settings")

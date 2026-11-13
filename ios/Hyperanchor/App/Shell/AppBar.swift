@@ -55,8 +55,10 @@ struct PhoneTopBar: View {
     let user: AppUser
     /// Something has scrolled under the row.
     let scrolled: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
+        let glass = scrolled && Self.usesGlass(reduceTransparency: reduceTransparency)
         HStack(spacing: 12) {
             ViewThatFits(in: .horizontal) {
                 row(name: true, compact: false)
@@ -67,12 +69,19 @@ struct PhoneTopBar: View {
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 52)
-        .background(.surface)
+        .background { TopRowBackdrop(glass: glass) }
         .overlay(alignment: .bottom) {
-            Rectangle().fill(.line).frame(height: 1).opacity(scrolled ? 1 : 0)
+            Rectangle().fill(.line).frame(height: 1).opacity(scrolled && !glass ? 1 : 0)
         }
         .animation(.easeOut(duration: Tokens.Motion.fast), value: scrolled)
         .dynamicTypeSize(...DynamicTypeSize.large)
+    }
+
+    /// iOS 26 and later, unless Reduce Transparency is on: once the page is under the row, Liquid Glass instead of the
+    /// hairline.
+    static func usesGlass(reduceTransparency: Bool) -> Bool {
+        if #available(iOS 26, *) { return !reduceTransparency }
+        return false
     }
 
     private func row(name: Bool, compact: Bool) -> some View {
@@ -81,6 +90,32 @@ struct PhoneTopBar: View {
             Spacer(minLength: 0)
             BarSwitch(compact: compact)
         }
+    }
+}
+
+/// Behind the first row, up under the status bar: the page's white, or the glass.
+private struct TopRowBackdrop: View {
+    let glass: Bool
+
+    var body: some View {
+        if #available(iOS 26, *) {
+            if glass {
+                Color.clear
+                    .glassEffect(.regular, in: .rect)
+                    .ignoresSafeArea(edges: .top)
+                    .transition(.opacity)
+            } else {
+                white
+            }
+        } else {
+            white
+        }
+    }
+
+    private var white: some View {
+        Color.surface
+            .ignoresSafeArea(edges: .top)
+            .transition(.opacity)
     }
 }
 
