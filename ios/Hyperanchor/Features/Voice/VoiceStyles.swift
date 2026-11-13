@@ -64,6 +64,68 @@ struct VoiceButtonStyle: ButtonStyle {
     }
 }
 
+/// A button of the voice screen's controls: Liquid Glass on iOS 26 and later (prominent, in the primary black or white,
+/// for the next step; clear glass for the others), and the web's solid look before that or with Reduce Transparency.
+/// Only the controls are glass: the screen itself stays plain.
+struct VoiceButton<Label: View>: View {
+    let variant: VoiceButtonStyle.Variant
+    var size: VoiceButtonStyle.Size = .lg
+    /// Shares the row with the buttons beside it (phones).
+    var fill = false
+    /// iPad's proportions.
+    var wide = false
+    let action: () -> Void
+    @ViewBuilder let label: () -> Label
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        if #available(iOS 26.0, *), !reduceTransparency {
+            glass
+        } else {
+            Button(action: action, label: label)
+                .buttonStyle(VoiceButtonStyle(variant: variant, size: size, fill: fill, wide: wide))
+        }
+    }
+
+    @available(iOS 26.0, *)
+    @ViewBuilder
+    private var glass: some View {
+        let button = Button(action: action) {
+            label()
+                .foregroundStyle(foreground)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: fill ? .infinity : nil)
+                .frame(minWidth: wide && variant == .primary ? 116 : nil)
+        }
+        .font(size == .lg ? .token(Tokens.Typography.callout, weight: .medium) : .token(Tokens.Typography.footnote, weight: .medium))
+        .controlSize(size == .lg ? .large : .regular)
+        .buttonBorderShape(.capsule)
+        if variant == .primary {
+            button.buttonStyle(.glassProminent).tint(Color.primaryFill)
+        } else {
+            button.buttonStyle(.glass)
+        }
+    }
+
+    private var foreground: Color {
+        switch variant {
+        case .primary: .onPrimary
+        case .secondary: .ink
+        case .plain: .ink2
+        case .dangerQuiet: .redInk
+        }
+    }
+}
+
+extension VoiceButton where Label == Text {
+    init(_ title: String, variant: VoiceButtonStyle.Variant, size: VoiceButtonStyle.Size = .lg, fill: Bool = false, wide: Bool = false,
+         action: @escaping () -> Void) {
+        self.init(variant: variant, size: size, fill: fill, wide: wide, action: action) { Text(title) }
+    }
+}
+
 /// The web's small square icon button (`IconButton`): an icon in 28 or 32 points, plain or with a hairline ring, in a
 /// 44-point tap target.
 struct VoiceIconButton: View {
