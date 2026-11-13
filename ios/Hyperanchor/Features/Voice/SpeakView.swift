@@ -92,21 +92,19 @@ private struct SpeakScreen: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Button(action: model.leave) {
+            VoiceButton(variant: .secondary, size: .md, action: model.leave) {
                 HStack(spacing: 8) {
                     Image(systemName: Icon.close).font(.system(size: 12, weight: .medium))
                     Text("Cancel")
                     if keyHints { KeyHint(key: "Esc", tone: .onSecondary) }
                 }
             }
-            .buttonStyle(VoiceButtonStyle(variant: .secondary, size: .md))
             .tapTarget()
             .keyboardShortcut(model.review ? nil : .cancelAction)
             .accessibilityIdentifier("speak.cancel")
             Spacer(minLength: 8)
             if model.hears {
-                Button(model.typing ? "Speak instead" : "Type instead") { model.type(!model.typing) }
-                    .buttonStyle(VoiceButtonStyle(variant: .plain, size: .md))
+                VoiceButton(model.typing ? "Speak instead" : "Type instead", variant: .plain, size: .md) { model.type(!model.typing) }
                     .tapTarget()
                     .disabled(model.busy || model.hearing)
                     .accessibilityIdentifier("speak.type")
@@ -192,7 +190,8 @@ private struct SpeakScreen: View {
                         .strokeBorder(typingFocused ? Color.line2 : .line, lineWidth: 1)
                 }
                 .focused($typingFocused)
-                .disabled(model.busy)
+                // Under the window it can't take the keyboard back ("Type more" gives it back).
+                .disabled(model.busy || model.review)
                 .padding(.top, 16)
                 .accessibilityLabel("What you need to do")
                 .accessibilityIdentifier("speak.field")
@@ -214,42 +213,35 @@ private struct SpeakScreen: View {
         let bottom: CGFloat = bottomInset > 100 ? 8 : max(wide ? 16 : 0, (wide ? 36 : 16) - bottomInset)
         return HStack(spacing: 8) {
             if n > 0, !model.review {
-                Button("Review \(VoiceCopy.tasks(n))") { model.review = true }
-                    .buttonStyle(lg(.secondary))
+                VoiceButton("Review \(VoiceCopy.tasks(n))", variant: .secondary, fill: !wide, wide: wide) { model.review = true }
                     .accessibilityIdentifier("speak.review")
             }
             if model.typing {
-                Button("Sort into tasks") { Task { await model.sort(model.text) } }
-                    .buttonStyle(lg(.primary))
+                VoiceButton("Sort into tasks", variant: .primary, fill: !wide, wide: wide) { Task { await model.sort(model.text) } }
                     .disabled(model.busy || model.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .keyboardShortcut(.return, modifiers: .command)
                     .accessibilityIdentifier("speak.sort")
             } else if let problem = model.problem, problem.settings, model.phase == .idle {
-                Button("Open Settings") {
+                VoiceButton("Open Settings", variant: .primary, fill: !wide, wide: wide) {
                     if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                 }
-                .buttonStyle(lg(.primary))
                 .accessibilityIdentifier("speak.settings")
             } else if model.problem?.audio != nil, model.phase == .idle {
-                Button(action: model.listen) { speakAgain }
-                    .buttonStyle(lg(.secondary))
-                Button("Try again", action: model.retry)
-                    .buttonStyle(lg(.primary))
+                VoiceButton(variant: .secondary, fill: !wide, wide: wide, action: model.listen) { speakAgain }
+                VoiceButton("Try again", variant: .primary, fill: !wide, wide: wide, action: model.retry)
                     .accessibilityIdentifier("speak.retry")
             } else if model.phase == .listening {
-                Button(action: model.stop) {
+                VoiceButton(variant: .primary, fill: !wide, wide: wide, action: model.stop) {
                     HStack(spacing: 8) {
                         Text("Done")
                         if keyHints { KeyHint(key: "↵", tone: .onPrimary) }
                     }
                 }
-                .buttonStyle(lg(.primary))
                 .keyboardShortcut(.return, modifiers: [])
                 .accessibilityLabel("Done speaking")
                 .accessibilityIdentifier("speak.done")
             } else {
-                Button(action: model.listen) { speakAgain }
-                    .buttonStyle(lg(.primary))
+                VoiceButton(variant: .primary, fill: !wide, wide: wide, action: model.listen) { speakAgain }
                     .disabled(model.busy || model.hearing || model.spent || model.starting)
                     .accessibilityIdentifier("speak.again")
             }
@@ -265,10 +257,6 @@ private struct SpeakScreen: View {
             Orb(size: 20)
             Text("Speak again")
         }
-    }
-
-    private func lg(_ variant: VoiceButtonStyle.Variant) -> VoiceButtonStyle {
-        VoiceButtonStyle(variant: variant, size: .lg, fill: !wide, wide: wide)
     }
 
     // MARK: Adding

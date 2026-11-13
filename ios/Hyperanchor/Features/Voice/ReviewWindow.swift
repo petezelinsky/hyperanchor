@@ -136,50 +136,42 @@ struct ReviewWindow: View {
             .foregroundStyle(Color.ink)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
+        let stacked = typeSize.isAccessibilitySize
         HStack(spacing: 8) {
-            Button("Keep") { model.confirming = false }
-                .buttonStyle(lg(.secondary, fill: typeSize.isAccessibilitySize))
+            VoiceButton("Keep", variant: .secondary, fill: stacked, wide: wide) { model.confirming = false }
                 .keyboardShortcut(.cancelAction)
                 .accessibilityIdentifier("speak.keep")
-            Button("Leave", action: model.close)
-                .buttonStyle(lg(.dangerQuiet, fill: typeSize.isAccessibilitySize))
+            VoiceButton("Leave", variant: .dangerQuiet, fill: stacked, wide: wide, action: model.close)
                 .accessibilityIdentifier("speak.leave")
         }
-        .fixedSize(horizontal: !typeSize.isAccessibilitySize, vertical: false)
+        .fixedSize(horizontal: !stacked, vertical: false)
     }
 
     @ViewBuilder
     private func actions(_ n: Int) -> some View {
         if model.problem?.again != nil, !model.busy {
-            Button("Try again", action: model.retry)
-                .buttonStyle(lg(.secondary))
+            VoiceButton("Try again", variant: .secondary, fill: !wide, wide: wide, action: model.retry)
                 .accessibilityIdentifier("speak.retry")
         } else {
-            Button(action: model.more) {
+            VoiceButton(variant: .secondary, fill: !wide, wide: wide, action: model.more) {
                 HStack(spacing: 8) {
                     if !model.typing { Orb(size: 20) }
                     Text(model.typing ? "Type more" : n > 0 ? "Speak more" : "Speak again")
                 }
             }
-            .buttonStyle(lg(.secondary))
             .disabled(model.busy || model.spent)
             .accessibilityIdentifier("speak.more")
         }
         if wide { Spacer(minLength: 0) }
-        Button(action: add) {
+        VoiceButton(variant: .primary, fill: !wide, wide: wide, action: add) {
             HStack(spacing: 8) {
                 Text(n > 0 ? "Add \(VoiceCopy.tasks(n))" : "Add tasks")
                 if n > 0, !model.busy, keyHints { KeyHint(key: "↵", tone: .onPrimary) }
             }
         }
-        .buttonStyle(lg(.primary))
         .disabled(n == 0 || model.busy)
         .keyboardShortcut(.return, modifiers: [])
         .accessibilityIdentifier("speak.add")
-    }
-
-    private func lg(_ variant: VoiceButtonStyle.Variant, fill: Bool? = nil) -> VoiceButtonStyle {
-        VoiceButtonStyle(variant: variant, size: .lg, fill: fill ?? !wide, wide: wide)
     }
 }
 
