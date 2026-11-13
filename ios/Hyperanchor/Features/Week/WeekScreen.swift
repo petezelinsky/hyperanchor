@@ -1,6 +1,8 @@
 import SwiftUI
 
-/// The selected day's week, Monday to Sunday: each day lists what's left first, finished tasks below.
+/// The week, from edge to edge of the work area (`WeekView` on the web): seven lanes side by side where they fit (iPad),
+/// a list of days elsewhere. Which week it is, and the way to others, is in the bar above; the order within a day is the
+/// person's (Settings → Task order), and the week starts on the day they chose.
 struct WeekScreen: View {
     let user: AppUser
 
@@ -8,194 +10,98 @@ struct WeekScreen: View {
     @Environment(Router.self) private var router
     @Environment(TodayClock.self) private var clock
     @Environment(Toaster.self) private var toaster
-    @Environment(\.palette) private var palette
+    @Environment(Preferences.self) private var prefs
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var editor = ListEditor()
-    @FocusState private var focus: TaskField?
-
-    private var today: DayKey { clock.today }
-    private var start: DayKey { router.selected.startOfWeek }
-    private var actions: TaskActions { TaskActions(store: store, toaster: toaster, today: today) }
+    @State private var state = WeekState()
+    @FocusState private var focus: WeekField?
 
     var body: some View {
-        @Bindable var router = router
-        let weeks = start.days(since: today.startOfWeek) / 7
-        let title = weeks == 0 ? "This Week" : weeks == -1 ? "Last Week" : weeks == 1 ? "Next Week" : "Week of \(Dates.short(start))"
-        let days = (0..<7).map { start.adding(days: $0) }
-        let all = days.flatMap { store.tasks(on: $0) }
-        let done = all.count(where: \.done)
-        let searching = !router.query.trimmingCharacters(in: .whitespaces).isEmpty
-        let sections = days.map { day in
-            let list = TaskSorting.sorted(store.tasks(on: day), by: .manual)
-            return (day: day, open: list.filter { !$0.done || editor.isSettling($0.id) }, completed: list.filter { $0.done && !editor.isSettling($0.id) })
+        // The first day of the week comes from Settings (`DayKey.weekStart`); reading it here redraws the week when it
+        // changes.
+        let _ = prefs.weekStart
+        let start = router.selected.startOfWeek
+        let days = WeekDay.week(from: start, store: store, sort: prefs.sort, settling: state.settling)
+        let work = WeekWork(store: store, router: router, state: state,
+                            actions: PlannerActions(store: store, toaster: toaster, today: clock.today),
+                            sort: prefs.sort, week: start...start.adding(days: 6), reduceMotion: reduceMotion, focus: $focus)
+        GeometryReader { geo in
+            // Measured before anything is drawn, so the week never flashes up in the wrong layout. Huge text gets the
+            // list, where titles have the whole width.
+            if sizeClass == .regular, !typeSize.isAccessibilitySize, geo.size.width >= WeekBoard.minimumWidth {
+                WeekBoard(days: days, work: work, size: geo.size)
+            } else {
+                WeekList(days: days, work: work)
+            }
         }
-        let visible = searching ? sections.filter { !$0.open.isEmpty || !$0.completed.isEmpty } : sections
-
-        NavigationStack {
-            ScrollViewReader { proxy in
-            List {
-                AdaptiveStack(spacing: 6) {
-                    Text(Dates.range(start, start.adding(days: 6)))
-                    Text("·").foregroundStyle(.ink4).accessibilityHidden(true).hiddenWhenStacked()
-                    HStack(spacing: 6) {
-                        if !all.isEmpty {
-                            ProgressRing(value: Double(done) / Double(all.count), size: 14, lineWidth: 2.4)
-                        }
-                        Text(all.isEmpty ? "No tasks" : "\(done) of \(all.count) done")
-                    }
-                    Spacer(minLength: 8).hiddenWhenStacked()
-                    if weeks != 0 {
-                        Button("This Week") { router.selected = today }
-                            .buttonStyle(SecondaryButtonStyle(compact: true))
-                    }
-                }
-                .font(.subheadline)
-                .foregroundStyle(.ink2)
-                .monospacedDigit()
-                .plainRow(insets: EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
-
-                if searching, visible.isEmpty {
-                    ContentUnavailableView.search(text: router.query).plainRow()
-                }
-
-                ForEach(visible, id: \.day) { section in
-                    let first = section.day == visible.first?.day
-                    Section {
-                        ForEach(section.open) { EditableTaskRow(task: $0, editor: editor, focus: $focus, actions: actions) }
-                        if editor.composerDay == section.day {
-                            @Bindable var editor = editor
-                            ComposerRow(title: $editor.newTitle, notes: $editor.newNotes, focus: $focus) {
-                                editor.submitComposer(store: store, keepOpen: true, focus: $focus)
-                            }
-                            .listRowBackground(Color.surface3)
-                        } else if section.open.isEmpty, section.completed.isEmpty {
-                            Text("No tasks")
-                                .font(.subheadline)
-                                .foregroundStyle(.ink4)
-                                .padding(.leading, 32)
-                                .listRowBackground(Color.surface)
-                        }
-                        ForEach(section.completed) { EditableTaskRow(task: $0, editor: editor, focus: $focus, actions: actions) }
-                    } header: {
-                        DayHeader(day: section.day, today: today, tasks: store.tasks(on: section.day), first: first) {
-                            router.query = ""
-                            editor.openComposer(on: section.day, store: store, focus: $focus)
-                        }
-                    }
-                }
-            }
-            .listStyle(.plain)
-            .listSectionSpacing(0)
-            .environment(\.defaultMinListHeaderHeight, 0)
-            .scrollContentBackground(.hidden)
-            .background(.surface)
-            .scrollDismissesKeyboard(.interactively)
-            .readableContent()
-            .animation(.snappy(duration: 0.35), value: sections.flatMap { $0.open.map(\.id) + ["|"] + $0.completed.map(\.id) })
-            .navigationTitle(title)
-            .toolbar(.hidden, for: .navigationBar)
-            .searchable(text: $router.query, placement: .navigationBarDrawer, prompt: "Filter")
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("Previous Week", systemImage: "chevron.left") { router.selected = router.selected.adding(days: -7) }
-                    Button("Next Week", systemImage: "chevron.right") { router.selected = router.selected.adding(days: 7) }
-                    Button("New Task", systemImage: "plus") {
-                        router.query = ""
-                        editor.openComposer(on: router.selected, store: store, focus: $focus)
-                    }
-                }
-            }
-            .keyboardDoneButton(focus: $focus)
-            .onChange(of: router.composeRequest) { _, _ in
-                if router.tab == .week { editor.openComposer(on: router.selected, store: store, focus: $focus) }
-            }
-            .modifier(ListKeyboard(tab: .week, ids: visible.flatMap { ($0.open + $0.completed).map(\.id) }, editor: editor, focus: $focus, actions: actions, proxy: proxy))
-            }
-            .toastHost()
+        .background(.surface)
+        .modifier(WeekKeys(ids: days.flatMap { ($0.open + $0.done).map(\.id) }, work: work))
+        .onChange(of: focus) { old, new in work.focusChanged(from: old, to: new) }
+        .onChange(of: start) { _, _ in work.reset() }
+        .onChange(of: router.composeRequest) { _, _ in
+            if router.tab == .week { work.openComposer(on: router.selected) }
         }
-        .onChange(of: focus) { old, new in editor.focusChanged(from: old, to: new, store: store, focus: $focus) }
-        .onChange(of: start) { _, _ in editor.reset(store: store) }
+        .onChange(of: router.toggleRequest) { _, request in
+            guard router.tab == .week, let request, let task = store.task(request.id) else { return }
+            work.toggle(task)
+        }
+        .onChange(of: router.editRequest) { _, request in
+            guard router.tab == .week, let request, let task = store.task(request.id) else { return }
+            work.startEditing(task)
+        }
         .task(id: start) {
             await store.load(start...start.adding(days: 6))
         }
     }
 }
 
-/// A day's header in Week: weekday, date, a Today badge, "x of y" and + to add a task that day.
-private struct DayHeader: View {
-    let day: DayKey
-    let today: DayKey
-    let tasks: [TaskItem]
-    /// The first day sits close to the week's summary line; the rest get room above them.
-    let first: Bool
-    let add: () -> Void
-    @Environment(\.palette) private var palette
+/// A hardware keyboard in Week, as on the web: ↑ ↓ pick the task above or below (in screen order, day by day), Space
+/// ticks it, Return edits it, ⌫ deletes it, Esc lets it go, ⌥↑ / ⌥↓ move it within its day. The week takes the
+/// keyboard whenever no field has it, so the arrows reach it before the system's focus navigation.
+private struct WeekKeys: ViewModifier {
+    let ids: [String]
+    let work: WeekWork
 
-    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(AppModel.self) private var model
+    @FocusState private var focused: Bool
 
-    var body: some View {
-        if typeSize.isAccessibilitySize {
-            // Huge text: the weekday gets a line of its own.
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(Dates.dayName(day))
-                        .font(.headline)
-                        .foregroundStyle(.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                    Spacer()
-                    addButton
+    func body(content: Content) -> some View {
+        content
+            .focusable()
+            .focusEffectDisabled()
+            .focused($focused)
+            .onKeyPress(keys: [.upArrow, .downArrow, .space, .return, .delete, .escape]) { press in
+                guard work.focus.wrappedValue == nil, work.router.tab == .week else { return .ignored }
+                let keys = model.keyboard
+                switch press.key {
+                case .upArrow, .downArrow:
+                    let direction = press.key == .upArrow ? -1 : 1
+                    if press.modifiers.contains(.option) { work.nudge(direction) } else { keys.select(direction) }
+                case .space: keys.complete()
+                case .return: keys.edit()
+                case .delete: keys.delete()
+                case .escape: keys.escape()
+                default: return .ignored
                 }
-                Text(Dates.short(day) + (tasks.isEmpty ? "" : " · \(tasks.count(where: \.done)) of \(tasks.count)") + (day == today ? " · Today" : ""))
-                    .font(.subheadline)
-                    .foregroundStyle(.ink3)
+                return .handled
             }
-            .textCase(nil)
-            .padding(.top, first ? 4 : 20)
-        } else {
-            row
-        }
+            .onAppear { focused = true }
+            .onChange(of: work.focus.wrappedValue) { _, field in if field == nil { focused = true } }
+            .onChange(of: ids, initial: true) { _, ids in publish(ids) }
+            .onChange(of: work.router.tab) { _, tab in
+                if tab == .week {
+                    focused = true
+                    publish(ids)
+                }
+            }
     }
 
-    private var addButton: some View {
-        Button(action: add) {
-            Image(systemName: "plus")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.ink2)
-                .frame(minWidth: 32, minHeight: 32)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Add task to \(Dates.dayName(day))")
-    }
-
-    private var row: some View {
-        HStack(spacing: 8) {
-            Text(Dates.dayName(day))
-                .font(.headline)
-                .foregroundStyle(.ink)
-            Text(Dates.short(day))
-                .font(.subheadline)
-                .foregroundStyle(.ink3)
-            if day == today {
-                Text("Today")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(palette.accentInk)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(palette.accentSoft, in: Capsule())
-            }
-            Spacer()
-            if !tasks.isEmpty {
-                Text("\(tasks.count(where: \.done)) of \(tasks.count)")
-                    .font(.footnote)
-                    .foregroundStyle(.ink3)
-                    .monospacedDigit()
-            }
-            addButton
-        }
-        .textCase(nil)
-        .padding(.top, first ? 4 : 20)
-        .accessibilityElement(children: .contain)
+    /// The tasks on screen, in order, for ↑ ↓. A selection that left the week is dropped, so keys never act unseen.
+    private func publish(_ ids: [String]) {
+        guard work.router.tab == .week else { return }
+        work.router.visibleTaskIDs = ids
+        if let selected = work.router.selectedTask, !ids.contains(selected) { work.router.selectedTask = nil }
     }
 }
