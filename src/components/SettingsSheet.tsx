@@ -13,7 +13,8 @@ import { SORTS } from "./table/TaskTable";
 import { THEMES } from "./ThemeSwitch";
 import { Button, buttonClass, IconButton, Kbd, Menu, Modal, SegmentedControl, type MenuEntry } from "./ui";
 import { canListen, guessLanguage, languageName, readLanguageChoice, saveLanguageChoice, spokenLanguages } from "./voice/dictation";
-import { primeSound, soundReady } from "./voice/sound";
+import { canRecord } from "./voice/recorder";
+import { primeSound, soundTimer } from "./voice/sound";
 
 type Page = "settings" | "shortcuts" | "account";
 
@@ -77,6 +78,7 @@ export function SettingsSheet({
   sort,
   onSort,
   voice,
+  transcribe,
   sample,
   onClose,
 }: {
@@ -88,6 +90,8 @@ export function SettingsSheet({
   onSort: (s: Sort) => void;
   /** Whether the Speak screen is offered (its settings and its shortcut are listed only then). */
   voice: boolean;
+  /** Whether speech is written down on the server (any language, worked out from the voice itself). */
+  transcribe: boolean;
   /** The person's latest task titles: what the spoken language is guessed from. */
   sample: string[];
   onClose: () => void;
@@ -148,7 +152,7 @@ export function SettingsSheet({
             <Row title="Task order" hint={order.sort.key === "manual" ? "Yours: drag tasks to arrange them." : "Dragging is off while tasks are sorted."}>
               <Pick label="Task order" value={order.label} entries={SORTS.map((o) => ({ label: o.label, checked: o === order, onSelect: () => onSort(o.sort) }))} />
             </Row>
-            <Row title="Sounds" hint="Small cues: listening, tasks ready, the focus timer." last>
+            <Row title="Sounds" hint="A soft chime when the focus timer is up." last>
               <SegmentedControl
                 label="Sounds"
                 value={sounds ? "on" : "off"}
@@ -159,10 +163,10 @@ export function SettingsSheet({
                 onChange={(v) => {
                   saveSounds(v === "on");
                   setSounds(v === "on");
-                  // Turning them on lets you hear what they are like.
+                  // Turning them on lets you hear what it is like.
                   if (v === "on") {
                     primeSound();
-                    soundReady();
+                    soundTimer();
                   }
                 }}
                 className="w-[176px]"
@@ -172,12 +176,18 @@ export function SettingsSheet({
               <Go title="Keyboard shortcuts" onClick={() => setPage("shortcuts")} top />
             </div>
 
-            {voice && canListen() && (
+            {voice && (transcribe ? canRecord() : canListen()) && (
               <>
                 <Band>Voice</Band>
                 <Row
                   title="Spoken language"
-                  hint={language ? "Always listens in this language." : `Worked out from your tasks and your browser: ${guessed} right now.`}
+                  hint={
+                    language
+                      ? "Always listens in this language."
+                      : transcribe
+                        ? "Worked out from what you say, mixed languages too."
+                        : `Worked out from your tasks and your browser: ${guessed} right now.`
+                  }
                   last
                 >
                   <Pick

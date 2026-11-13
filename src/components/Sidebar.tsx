@@ -3,27 +3,40 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
 import { addDays, formatLong, monthGrid, MONTHS, weekdayNames, ymd } from "@/lib/dates";
-import type { AppUser, ProInterest, Task, Usage } from "@/lib/types";
+import type { AppUser, Task, Usage } from "@/lib/types";
 import { Avatar } from "./Avatar";
-import { Mark, Wordmark } from "./Brand";
+import { Wordmark } from "./Brand";
 import { useDrag } from "./drag";
-import { ChartIcon, ChevronDown, ChevronLeft, ChevronRight, EllipsisIcon, HomeIcon, KeyboardIcon, SidebarIcon, SignOutIcon, SlidersIcon } from "./icons";
+import { AgentIcon, ChartIcon, ChevronLeft, ChevronRight, EllipsisVerticalIcon, GoalIcon, HomeIcon, KeyboardIcon, SidebarIcon, SignOutIcon, SlidersIcon } from "./icons";
 import { SyncStatus, type Sync } from "./SyncStatus";
+import { ReturnButton, Stepper } from "./Toolbar";
 import { Burst, IconButton, Popover, ProgressRing } from "./ui";
-import { Orb } from "./voice/Orb";
 
-export type View = "day" | "week" | "month" | "analytics";
+export type View = "day" | "week" | "month" | "analytics" | "goals" | "agent";
+
+/** The planner's own views (Home): the day, the week, the month. */
+export const isPlanner = (v: View) => v === "day" || v === "week" || v === "month";
+
+/** The pages of the app, as the sidebar (and the phone's account panel) lists them. */
+export type Page = "home" | "analytics" | "goals" | "agent";
+export const pageOf = (v: View): Page => (isPlanner(v) ? "home" : (v as Page));
+
+const PAGES: { page: Page; label: string; icon: React.ReactNode; soon?: boolean }[] = [
+  { page: "home", label: "Home", icon: <HomeIcon size={16} /> },
+  { page: "analytics", label: "Progress", icon: <ChartIcon size={16} /> },
+  { page: "goals", label: "Goals", icon: <GoalIcon size={16} />, soon: true },
+  { page: "agent", label: "Agent", icon: <AgentIcon size={16} />, soon: true },
+];
 
 /**
- * Computers: the sidebar, on the left for the whole height, and it can be hidden. The name on top, the two pages (Home:
- * the day, the week, the month; Progress), and the account at the foot.
+ * Computers: the sidebar, on the left for the whole height, and it can be hidden. The name on top, the pages (Home: the
+ * day, the week, the month; Progress; Goals and Agent, coming), and the account at the foot.
  */
 export function Sidebar({
   user,
   sync,
   view,
-  onHome,
-  onProgress,
+  onPage,
   onHide,
   onAccount,
   accountOpen,
@@ -31,23 +44,24 @@ export function Sidebar({
   user: AppUser;
   sync: Sync;
   view: View;
-  onHome: () => void;
-  onProgress: () => void;
+  onPage: (p: Page) => void;
   onHide: () => void;
   onAccount: (button: HTMLElement) => void;
   accountOpen: boolean;
 }) {
+  const page = pageOf(view);
   return (
     <aside aria-label="Sidebar" className="hidden w-[248px] flex-none flex-col border-r border-line bg-canvas md:flex">
       <div className="flex h-14 flex-none items-center justify-between border-b border-line pr-3 pl-5">
-        <Wordmark size={19} />
+        <Wordmark size={18} />
         <IconButton label="Hide sidebar" tip="Hide sidebar ([)" size="sm" onClick={onHide} className="text-ink-3 hover:bg-line!">
           <SidebarIcon size={16} />
         </IconButton>
       </div>
       <nav aria-label="Pages" className="flex flex-none flex-col gap-0.5 px-2.5 py-3">
-        <SideRow icon={<HomeIcon size={16} />} label="Home" on={view !== "analytics"} onClick={onHome} />
-        <SideRow icon={<ChartIcon size={16} />} label="Progress" on={view === "analytics"} onClick={onProgress} />
+        {PAGES.map((p) => (
+          <SideRow key={p.page} icon={p.icon} label={p.label} soon={p.soon} on={page === p.page} onClick={() => onPage(p.page)} />
+        ))}
       </nav>
       <div className="flex-1" />
       <SyncStatus sync={sync} className="px-5 pb-2 empty:hidden" />
@@ -67,14 +81,14 @@ export function Sidebar({
             <span className="block truncate text-footnote font-semibold">{user.name}</span>
             <span className="block truncate text-caption text-ink-3">{user.email}</span>
           </span>
-          <EllipsisIcon size={16} className={`flex-none transition-colors duration-(--duration-fast) ${accountOpen ? "text-ink" : "text-ink-3 group-hover:text-ink"}`} />
+          <EllipsisVerticalIcon size={16} className={`flex-none transition-colors duration-(--duration-fast) ${accountOpen ? "text-ink" : "text-ink-3 group-hover:text-ink"}`} />
         </button>
       </div>
     </aside>
   );
 }
 
-function SideRow({ icon, label, on = false, onClick }: { icon: React.ReactNode; label: string; on?: boolean; onClick: () => void }) {
+function SideRow({ icon, label, soon = false, on = false, onClick }: { icon: React.ReactNode; label: string; soon?: boolean; on?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -86,9 +100,15 @@ function SideRow({ icon, label, on = false, onClick }: { icon: React.ReactNode; 
     >
       <span className={on ? "text-ink" : "text-ink-2"}>{icon}</span>
       <span className="flex-1 text-left">{label}</span>
+      {soon && <SoonTag />}
     </button>
   );
 }
+
+/** "Soon": a page that isn't open yet. */
+export const SoonTag = () => (
+  <span className="inline-flex h-[18px] flex-none items-center rounded-[5px] px-1.5 text-caption-2 font-medium text-ink-3 shadow-[inset_0_0_0_1px_var(--line-2)]">Soon</span>
+);
 
 /**
  * The month to pick a day from (it opens from the title in the bar; phones also see it in Month): plain numbers, no
@@ -202,32 +222,43 @@ export function MiniMonth({
   );
 }
 
-/** What the bar says about the page: the day ("Today"), the week, the month, or Progress, with its date beside it. */
+/** What the bar says about the page: the day ("Today"), the week, the month, or a page's name, with its date beside it. */
 export type Head = {
   title: string;
-  /** The quiet part beside the title: the date in full ("Saturday, November 14"), a range, the year. */
-  soft: string;
-  /** The same for phones and narrow windows ("Sat, Nov 14"). */
+  /** The quiet part beside the title: the date in full ("Wednesday, November 11"), a range, the year. */
+  soft?: string;
+  /** The same for phones and narrow windows ("Wed, Nov 11"). */
   softShort?: string;
   /** Makes the title a button (Day and Week: it opens the month to pick a day from). */
   onTitle?: (button: HTMLElement) => void;
   titleOpen?: boolean;
-  /** Day: how much of the day on screen is done. */
-  count?: { done: number; total: number } | null;
+};
+
+/** The arrows to the day (week, month, period) before and after, and, away from the present, the way back to it. */
+export type Nav = {
+  prev: string;
+  next: string;
+  onPrev: () => void;
+  onNext: () => void;
+  nextDisabled?: boolean;
+  back?: { label: string; onClick: () => void };
 };
 
 /**
- * The one bar across the top of the work area. Computers: what's on screen and its date on the left (with how much of the
- * day is done), the switch in the middle (Day / Week / Month, or Progress's periods), and on the right the way back to
- * today, the arrows and Focus. Phones have two rows: the sign, the switch and the account; then the title and the same
- * controls.
+ * The one bar across the top of the work area, in three parts that never crowd each other. On the left, what's on
+ * screen: the arrows, then its name and date (the arrows come first, so they stay put however long the date is, and a
+ * day can be stepped through without chasing them), and the way back to the present once away from it. In the middle,
+ * the switch (Day / Week / Month, or Progress's periods). On the right, what the page offers: how much of the day is
+ * done, and Focus. With the sidebar hidden, the button to bring it back is the only thing before the arrows. Phones
+ * have two rows: the name of the app, the switch and the account; then the arrows, the date and the page's actions.
  */
 export function AppBar({
   user,
   sync,
   head,
+  nav,
   center,
-  controls,
+  actions,
   sidebar,
   onShowSidebar,
   onAccount,
@@ -236,8 +267,10 @@ export function AppBar({
   user: AppUser;
   sync: Sync;
   head: Head;
-  center: React.ReactNode;
-  controls: React.ReactNode;
+  nav?: Nav;
+  center?: React.ReactNode;
+  /** The page's own actions, at the right end. */
+  actions?: React.ReactNode;
   /** Whether the sidebar is shown (computers). */
   sidebar: boolean;
   onShowSidebar: () => void;
@@ -253,82 +286,70 @@ export function AppBar({
     return () => window.removeEventListener("scroll", update);
   }, []);
 
-  const allDone = !!head.count && head.count.total > 0 && head.count.done === head.count.total;
+  // The name and the date share one baseline; the button around them (when there is one) is a quiet tile.
   const words = (
     <>
-      <h1 className="flex-none font-display text-[19px] leading-7 font-bold tracking-[-0.02em] whitespace-nowrap md:text-headline md:font-semibold md:tracking-[-0.012em]">{head.title}</h1>
-      <span className="tabular min-w-0 truncate text-body whitespace-nowrap text-ink-3">
-        <span className={head.softShort ? "max-lg:hidden" : ""}>{head.soft}</span>
-        {head.softShort && <span className="lg:hidden">{head.softShort}</span>}
-      </span>
-    </>
-  );
-  const title = (
-    <div className="flex min-w-0 items-center gap-2.5 md:gap-3">
-      {head.onTitle ? (
-        <button
-          type="button"
-          onClick={(e) => head.onTitle?.(e.currentTarget)}
-          aria-haspopup="dialog"
-          aria-expanded={!!head.titleOpen}
-          data-tip="Pick a day"
-          className={`tap relative -mx-2 flex h-9 min-w-0 items-baseline gap-2 rounded-sm px-2 pt-[5px] text-left transition-colors duration-(--duration-fast) md:pt-[7px] ${
-            head.titleOpen ? "bg-surface-3" : "hover:bg-surface-3"
-          }`}
-        >
-          {words}
-          <ChevronDown size={12} className={`flex-none self-center text-ink-3 transition-transform duration-(--duration-fast) ${head.titleOpen ? "rotate-180" : ""}`} />
-        </button>
-      ) : (
-        <div className="flex h-9 min-w-0 items-baseline gap-2 pt-[5px] md:pt-[7px]">{words}</div>
-      )}
-      {head.count && head.count.total > 0 && (
-        <span
-          aria-label={`${head.count.done} of ${head.count.total} done`}
-          data-tip={allDone ? "All done" : `${head.count.done} of ${head.count.total} done`}
-          className="flex flex-none items-center gap-1.5 text-caption text-ink-3"
-        >
-          <Burst active={allDone}>
-            <ProgressRing value={head.count.done / head.count.total} size={14} stroke={1.75} />
-          </Burst>
-          <span aria-hidden="true" className="tabular max-sm:hidden">
-            {head.count.done}/{head.count.total}
-          </span>
+      <h1 className="flex-none font-display text-[17px] leading-6 font-semibold tracking-[-0.014em] whitespace-nowrap">{head.title}</h1>
+      {head.soft && (
+        <span className="tabular min-w-0 truncate text-body whitespace-nowrap text-ink-3">
+          <span className={head.softShort ? "max-lg:hidden" : ""}>{head.soft}</span>
+          {head.softShort && <span className="lg:hidden">{head.softShort}</span>}
         </span>
       )}
+    </>
+  );
+  const title = head.onTitle ? (
+    <button
+      type="button"
+      onClick={(e) => head.onTitle?.(e.currentTarget)}
+      aria-haspopup="dialog"
+      aria-expanded={!!head.titleOpen}
+      data-tip="Pick a day"
+      className={`tap relative flex h-8 min-w-0 items-baseline gap-2 rounded-sm px-2 pt-[5px] text-left transition-colors duration-(--duration-fast) ${
+        head.titleOpen ? "bg-surface-3" : "hover:bg-surface-3"
+      }`}
+    >
+      {words}
+    </button>
+  ) : (
+    <div className="flex h-8 min-w-0 items-baseline gap-2 px-2 pt-[5px]">{words}</div>
+  );
+  const left = (
+    <div className={`flex min-w-0 items-center gap-1 ${nav ? "" : "-ml-2"}`}>
+      {nav && <Stepper prevLabel={nav.prev} nextLabel={nav.next} onPrev={nav.onPrev} onNext={nav.onNext} nextDisabled={nav.nextDisabled} />}
+      {title}
+      {nav?.back && <ReturnButton label={nav.back.label} onClick={nav.back.onClick} />}
     </div>
   );
 
   return (
     <>
-      {/* Computers: one row. */}
-      <header className="hidden h-14 flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-line bg-surface pr-4 pl-5 md:grid">
-        <div className="flex min-w-0 items-center gap-3">
+      {/* Computers: one row, three parts. */}
+      <header className="hidden h-14 flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-line bg-surface px-4 md:grid">
+        <div className="flex min-w-0 items-center gap-2">
           {!sidebar && (
-            <>
-              <IconButton label="Show sidebar" tip="Show sidebar ([)" onClick={onShowSidebar} className="-ml-1 text-ink-3 shadow-[inset_0_0_0_1px_var(--line-2)]">
-                <SidebarIcon size={16} />
-              </IconButton>
-              <Mark size={18} />
-              <SyncStatus sync={sync} className="empty:hidden" />
-            </>
+            <IconButton label="Show sidebar" tip="Show sidebar ([)" onClick={onShowSidebar} className="-ml-1 flex-none text-ink-2">
+              <SidebarIcon size={16} />
+            </IconButton>
           )}
-          {title}
+          {left}
         </div>
-        {center}
-        <div className="flex min-w-0 items-center justify-end gap-2">{controls}</div>
+        <div className="flex justify-center">{center}</div>
+        <div className="flex min-w-0 items-center justify-end gap-3">
+          {!sidebar && <SyncStatus sync={sync} className="empty:hidden" />}
+          {actions}
+        </div>
       </header>
 
-      {/* Phones: the sign, the switch and the account stay on top; the title and its controls follow. */}
+      {/* Phones: the app's name, the switch and the account stay on top; the arrows, the date and the actions follow. */}
       <header
-        className={`sticky top-0 z-30 grid h-[52px] flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 bg-surface px-4 transition-shadow duration-(--duration-fast) md:hidden ${
+        className={`sticky top-0 z-30 flex h-[52px] flex-none items-center gap-3 bg-surface px-4 transition-shadow duration-(--duration-fast) md:hidden ${
           scrolled ? "shadow-[0_1px_0_var(--line)]" : ""
         }`}
       >
-        <Mark size={18} />
-        {center}
-        <div className="flex min-w-0 items-center justify-end gap-2">
-          <SyncStatus sync={sync} className="empty:hidden" />
+        <Wordmark size={17} />
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+          {center}
           <button
             type="button"
             aria-haspopup="dialog"
@@ -339,24 +360,43 @@ export function AppBar({
               accountOpen ? "shadow-[0_0_0_2px_var(--surface),0_0_0_3.5px_var(--ink)]" : ""
             }`}
           >
-            <Avatar name={user.name} image={user.image} size={32} />
+            <Avatar name={user.name} image={user.image} size={30} />
           </button>
         </div>
       </header>
       <div className="flex h-12 flex-none items-center justify-between gap-3 border-b border-line px-4 md:hidden">
-        {title}
-        <div className="flex flex-none items-center gap-2">{controls}</div>
+        <div className="min-w-0">{left}</div>
+        <div className="flex flex-none items-center gap-2.5">
+          <SyncStatus sync={sync} className="empty:hidden" />
+          {actions}
+        </div>
       </div>
     </>
+  );
+}
+
+/** How much of the day on screen is done: a small ring and "2/7", quiet. A ring that fills throws a little confetti. */
+export function DayCount({ done, total }: { done: number; total: number }) {
+  if (!total) return null;
+  const allDone = done === total;
+  return (
+    <span aria-label={`${done} of ${total} done`} data-tip={allDone ? "All done" : `${done} of ${total} done`} className="flex flex-none items-center gap-1.5 text-footnote text-ink-3">
+      <Burst active={allDone}>
+        <ProgressRing value={done / total} size={14} stroke={1.75} />
+      </Burst>
+      <span aria-hidden="true" className="tabular">
+        {done}/{total}
+      </span>
+    </span>
   );
 }
 
 const count = new Intl.NumberFormat("en-US");
 
 /**
- * The account's panel: who is signed in and on which plan; what speaking tasks has cost (tokens this month, today's
- * sortings against the day's allowance); Pro; Settings and the keyboard shortcuts; and signing out as the last line.
- * Phones, which have no sidebar, also find the two pages here.
+ * The account's panel: who is signed in; how many tokens of the day's allowance are left for the AI (speaking tasks, the
+ * summary); Settings and the keyboard shortcuts; and signing out as the last line. Phones, which have no sidebar, also
+ * find the pages here.
  */
 export function AccountPanel({
   user,
@@ -364,10 +404,7 @@ export function AccountPanel({
   phone,
   view,
   usage,
-  proInterest,
-  onHome,
-  onProgress,
-  onPro,
+  onPage,
   onSettings,
   onShortcuts,
   onClose,
@@ -376,12 +413,9 @@ export function AccountPanel({
   anchor: HTMLElement;
   phone: boolean;
   view: View;
-  /** undefined: not offered here (no voice on this server); null: still loading. */
+  /** undefined: not offered here (no AI on this server); null: still loading. */
   usage: Usage | null | undefined;
-  proInterest: ProInterest;
-  onHome: () => void;
-  onProgress: () => void;
-  onPro: () => void;
+  onPage: (p: Page) => void;
   onSettings: () => void;
   onShortcuts: () => void;
   onClose: () => void;
@@ -392,6 +426,7 @@ export function AccountPanel({
     onClose();
     run();
   };
+  const page = pageOf(view);
   return (
     <Popover anchor={rect} trigger={anchor} align={phone ? "end" : "start"} label="Account" onClose={onClose} className="w-[300px] max-w-[calc(100vw-16px)] p-1.5">
       <div className="flex items-center gap-3 px-2.5 pt-2 pb-2.5">
@@ -400,7 +435,6 @@ export function AccountPanel({
           <div className="truncate text-footnote font-semibold text-ink">{user.name}</div>
           <div className="truncate text-caption text-ink-3">{user.email}</div>
         </div>
-        <span className="flex h-[22px] flex-none items-center rounded-[6px] px-[7px] text-caption-2 font-semibold text-ink-2 shadow-[inset_0_0_0_1px_var(--line-2)]">Free</span>
       </div>
 
       {usage !== undefined && (
@@ -408,37 +442,26 @@ export function AccountPanel({
           <Rule />
           <div className="px-2.5 pt-2 pb-2.5" aria-busy={usage === null}>
             <div className="flex items-baseline justify-between gap-3">
-              <span className="text-footnote font-medium text-ink">Usage</span>
-              <span className="tabular text-footnote text-ink">
-                {usage ? count.format(usage.month.tokens) : "–"} <span className="text-ink-3">tokens</span>
-              </span>
+              <span className="text-footnote font-medium text-ink">Tokens left today</span>
+              <span className="tabular text-footnote font-medium text-ink">{usage ? count.format(usage.today.left) : "–"}</span>
             </div>
             <div
               role="img"
-              aria-label={usage ? `${usage.today.requests} of ${usage.today.limit} voice sortings used today` : "Loading"}
+              aria-label={usage ? `${count.format(usage.today.left)} of ${count.format(usage.today.limit)} tokens left today` : "Loading"}
               className="mt-2 h-[3px] overflow-hidden rounded-full bg-line-2"
             >
               <div
                 className="h-full origin-left rounded-full bg-ink transition-transform duration-(--duration-data) ease-out"
-                style={{ transform: `scaleX(${usage ? Math.min(1, usage.today.requests / usage.today.limit) : 0})` }}
+                style={{ transform: `scaleX(${usage ? Math.max(0, Math.min(1, usage.today.left / usage.today.limit)) : 0})` }}
               />
-            </div>
-            <div className="tabular mt-1.5 flex items-baseline justify-between gap-3 text-caption text-ink-3">
-              <span>This month{usage ? ` · ${count.format(usage.month.requests)} ${usage.month.requests === 1 ? "sorting" : "sortings"}` : ""}</span>
-              <span>{usage ? `${usage.today.requests} of ${usage.today.limit} today` : ""}</span>
             </div>
           </div>
         </>
       )}
 
       <Rule />
-      <PanelRow icon={<Orb size={16} />} label={proInterest ? "Pro" : "Upgrade to Pro"} hint={proInterest ? "On the waitlist" : "From $4 a month"} onClick={go(onPro)} />
-      {phone && (
-        <>
-          <PanelRow icon={<HomeIcon size={16} />} label="Home" current={view !== "analytics"} onClick={go(onHome)} />
-          <PanelRow icon={<ChartIcon size={16} />} label="Progress" current={view === "analytics"} onClick={go(onProgress)} />
-        </>
-      )}
+      {phone &&
+        PAGES.map((p) => <PanelRow key={p.page} icon={p.icon} label={p.label} soon={p.soon} current={page === p.page} onClick={go(() => onPage(p.page))} />)}
       <PanelRow icon={<SlidersIcon size={16} />} label="Settings" onClick={go(onSettings)} />
       {!phone && <PanelRow icon={<KeyboardIcon size={16} />} label="Keyboard shortcuts" onClick={go(onShortcuts)} />}
       <Rule />
@@ -449,7 +472,7 @@ export function AccountPanel({
 
 const Rule = () => <div aria-hidden="true" className="-mx-1.5 my-1.5 h-px bg-line" />;
 
-function PanelRow({ icon, label, hint, current = false, onClick }: { icon: React.ReactNode; label: string; hint?: string; current?: boolean; onClick: () => void }) {
+function PanelRow({ icon, label, soon = false, current = false, onClick }: { icon: React.ReactNode; label: string; soon?: boolean; current?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -459,7 +482,7 @@ function PanelRow({ icon, label, hint, current = false, onClick }: { icon: React
     >
       <span className="flex size-4 flex-none items-center justify-center text-ink-2">{icon}</span>
       <span className="flex-1">{label}</span>
-      {hint && <span className="text-caption font-normal text-ink-3">{hint}</span>}
+      {soon && <SoonTag />}
       {current && <span aria-hidden="true" className="size-1.5 rounded-full bg-ink" />}
     </button>
   );

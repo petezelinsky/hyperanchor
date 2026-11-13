@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { AppUser, ProInterest } from "@/lib/types";
+import type { AppUser } from "@/lib/types";
 
 // The app works with the viewer's local date, so it renders on the client only.
 const TaskApp = dynamic(() => import("./TaskApp").then((m) => m.TaskApp), {
@@ -11,9 +11,9 @@ const TaskApp = dynamic(() => import("./TaskApp").then((m) => m.TaskApp), {
 
 /**
  * `account`: the signed-in account's id; it names this account's waiting changes in the browser.
- * `voice`: whether this server can sort what is said into tasks (the Speak screen).
- * `proInterest`: whether this person asked to hear when Pro opens (and with which billing).
+ * `voice`: whether this server has the AI: it sorts what is said into tasks (the Speak screen) and writes the summary.
+ * `transcribe`: whether this server also hears speech itself (else the browser's own recognition is used).
  */
-export function TaskAppLoader({ user, account, voice, proInterest }: { user: AppUser; account: string; voice: boolean; proInterest: ProInterest }) {
-  return <TaskApp user={user} account={account} voice={voice} proInterest={proInterest} />;
+export function TaskAppLoader({ user, account, voice, transcribe }: { user: AppUser; account: string; voice: boolean; transcribe: boolean }) {
+  return <TaskApp user={user} account={account} voice={voice} transcribe={transcribe} />;
 }

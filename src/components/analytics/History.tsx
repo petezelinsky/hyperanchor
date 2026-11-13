@@ -21,7 +21,7 @@ type SortKey = "date" | "done" | "rate";
 const LIMIT = 10;
 
 /** Every number behind the charts, as a sortable table (the charts' table view). */
-export function HistoryCard({ rows, unit }: { rows: HistoryRow[]; unit: "days" | "months" }) {
+export function HistoryCard({ rows, unit, className = "" }: { rows: HistoryRow[]; unit: "days" | "months"; className?: string }) {
   // Rows arrive oldest first; "date desc" shows the latest first.
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "date", dir: -1 });
   const [all, setAll] = useState(false);
@@ -49,7 +49,7 @@ export function HistoryCard({ rows, unit }: { rows: HistoryRow[]; unit: "days" |
   };
 
   return (
-    <Card title="History" aside={<span className="tabular text-caption text-ink-3">{rows.length ? `${rows.length} ${unit} with tasks` : ""}</span>}>
+    <Card title="History" className={className} aside={<span className="tabular text-caption text-ink-3">{rows.length ? `${rows.length} ${unit} with tasks` : ""}</span>}>
       {rows.length === 0 ? (
         <p className="py-6 text-center text-footnote text-ink-2">No tasks in this period yet.</p>
       ) : (

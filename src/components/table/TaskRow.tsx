@@ -130,6 +130,7 @@ function SwipeActions({ dx, done }: { dx: number; done: boolean }) {
 export const TaskRow = memo(function TaskRow({
   task,
   selected,
+  active = false,
   editingField,
   variant = "row",
   tomorrow,
@@ -138,6 +139,8 @@ export const TaskRow = memo(function TaskRow({
 }: {
   task: Task;
   selected: boolean;
+  /** Its menu is open: the row looks picked, without opening up its title (so nothing moves under the menu). */
+  active?: boolean;
   editingField: Field | null;
   /** A list row, or a card in a week column. */
   variant?: "row" | "card";
@@ -215,12 +218,11 @@ export const TaskRow = memo(function TaskRow({
       size="sm"
       onClick={(e) => {
         e.stopPropagation();
-        actions.select(task.id);
         onMenu(task, e.currentTarget.getBoundingClientRect(), e.currentTarget);
       }}
-      className={`text-ink-2! hover:bg-surface! hover:text-ink! hover:shadow-[inset_0_0_0_1px_var(--line-2)] ${
-        card ? "size-6 bg-surface-2 group-aria-selected/row:bg-surface-3 " : ""
-      }${selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}`}
+      className={`text-ink-2! hover:bg-surface! hover:text-ink! hover:shadow-[inset_0_0_0_1px_var(--line-2)] ${card ? "size-6 bg-(--row-bg) " : ""}${
+        active ? "bg-surface! text-ink! shadow-[inset_0_0_0_1px_var(--line-2)] opacity-100" : selected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+      }`}
     >
       <EllipsisIcon size={card ? 14 : 16} />
     </IconButton>
@@ -234,7 +236,6 @@ export const TaskRow = memo(function TaskRow({
     onClick: () => actions.select(task.id),
     onContextMenu: (e: React.MouseEvent) => {
       e.preventDefault();
-      actions.select(task.id);
       onMenu(task, { x: e.clientX, y: e.clientY });
     },
   } as const;
@@ -244,10 +245,15 @@ export const TaskRow = memo(function TaskRow({
       <div
         {...common}
         onPointerDown={(e) => !editing && drag.start(e, task)}
-        // A line of the day, like a row in the Day list: no card until it's picked up.
+        // A line of the day, like a row in the Day list: no card until it's picked up. --row-bg is its shade right now,
+        // which the ⋯ button and the fade under it take on.
         className={`group/row relative rounded-sm ${compact ? "py-[5px]" : "py-1.5"} px-1.5 transition-[background-color,box-shadow,opacity] duration-(--duration-fast) ${
           lifted ? "opacity-35" : ""
-        } ${selected || editing ? "bg-surface-3 shadow-ring-line-2" : "hover:bg-surface-2 hover:shadow-ring-line-2"}`}
+        } ${
+          selected || editing || active
+            ? "bg-surface-3 shadow-ring-line-2 [--row-bg:var(--surface-3)]"
+            : "[--row-bg:var(--surface-2)] hover:bg-surface-2 hover:shadow-ring-line-2"
+        }`}
       >
         <div className="flex items-start gap-2">
           <div role="gridcell" className="flex-none">
@@ -258,7 +264,14 @@ export const TaskRow = memo(function TaskRow({
             {title}
           </div>
         </div>
-        <div role="gridcell" className="absolute top-1 right-1">
+        <div role="gridcell" className="absolute top-1 right-1 flex">
+          {/* Under the pointer the title fades out before the ⋯, rather than running under it. */}
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-y-0 right-full w-5 bg-[linear-gradient(to_right,transparent,var(--row-bg))] transition-opacity duration-(--duration-fast) pointer-coarse:hidden ${
+              selected || active ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"
+            }`}
+          />
           {menu}
         </div>
       </div>
@@ -278,7 +291,7 @@ export const TaskRow = memo(function TaskRow({
       // an edge (its ring covers the hairlines around it); a picked one is a shade darker. It clips only while swiped (so
       // the menu button's touch area can reach past its edge).
       className={`group/row relative transition-[background-color,box-shadow,opacity] duration-(--duration-fast) md:rounded-sm ${dx !== 0 ? "overflow-hidden" : ""} after:pointer-events-none after:absolute after:right-4 after:bottom-0 after:left-[46px] after:h-px after:bg-line md:after:right-3 md:after:left-[42px] ${
-        selected || editing
+        selected || editing || active
           ? "z-[1] bg-surface-3 shadow-ring-line-2 after:opacity-0"
           : "pointer-fine:hover:z-[1] pointer-fine:hover:bg-surface-2 pointer-fine:hover:shadow-ring-line-2 pointer-fine:hover:after:opacity-0"
       } ${lifted ? "opacity-35" : ""}`}

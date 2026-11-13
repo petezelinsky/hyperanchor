@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { Spend } from "./budget";
 import type { WeekStart } from "./dates";
 import type { TaskDraft } from "./types";
 import { DESCRIPTION_MAX, DRAFT_TEXT_MAX, isDate, TITLE_MAX } from "./validate";
@@ -13,8 +14,11 @@ const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-5-5";
 
 /** Longer text is refused rather than cut: half a list is worse than none. */
 export const TEXT_MAX = DRAFT_TEXT_MAX;
-/** A day's allowance per person (requests): generous for a person, a ceiling for a runaway script. */
-export const DAILY_REQUESTS = 60;
+/**
+ * About what sorting `text` costs in tokens, set aside from the day's allowance before the call: the instructions and the
+ * calendar (about 1,500), the words themselves (a token is two to four characters), and the answer.
+ */
+export const sortingEstimate = (text: string) => 1900 + Math.ceil(text.length / 2.5);
 const TASKS_MAX = 50;
 /** How many days of calendar the model is shown, so it never has to work out a weekday by itself. */
 const CALENDAR_DAYS = 28;
@@ -130,7 +134,7 @@ const anthropic = () => (client ??= new Anthropic({ timeout: 25_000, maxRetries:
 export const draftsConfigured = () => !!process.env.ANTHROPIC_API_KEY;
 
 /** What one sorting cost: tokens read (cached ones included) and tokens written. */
-export type DraftUsage = { input: number; output: number };
+export type DraftUsage = Spend;
 
 /**
  * Sorts `text` into task drafts. Throws DraftError with what went wrong, in terms the app can tell the person.

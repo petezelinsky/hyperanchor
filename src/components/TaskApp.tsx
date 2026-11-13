@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { addDays, dayDiff, dayName, formatLong, formatMedium, formatShort, monthGrid, MONTHS, parseYmd, relativeDay, setWeekStart, startOfWeek, ymd, type WeekStart } from "@/lib/dates";
 import { periodBounds, statsRange, type Period } from "@/lib/stats";
 import { DEFAULT_SORT, placeBetween, placeOf, sortTasks, type Sort } from "@/lib/tasks";
-import type { AppUser, ProInterest, Task, TaskDraft, Usage } from "@/lib/types";
+import type { AppUser, Task, TaskDraft, Usage } from "@/lib/types";
 import { AnalyticsView } from "./analytics/AnalyticsView";
 import { DayView, type Focus, type Welcome } from "./DayView";
 import { DragProvider, type DropTarget } from "./drag";
@@ -13,15 +13,14 @@ import { FocusIcon } from "./icons";
 import { MonthView } from "./MonthView";
 import { appearOnRender, cancelLeaving, exitCopy, foldAway, motion, playFlip, prepareFlip, pulseDayOnRender, reducedMotion, slideAway, unfoldOnRender } from "./motion";
 import { readSort, readWeekStart, saveSort, saveWeekStart } from "./prefs";
-import { ProSheet } from "./ProSheet";
 import { SearchPalette } from "./SearchPalette";
 import { SettingsSheet, type SettingsTab } from "./SettingsSheet";
-import { AccountPanel, AppBar, MiniMonth, Sidebar, type Head, type View } from "./Sidebar";
+import { AccountPanel, AppBar, DayCount, isPlanner, MiniMonth, Sidebar, type Head, type Nav, type Page, type View } from "./Sidebar";
+import { ComingSoon } from "./ComingSoon";
 import type { Composer, Editing, Section, TableActions } from "./table/types";
-import { ReturnButton, Stepper } from "./Toolbar";
 import { Button, Modal, Popover, SegmentedControl } from "./ui";
 import { useTasks } from "./useTasks";
-import { primeSound } from "./voice/sound";
+import { primeAudio } from "./voice/meter";
 import { VoiceScreen } from "./voice/VoiceScreen";
 import { shortRange, WeekView } from "./WeekView";
 
@@ -53,7 +52,7 @@ const monthOf = (key: string) => {
   return { y: d.getFullYear(), m: d.getMonth() };
 };
 
-const VIEW_NAMES: View[] = ["day", "week", "month", "analytics"];
+const VIEW_NAMES: View[] = ["day", "week", "month", "analytics", "goals", "agent"];
 
 /** The view and the date in the address (?view=week&date=2026-11-12). A plain address is Day, today. */
 function fromAddress(): { view: View; date: string | null } {
@@ -69,7 +68,7 @@ function fromAddress(): { view: View; date: string | null } {
 /** One step that can be taken back: `run` says whether there was still something to take back. */
 type Undo = { run: () => boolean; done: string };
 
-export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; account: string; voice: boolean; proInterest: ProInterest }) {
+export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; account: string; voice: boolean; transcribe: boolean }) {
   const todayKey = useTodayKey();
   const [address] = useState(fromAddress);
   const [view, setView] = useState<View>(address.view);
@@ -142,9 +141,6 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
       alive = false;
     };
   }, [accountMenu, voice]);
-  // Pro isn't open yet: the window says so, and notes who wants to hear when it is.
-  const [pro, setPro] = useState<ProInterest>(proInterest);
-  const [proOpen, setProOpen] = useState(false);
   // The month to pick a day from, opened from the title in the bar.
   const [picking, setPicking] = useState<HTMLElement | null>(null);
   // The voice screen: say (or type) everything at once, and it comes back as tasks on their days.
@@ -269,14 +265,14 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
     [tasks, todayKey],
   );
 
-  // What focus mode works through: open tasks in list order, "Not now" ones last. A task just ticked off
-  // stays first while its check plays.
+  // What focus mode works through: open tasks in list order, "Not now" ones last. A task ticked off leaves at once (its
+  // card turns to dust while the next one rises).
   const focusQueue = useMemo(() => {
     if (!focusOn || view !== "day") return [];
-    const list = sortTasks(byDate(selected).filter((t) => !t.done || settling.includes(t.id)), sort);
+    const list = sortTasks(byDate(selected).filter((t) => !t.done), sort);
     const deferred = later.map((id) => list.find((t) => t.id === id)).filter((t): t is Task => !!t);
     return [...list.filter((t) => !later.includes(t.id)), ...deferred];
-  }, [focusOn, view, byDate, selected, settling, sort, later]);
+  }, [focusOn, view, byDate, selected, sort, later]);
   const hasOpen = byDate(selected).some((t) => !t.done);
 
   // Latest state for stable callbacks and global listeners.
@@ -323,10 +319,10 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
     setSelectedId(null);
     setView(v);
   }, []);
-  // Home is the planner (Day, Week, Month). From Progress it returns to the one last on screen; from within, to today.
-  const lastPlanner = useRef<View>(address.view === "analytics" ? "day" : address.view);
+  // Home is the planner (Day, Week, Month). From another page it returns to the one last on screen; from within, to today.
+  const lastPlanner = useRef<View>(isPlanner(address.view) ? address.view : "day");
   useEffect(() => {
-    if (view !== "analytics") lastPlanner.current = view;
+    if (isPlanner(view)) lastPlanner.current = view;
   }, [view]);
 
   // Leaving focus says how it went.
@@ -565,8 +561,8 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
     // A task being written is kept (as a click elsewhere would keep it) before the screen takes over.
     if (latest.current.editing) actions.finishEdit();
     if (latest.current.composer) actions.composerSubmit(false);
-    // Asked for during the click (or the key press), so the screen's small sounds may play.
-    primeSound();
+    // Started during the click (or the key press): Safari lets the microphone's meter run only then.
+    primeAudio();
     setSpeaking(true);
   }, [actions]);
   // Offered only where the server can do the sorting (it has an Anthropic key).
@@ -814,7 +810,7 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
     if (view !== "day") q.set("view", view);
     const shownMonth = view === "month" && (cal.y !== monthOf(selected).y || cal.m !== monthOf(selected).m);
     const date = shownMonth ? ymd(new Date(cal.y, cal.m, 1)) : selected;
-    if (view !== "analytics" && date !== todayKey) q.set("date", date);
+    if (isPlanner(view) && date !== todayKey) q.set("date", date);
     const search = q.toString() ? `?${q}` : "";
     if (search === window.location.search) return;
     if (fromAddress().view !== view) window.history.pushState(null, "", search || window.location.pathname);
@@ -856,8 +852,9 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
     setCal(monthOf(todayKey));
     setStats((st) => ({ ...st, offset: 0 }));
   };
-  const goHome = () => {
-    if (view === "analytics") return showView(lastPlanner.current);
+  const goPage = (p: Page) => {
+    if (p !== "home") return showView(p);
+    if (!isPlanner(view)) return showView(lastPlanner.current);
     goToday();
     showView("day");
   };
@@ -872,7 +869,7 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
   const year = (d: Date) => (d.getFullYear() !== now.getFullYear() ? `, ${d.getFullYear()}` : "");
   const pickDay = (button: HTMLElement) => setPicking((p) => (p ? null : button));
   let head: Head;
-  let nav: { prev: string; next: string; onPrev: () => void; onNext: () => void; away: boolean; back: string; nextDisabled?: boolean };
+  let nav: Nav | undefined;
   if (view === "day") {
     const relative = relativeDay(selected, todayKey);
     head = {
@@ -881,15 +878,13 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
       softShort: `${relative ? formatMedium(sel) : formatShort(sel)}${year(sel)}`,
       onTitle: pickDay,
       titleOpen: !!picking,
-      count: { done: dayTasks.filter((t) => t.done).length, total: dayTasks.length },
     };
     nav = {
       prev: "Previous day",
       next: "Next day",
       onPrev: () => selectDate(ymd(addDays(sel, -1))),
       onNext: () => selectDate(ymd(addDays(sel, 1))),
-      away: selected !== todayKey,
-      back: "Back to today",
+      back: selected !== todayKey ? { label: "Back to today", onClick: goToday } : undefined,
     };
   } else if (view === "week") {
     const start = startOfWeek(sel);
@@ -905,8 +900,7 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
       next: "Next week",
       onPrev: () => selectDate(ymd(addDays(sel, -7))),
       onNext: () => selectDate(ymd(addDays(sel, 7))),
-      away: weeks !== 0,
-      back: "Back to this week",
+      back: weeks !== 0 ? { label: "Back to this week", onClick: goToday } : undefined,
     };
   } else if (view === "month") {
     head = { title: MONTHS[cal.m], soft: String(cal.y) };
@@ -915,10 +909,9 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
       next: "Next month",
       onPrev: () => setCal(({ y, m }) => monthOf(ymd(new Date(y, m - 1, 1)))),
       onNext: () => setCal(({ y, m }) => monthOf(ymd(new Date(y, m + 1, 1)))),
-      away: cal.y !== now.getFullYear() || cal.m !== now.getMonth(),
-      back: "Back to this month",
+      back: cal.y !== now.getFullYear() || cal.m !== now.getMonth() ? { label: "Back to this month", onClick: goToday } : undefined,
     };
-  } else {
+  } else if (view === "analytics") {
     const b = periodBounds(stats.period, stats.offset, todayKey);
     head = {
       title: "Progress",
@@ -934,11 +927,10 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
       next: `Next ${stats.period}`,
       onPrev: () => setStats((st) => ({ ...st, offset: st.offset - 1 })),
       onNext: () => setStats((st) => ({ ...st, offset: Math.min(0, st.offset + 1) })),
-      away: stats.offset !== 0,
-      back: `Back to this ${stats.period}`,
       nextDisabled: stats.offset === 0,
+      back: stats.offset !== 0 ? { label: `Back to this ${stats.period}`, onClick: goToday } : undefined,
     };
-  }
+  } else head = { title: view === "goals" ? "Goals" : "Agent" };
   const center =
     view === "analytics" ? (
       <SegmentedControl
@@ -951,7 +943,7 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
           { value: "year", label: "Year" },
         ]}
       />
-    ) : (
+    ) : isPlanner(view) ? (
       <SegmentedControl
         label="View"
         value={view}
@@ -962,20 +954,17 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
           { value: "month", label: "Month", tip: "Month (M)" },
         ]}
       />
-    );
-  const controls = (
+    ) : undefined;
+  // The page's own actions, on the right: how much of the day is done, beside Focus.
+  const barActions = isPlanner(view) ? (
     <>
-      {/* Away from the present, the way back appears to the left of the arrows, so they never move. */}
-      {nav.away && <ReturnButton label={nav.back} onClick={goToday} />}
-      <Stepper prevLabel={nav.prev} nextLabel={nav.next} onPrev={nav.onPrev} onNext={nav.onNext} nextDisabled={nav.nextDisabled} />
-      {view !== "analytics" && (
-        <Button onClick={startFocus} disabled={!hasOpen} aria-label="Focus" data-tip="Focus on one task at a time (F)" className="max-sm:w-8 max-sm:px-0 sm:pr-3 sm:pl-2.5">
-          <FocusIcon size={15} />
-          <span className="max-sm:hidden">Focus</span>
-        </Button>
-      )}
+      {view === "day" && <DayCount done={dayTasks.filter((t) => t.done).length} total={dayTasks.length} />}
+      <Button onClick={startFocus} disabled={!hasOpen} aria-label="Focus" data-tip="Focus on one task at a time (F)" className="max-sm:w-8 max-sm:px-0 sm:pr-3 sm:pl-2.5">
+        <FocusIcon size={15} />
+        <span className="max-sm:hidden">Focus</span>
+      </Button>
     </>
-  );
+  ) : undefined;
   const phone = typeof window !== "undefined" && !window.matchMedia("(min-width: 768px)").matches;
   const monthPicker = (large: boolean) => (
     <MiniMonth
@@ -1003,8 +992,7 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
             user={user}
             sync={sync}
             view={view}
-            onHome={goHome}
-            onProgress={() => showView("analytics")}
+            onPage={goPage}
             onHide={toggleSidebar}
             onAccount={openAccount}
             accountOpen={!!accountMenu}
@@ -1015,8 +1003,9 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
             user={user}
             sync={sync}
             head={head}
+            nav={nav}
             center={center}
-            controls={controls}
+            actions={barActions}
             sidebar={sidebar}
             onShowSidebar={toggleSidebar}
             onAccount={openAccount}
@@ -1072,6 +1061,8 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
                 offset={stats.offset}
                 todayKey={todayKey}
                 firstDay={firstDay}
+                ai={voice}
+                account={account}
                 byDate={byDate}
                 onOffset={(offset) => setStats((s) => ({ ...s, offset: Math.min(0, offset) }))}
                 onDrill={(period, offset) => setStats({ period, offset })}
@@ -1081,6 +1072,7 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
                 onPlan={() => showView(stats.period === "week" ? "week" : "month")}
               />
             )}
+            {(view === "goals" || view === "agent") && <ComingSoon page={view} />}
           </main>
         </div>
       </div>
@@ -1114,16 +1106,12 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
           phone={phone}
           view={view}
           usage={voice ? usage : undefined}
-          proInterest={pro}
-          onHome={goHome}
-          onProgress={() => showView("analytics")}
-          onPro={() => setProOpen(true)}
+          onPage={goPage}
           onSettings={() => setSheet("general")}
           onShortcuts={() => setSheet("shortcuts")}
           onClose={() => setAccountMenu(null)}
         />
       )}
-      {proOpen && <ProSheet interest={pro} onInterest={setPro} onClose={() => setProOpen(false)} />}
       {sheet && (
         <SettingsSheet
           tab={sheet}
@@ -1133,12 +1121,13 @@ export function TaskApp({ user, account, voice, proInterest }: { user: AppUser; 
           sort={sort}
           onSort={setSort}
           voice={voice}
+          transcribe={transcribe}
           sample={sample}
           onClose={() => setSheet(null)}
         />
       )}
       {searching && <SearchPalette todayKey={todayKey} onOpen={openFound} onClose={() => setSearching(false)} />}
-      {speaking && <VoiceScreen todayKey={todayKey} weekStart={weekStart} sample={sample} onAdd={addDrafts} onClose={() => setSpeaking(false)} />}
+      {speaking && <VoiceScreen todayKey={todayKey} weekStart={weekStart} server={transcribe} sample={sample} onAdd={addDrafts} onClose={() => setSpeaking(false)} />}
 
       {/* One toast at a time: a new one takes the place of the last at once; the last one leaves gently. */}
       <div

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
+import { disintegrate, shootCard, type CardShot } from "./dust";
 import { CheckIcon, ChevronDown, PlusIcon, TimerIcon, XIcon } from "./icons";
 import { FOCUS_MINUTES, readFocusMinutes, saveFocusMinutes } from "./prefs";
 import { Button, Checkbox, Kbd, Menu, ProgressRing } from "./ui";
@@ -10,8 +11,8 @@ import { primeSound, soundTimer } from "./voice/sound";
 /**
  * Focus mode: the whole screen for one task. The task is a small card, a row of the list grown large: its box and its
  * words, nothing else. It lies on top of a deck; the cards under it, one for each task still waiting, show as two even
- * edges. Ticking the box crosses the words out and lifts the card away, and the deck moves up; Later slips the card to
- * the back. Where the day stands and the timer sit in the bar above; a thought that comes up goes on the line below.
+ * edges. A finished card turns to dust (dust.ts) and the next one rises into its place at once; Later slips the card
+ * to the back. Where the day stands and the timer sit in the bar above; a thought that comes up goes on the line below.
  */
 export function FocusPanel({
   queue,
@@ -36,8 +37,17 @@ export function FocusPanel({
 }) {
   const deck = queue.slice(0, 3);
   const task = deck[0];
-  const leaving = useLeaving(deck);
+  const leaving = useLeaving(deck, queue);
   const root = useRef<HTMLDivElement>(null);
+  // The top card's picture, taken as it leaves the page: if it left because it's done, it turns to dust right where it
+  // was, in the same frame (a card put off for later sinks to the back instead).
+  const gone = useRef<{ id: string; shot: CardShot } | null>(null);
+  useLayoutEffect(() => {
+    const g = gone.current;
+    gone.current = null;
+    if (!g || !root.current || queue.some((t) => t.id === g.id)) return;
+    disintegrate(root.current, g.shot);
+  });
   // "Added for later", said on the line itself for a moment.
   const [kept, setKept] = useState(false);
   useEffect(() => {
@@ -88,7 +98,7 @@ export function FocusPanel({
           <>
             <div className="relative w-full max-w-[560px]">
               {deck.map((t, i) => (
-                <DeckCard key={t.id} task={t} index={i} onDone={onDone} />
+                <DeckCard key={t.id} task={t} index={i} onDone={onDone} onGone={(shot) => (gone.current = { id: t.id, shot })} />
               ))}
               {leaving && <DeckCard key={`${leaving.id}-leaving`} task={leaving} index={0} leaving />}
             </div>
@@ -157,19 +167,42 @@ export function FocusPanel({
 
 /**
  * One card of the deck. The first lies on top and shows its task; the two under it are the same card, a step down and a
- * step smaller each, so their edges show as even strips. When the top one goes, the rest move up into place.
+ * step smaller each, so their edges show as even strips. When the top one goes, the rest move up into place; as it goes,
+ * it hands over its picture (`onGone`), taken while it is still on the page.
  */
-function DeckCard({ task, index, onDone, leaving = false }: { task: Task; index: number; onDone?: (t: Task) => void; leaving?: boolean }) {
+function DeckCard({
+  task,
+  index,
+  onDone,
+  onGone,
+  leaving = false,
+}: {
+  task: Task;
+  index: number;
+  onDone?: (t: Task) => void;
+  onGone?: (shot: CardShot) => void;
+  leaving?: boolean;
+}) {
   const top = index === 0;
+  const card = useRef<HTMLElement>(null);
+  const latest = useRef({ top, onGone });
+  latest.current = { top, onGone };
+  // Runs while the card is being taken off the page, before it is gone from it.
+  useLayoutEffect(
+    () => () => {
+      const el = card.current;
+      if (el && latest.current.top && el.isConnected) latest.current.onGone?.(shootCard(el));
+    },
+    [],
+  );
   const place = leaving
-    ? task.done
-      ? "pointer-events-none absolute inset-x-0 top-0 z-[4] animate-[focus-done_var(--duration-move)_ease-in-out_both]"
-      : "pointer-events-none absolute inset-x-0 top-0 z-0 animate-[focus-later_var(--duration-move)_var(--ease-out)_both]"
+    ? "pointer-events-none absolute inset-x-0 top-0 z-0 animate-[focus-later_var(--duration-move)_var(--ease-out)_both]"
     : top
       ? "relative z-[3]"
       : `absolute inset-0 overflow-hidden ${index === 1 ? "z-[2]" : "z-[1]"}`;
   return (
     <article
+      ref={card}
       inert={leaving || !top}
       aria-hidden={leaving || !top || undefined}
       data-deck={leaving ? "leaving" : index}
@@ -182,12 +215,12 @@ function DeckCard({ task, index, onDone, leaving = false }: { task: Task; index:
             : "bg-[color-mix(in_srgb,var(--surface)_50%,var(--canvas))] shadow-[0_0_0_1px_color-mix(in_srgb,var(--ink)_7%,transparent)]"
       }`}
     >
-      <span className={`flex flex-none pt-[1px] transition-opacity duration-(--duration-base) md:pt-[3px] ${top || leaving ? "delay-150" : "opacity-0"}`}>
+      <span className={`flex flex-none pt-[1px] transition-opacity duration-(--duration-base) md:pt-[3px] ${top || leaving ? "delay-75" : "opacity-0"}`}>
         <Checkbox size={26} checked={task.done} onToggle={() => onDone?.(task)} label={task.done ? `“${task.title}” is done` : `Mark “${task.title}” as done`} />
       </span>
       <h2
         className={`min-w-0 flex-1 text-[20px] leading-[28px] font-semibold tracking-[-0.018em] break-words transition-[color,opacity] duration-(--duration-base) md:text-[24px] md:leading-[34px] md:tracking-[-0.022em] ${
-          top || leaving ? "delay-150" : "opacity-0"
+          top || leaving ? "delay-75" : "opacity-0"
         } ${task.done ? "text-ink-3" : "text-ink"}`}
       >
         <span data-done={task.done} className="strike">
@@ -340,24 +373,26 @@ function FocusTimer() {
 }
 
 /**
- * The card that just left the deck (finished, or put off behind more than two others), kept for a moment as it last
- * looked so it can lift away or sink. A card that only moved within the deck isn't one: it travels there itself.
+ * The card that just left the deck because it was put off behind more than two others, kept for a moment as it last
+ * looked so it can sink. A card that only moved within the deck isn't one: it travels there itself. (A finished card
+ * isn't either: it turns to dust.)
  */
-function useLeaving(deck: Task[]) {
+function useLeaving(deck: Task[], queue: Task[]) {
   const [leaving, setLeaving] = useState<Task | null>(null);
   const shown = useRef<Task | undefined>(deck[0]);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const top = deck[0];
   const inDeck = deck.map((t) => t.id).join(" ");
+  const waiting = queue.map((t) => t.id).join(" ");
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
     const was = shown.current;
     shown.current = top;
-    if (!was || was.id === top?.id || inDeck.split(" ").includes(was.id)) return;
+    if (!was || was.id === top?.id || inDeck.split(" ").includes(was.id) || !waiting.split(" ").includes(was.id)) return;
     setLeaving(was);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setLeaving(null), 420);
-  }, [top, inDeck]);
+  }, [top, inDeck, waiting]);
   return leaving;
 }
 

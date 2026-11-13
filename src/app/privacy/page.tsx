@@ -7,7 +7,7 @@ const CONTACT_EMAIL = "privacy@hyperanchor.app";
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" effective="November 12, 2026">
+    <LegalPage title="Privacy Policy" effective="November 13, 2026">
       <LegalSection n={1} title="Overview">
         <p>
           Hyperanchor (“we”, “us”) is a task planner. This policy explains what information we collect when you use Hyperanchor, how we use it
@@ -27,16 +27,21 @@ export default function PrivacyPage() {
             <Strong>Your tasks.</Strong> Task titles, notes, dates, order and completion status that you create in Hyperanchor.
           </li>
           <li>
-            <Strong>What you say or type on the Speak screen.</Strong> Your browser turns your speech into text, which may involve the browser
-            maker’s own speech service (for example Google’s in Chrome or Apple’s in Safari); the sound itself never reaches us. The text, or
-            anything you type on that screen, is sent to our server and on to our AI provider to be sorted into tasks. We do not keep the
-            text: only the tasks you choose to add are saved. We do keep a count of how often you use this each day and of what it costs
-            (in tokens), to apply a daily limit and to show you your usage. On computers the screen also reads how loud the microphone
-            is, to move the sphere to your voice; that is worked out in your browser and is never recorded, sent or kept.
+            <Strong>What you say or type on the Speak screen.</Strong> While you speak, your browser records your voice; when you are done,
+            the recording is sent to our server and on to our speech-to-text provider, which turns it into text. Where that isn’t set up,
+            your browser turns your speech into text itself, which may involve the browser maker’s own speech service (for example Google’s
+            in Chrome or Apple’s in Safari). The text, or anything you type on that screen, is then sent to our AI provider to be sorted into
+            tasks. We do not keep the recording or the text: only the tasks you choose to add are saved. The screen also reads how loud the
+            microphone is, to move the sphere to your voice; that is worked out in your browser and is never sent or kept.
           </li>
           <li>
-            <Strong>Your interest in Pro.</Strong> If you ask to be told when Pro opens, we note that with your account, along with the
-            billing you picked. You can take it back in the same window.
+            <Strong>The AI summary in Progress.</Strong> When you ask for a summary, the numbers on that page and the titles of the tasks in
+            that period are sent to our AI provider, which writes a few lines about it. We do not keep them on our server; the summary is
+            kept in your browser, on your device.
+          </li>
+          <li>
+            <Strong>AI usage.</Strong> We keep a count of how often you use the AI features each day and of what they cost (in tokens), to
+            apply a daily limit and to show you what is left. Never what was said or written.
           </li>
           <li>
             <Strong>Technical data.</Strong> Basic server logs such as IP address, browser or app version and request times, used to run and
@@ -49,7 +54,7 @@ export default function PrivacyPage() {
         <LegalList>
           <li>To sign you in and keep your account secure.</li>
           <li>To store your tasks and show them on any device you use.</li>
-          <li>To turn what you say or type on the Speak screen into tasks.</li>
+          <li>To turn what you say or type on the Speak screen into tasks, and to write the summary in Progress when you ask for it.</li>
           <li>To fix problems and keep the service running.</li>
           <li>To tell you about important changes to Hyperanchor or this policy.</li>
         </LegalList>
@@ -66,9 +71,10 @@ export default function PrivacyPage() {
 
       <LegalSection n={5} title="Sharing">
         <p>
-          We share data only with service providers that help us run Hyperanchor, such as hosting, database and authentication providers, and
-          Anthropic, whose Claude models sort what you say or type on the Speak screen into tasks. They may use it only to provide those
-          services to us. We may also disclose information if required by law.
+          We share data only with service providers that help us run Hyperanchor, such as hosting, database and authentication providers;
+          OpenAI, whose speech-to-text model turns your recordings on the Speak screen into text; and Anthropic, whose Claude models sort
+          that text into tasks and write the summary in Progress. They may use it only to provide those services to us. We may also disclose
+          information if required by law.
         </p>
       </LegalSection>
 

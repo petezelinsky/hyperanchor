@@ -3,54 +3,74 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { addDays, formatMedium, parseYmd, relativeDay, startOfWeek, ymd, type WeekStart } from "@/lib/dates";
-import type { TaskDraft } from "@/lib/types";
+import type { TaskDraft, Usage } from "@/lib/types";
 import { DRAFT_TEXT_MAX as TEXT_MAX } from "@/lib/validate";
 import { AutoTextarea } from "../AutoTextarea";
 import { ChevronDown, XIcon } from "../icons";
 import { reducedMotion } from "../motion";
 import { Button, IconButton, Kbd, Menu, type MenuEntry } from "../ui";
-import { canListen, Dictation, spokenLanguage, type StopReason } from "./dictation";
+import { canListen, Dictation, readLanguageChoice, spokenLanguage, type StopReason } from "./dictation";
 import { canMeter, Meter } from "./meter";
 import { Orb } from "./Orb";
 import { ParticleRing, type RingMode } from "./ParticleRing";
-import { soundAdded, soundListening, soundReady } from "./sound";
+import { canRecord, Recorder, type Recorded, type RecordStop } from "./recorder";
 
 type Draft = TaskDraft & { key: number };
-/** Listening; waiting for the tasks to come back; or at rest (something to read, or to decide). */
-type Phase = "listening" | "sorting" | "idle";
-/** Something went wrong, in words; `again` is the text to send once more when trying again makes sense. */
-type Problem = { message: string; again?: string } | null;
+/** Listening; writing down what was said (on the server); waiting for the tasks to come back; or at rest. */
+type Phase = "listening" | "hearing" | "sorting" | "idle";
+/**
+ * Something went wrong, in words. `again`: the text to sort once more, `audio`: the recording to write down once more,
+ * when trying again makes sense.
+ */
+type Problem = { message: string; again?: string; audio?: Recorded } | null;
 
+const LIMIT = "That’s all of today’s AI tokens. More tomorrow.";
+/** About the least a short note costs to hear and sort: with less left today, listening doesn't start. */
+const ENOUGH = 2100;
 const PROBLEMS: Record<string, string> = {
-  limit: "That’s today’s limit for sorting. It starts over tomorrow.",
+  limit: LIMIT,
   not_configured: "Sorting into tasks isn’t set up on this server yet.",
   refused: "That couldn’t be sorted into tasks. Try saying it another way.",
   busy: "The sorter is busy right now.",
   failed: "That couldn’t be sorted into tasks.",
 };
+const HEARING: Record<string, string> = {
+  limit: LIMIT,
+  not_configured: "Listening isn’t set up on this server yet. Type instead.",
+  too_long: "That was too long to write down at once. Say it in two or three parts.",
+  busy: "Couldn’t write that down right now. Try again in a moment.",
+  failed: "That couldn’t be written down. Try again.",
+};
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /**
- * Speak your tasks: the whole screen, plain. The sphere listens in the middle and moves to every sound, the words appear
- * under it, and the language is worked out without asking (Settings can name one). When the person stops, a window comes
- * up at once, with lines filling in while the words are sorted, then the tasks on their days: each can be reworded, moved
- * to another day or left out. From there it's one step to add them, to speak some more, or to leave. Typing (or pasting)
- * works the same way, and takes over where the browser can't listen.
+ * Speak your tasks: the whole screen, plain. The sphere listens in the middle and moves to every sound. Where the server
+ * hears speech itself (`server`), the voice is recorded and written down there once the person stops — in any language,
+ * worked out without asking (Settings can name one); elsewhere the browser's own recognition writes the words under the
+ * sphere as they come. Then a window comes up at once, with lines filling in while the words are sorted, then the tasks
+ * on their days: each can be reworded, moved to another day or left out. From there it's one step to add them, to speak
+ * some more, or to leave. Typing (or pasting) works the same way, and takes over where the browser can't listen.
  */
 export function VoiceScreen({
   todayKey,
   weekStart,
+  server,
   sample,
   onAdd,
   onClose,
 }: {
   todayKey: string;
   weekStart: WeekStart;
+  /** The server writes down what is said (a speech model); otherwise the browser's recognition does. */
+  server: boolean;
   /** The person's latest task titles: what the spoken language is guessed from. */
   sample: string[];
   onAdd: (drafts: TaskDraft[]) => void;
   onClose: () => void;
 }) {
-  const hears = useMemo(canListen, []);
+  // Recorded and written down on the server where it can, else heard by the browser itself.
+  const record = useMemo(() => server && canRecord(), []);
+  const hears = useMemo(() => record || canListen(), []);
   const language = useMemo(() => spokenLanguage(sample), []); // for this opening of the screen
   const [typing, setTyping] = useState(!hears);
   const [phase, setPhase] = useState<Phase>(hears ? "listening" : "idle");
@@ -60,6 +80,8 @@ export function VoiceScreen({
   const [text, setText] = useState("");
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [problem, setProblem] = useState<Problem>(null);
+  // Today's tokens are used up: nothing more can be heard or sorted until tomorrow.
+  const [spent, setSpent] = useState(false);
   // The window with the tasks: up from the moment sorting starts.
   const [review, setReview] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -70,14 +92,19 @@ export function VoiceScreen({
   const field = useRef<HTMLTextAreaElement>(null);
   const ring = useRef<ParticleRing | null>(null);
   const dictation = useRef<Dictation | null>(null);
+  const recorder = useRef<Recorder | null>(null);
   const meter = useRef<Meter | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const alive = useRef(true);
   const nextKey = useRef(1);
   // Latest values for handlers that outlive a render (recognition callbacks, key listeners).
   const latest = useRef({ todayKey, weekStart, drafts, phase, typing, text, problem, review, confirming });
   latest.current = { todayKey, weekStart, drafts, phase, typing, text, problem, review, confirming };
 
+  /** The microphone closes: the recording (if any) is dropped, the meter stops. */
   const hush = useCallback(() => {
+    recorder.current?.cancel();
+    recorder.current = null;
     meter.current?.stop();
     meter.current = null;
   }, []);
@@ -105,16 +132,15 @@ export function VoiceScreen({
       if (res.status === 401) return window.location.reload(); // the session ran out: back to signing in
       if (!res.ok) {
         const code = ((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? "failed";
+        if (code === "limit") setSpent(true);
         setProblem({ message: PROBLEMS[code] ?? PROBLEMS.failed, again: code === "busy" || code === "failed" ? clean : undefined });
       } else {
         const { tasks } = (await res.json()) as { tasks: TaskDraft[] };
         if (!alive.current) return;
         setSaid("");
         setText("");
-        if (tasks.length) {
-          setDrafts((list) => [...list, ...tasks.map((t) => ({ ...t, key: nextKey.current++ }))]);
-          soundReady();
-        } else setProblem({ message: "No tasks in that. Say what you need to do, and when." });
+        if (tasks.length) setDrafts((list) => [...list, ...tasks.map((t) => ({ ...t, key: nextKey.current++ }))]);
+        else setProblem({ message: "No tasks in that. Say what you need to do, and when." });
       }
     } catch {
       if (!alive.current) return;
@@ -151,6 +177,63 @@ export function VoiceScreen({
     [sort, hush],
   );
 
+  /** Sends a recording to be written down; the words that come back are sorted into tasks. */
+  const hear = useCallback(
+    async (audio: Recorded) => {
+      setPhase("hearing");
+      setProblem(null);
+      try {
+        const q = new URLSearchParams({ seconds: audio.seconds.toFixed(1) });
+        // A language picked in Settings is passed on; otherwise the speech model works it out (mixed ones too).
+        const picked = readLanguageChoice();
+        if (picked) q.set("lang", picked.split("-")[0].toLowerCase());
+        const res = await fetch(`/api/voice/transcribe?${q}`, { method: "POST", headers: { "Content-Type": audio.blob.type || "audio/webm" }, body: audio.blob });
+        if (!alive.current) return;
+        if (res.status === 401) return window.location.reload(); // the session ran out: back to signing in
+        if (!res.ok) {
+          const code = ((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? "failed";
+          if (code === "limit") setSpent(true);
+          setPhase("idle");
+          return setProblem({ message: HEARING[code] ?? HEARING.failed, audio: code === "busy" || code === "failed" ? audio : undefined });
+        }
+        const { text } = (await res.json()) as { text: string };
+        if (!alive.current) return;
+        if (!text.trim()) {
+          setPhase("idle");
+          return setProblem({ message: "Nothing was heard. Try again a little closer to the microphone." });
+        }
+        setSaid(text);
+        void sort(text);
+      } catch {
+        if (!alive.current) return;
+        setPhase("idle");
+        setProblem({ message: "You’re offline. What you said is kept: try again when you’re back.", audio });
+      }
+    },
+    [sort],
+  );
+
+  const recorded = useCallback(
+    (reason: RecordStop, audio: Recorded | null) => {
+      recorder.current = null;
+      hush();
+      setSpeaking(false);
+      if (audio) return void hear(audio);
+      setPhase("idle");
+      setProblem({
+        message:
+          reason === "denied"
+            ? "The microphone is blocked for this site. Allow it in the address bar, or type instead."
+            : reason === "no-microphone"
+              ? "No microphone was found. Connect one, or type instead."
+              : reason === "error"
+                ? "Listening didn’t start. Try again, or type instead."
+                : "Nothing was heard. Try again a little closer to the microphone.",
+      });
+    },
+    [hear, hush],
+  );
+
   const listen = useCallback(() => {
     dictation.current?.cancel();
     hush();
@@ -160,6 +243,14 @@ export function VoiceScreen({
     setSaid("");
     setSaying("");
     setPhase("listening");
+    if (record) {
+      const r = new Recorder({ onSpeaking: setSpeaking, onStop: recorded });
+      recorder.current = r;
+      meter.current = r.meter;
+      setElapsed(0);
+      void r.start();
+      return;
+    }
     const d = new Dictation(language, {
       onText: (a, b) => {
         setSaid(a);
@@ -170,7 +261,6 @@ export function VoiceScreen({
     });
     dictation.current = d;
     d.start();
-    soundListening();
     // Computers: the microphone's level moves the sphere (the same permission the recognition has just asked for).
     if (canMeter()) {
       const m = new Meter();
@@ -179,9 +269,16 @@ export function VoiceScreen({
         if (!ok && meter.current === m) meter.current = null;
       });
     }
-  }, [heard, hush, language]);
+  }, [heard, recorded, hush, language, record]);
 
-  const stop = useCallback(() => dictation.current?.stop(), []);
+  const stop = useCallback(() => (recorder.current ? recorder.current.stop() : dictation.current?.stop()), []);
+
+  // The time spoken so far, while recording.
+  useEffect(() => {
+    if (phase !== "listening" || !record) return;
+    const id = setInterval(() => setElapsed(recorder.current?.elapsed ?? 0), 250);
+    return () => clearInterval(id);
+  }, [phase, record]);
 
   const close = useCallback(() => {
     dictation.current?.cancel();
@@ -216,20 +313,39 @@ export function VoiceScreen({
     dictation.current?.cancel();
     dictation.current = null;
     hush();
-    soundAdded();
     onAdd(ready);
     onClose();
   }, [onAdd, onClose, hush]);
 
-  // Opens listening (the press that opened this screen is the gesture browsers ask for).
+  // Opens listening (the press that opened this screen is the gesture browsers ask for). Meanwhile it asks what's left of
+  // today's tokens: with too little for even a short note, listening stops at once and says so, before anything is said.
   useEffect(() => {
     alive.current = true;
     dialog.current?.focus();
     if (hears) listen();
+    fetch("/api/usage")
+      .then((r) => (r.ok ? (r.json() as Promise<Usage>) : null))
+      .then((u) => {
+        if (!alive.current || !u || u.today.left >= ENOUGH) return;
+        dictation.current?.cancel();
+        dictation.current = null;
+        recorder.current?.cancel();
+        recorder.current = null;
+        meter.current?.stop();
+        meter.current = null;
+        setSpeaking(false);
+        setSaying("");
+        setSpent(true);
+        setPhase("idle");
+        setProblem({ message: LIMIT });
+      })
+      .catch(() => {});
     return () => {
       alive.current = false;
       dictation.current?.cancel();
       dictation.current = null;
+      recorder.current?.cancel();
+      recorder.current = null;
       meter.current?.stop();
       meter.current = null;
     };
@@ -275,7 +391,7 @@ export function VoiceScreen({
       ring.current = null;
     };
   }, [showRing]);
-  const mode: RingMode = phase === "listening" ? "speech" : phase === "sorting" ? "steady" : "silent";
+  const mode: RingMode = phase === "listening" ? "speech" : phase === "sorting" || phase === "hearing" ? "steady" : "silent";
   useEffect(() => {
     const r = ring.current;
     if (!r) return;
@@ -354,9 +470,18 @@ export function VoiceScreen({
 
   const n = drafts.filter((d) => d.title.trim()).length;
   const busy = phase === "sorting";
+  const hearing = phase === "hearing";
   const tasks = (count: number) => `${count} ${count === 1 ? "task" : "tasks"}`;
-  const caption = phase === "listening" ? "Listening" : busy ? "Sorting into tasks…" : "";
-  const hint = phase === "listening" ? "Say what you need to do, and when." : typing ? "" : n ? "Anything else? Speak again, or add what you have." : "Press Speak again and say what you need to do.";
+  const caption =
+    phase === "listening" ? (record ? `Listening · ${clock(elapsed)}` : "Listening") : hearing ? "Writing it down…" : busy ? "Sorting into tasks…" : "";
+  const hint =
+    phase === "listening"
+      ? "Say what you need to do, and when."
+      : typing || hearing
+        ? ""
+        : n
+          ? "Anything else? Speak again, or add what you have."
+          : "Press Speak again and say what you need to do.";
 
   return createPortal(
     <div
@@ -377,7 +502,7 @@ export function VoiceScreen({
           </span>
         </Button>
         {hears && (
-          <Button variant="plain" onClick={() => type(!typing)} disabled={busy}>
+          <Button variant="plain" onClick={() => type(!typing)} disabled={busy || hearing}>
             {typing ? "Speak instead" : "Type instead"}
           </Button>
         )}
@@ -407,7 +532,7 @@ export function VoiceScreen({
           ) : (
             <>
               <canvas ref={canvas} aria-hidden="true" className="size-[240px] flex-none text-ink md:size-[300px]" />
-              <p className="mt-1 min-h-[18px] text-caption text-ink-3">{caption}</p>
+              <p className="tabular mt-1 min-h-[18px] text-caption text-ink-3">{caption}</p>
               <p
                 aria-live="off"
                 className="mt-2 line-clamp-4 min-h-[52px] w-full max-w-[560px] text-center text-headline font-medium text-balance md:min-h-[60px] md:text-[20px] md:leading-[30px] md:tracking-[-0.014em]"
@@ -439,6 +564,16 @@ export function VoiceScreen({
           <Button size="lg" variant="primary" disabled={busy || !text.trim()} onClick={() => sort(text)} className="max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
             Sort into tasks
           </Button>
+        ) : problem?.audio && phase === "idle" ? (
+          <>
+            <Button size="lg" onClick={listen} className="gap-2 max-sm:flex-1 md:h-10 md:rounded-[10px]">
+              <Orb size={20} />
+              Speak again
+            </Button>
+            <Button size="lg" variant="primary" onClick={() => hear(problem.audio!)} className="max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
+              Try again
+            </Button>
+          </>
         ) : phase === "listening" ? (
           <Button size="lg" variant="primary" onClick={stop} aria-label="Done speaking" className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
             Done
@@ -447,7 +582,7 @@ export function VoiceScreen({
             </span>
           </Button>
         ) : (
-          <Button size="lg" variant="primary" disabled={busy} onClick={listen} className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
+          <Button size="lg" variant="primary" disabled={busy || hearing || spent} onClick={listen} className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
             <Orb size={20} />
             Speak again
           </Button>
@@ -534,7 +669,7 @@ export function VoiceScreen({
                       Try again
                     </Button>
                   ) : (
-                    <Button size="lg" disabled={busy} onClick={more} className="gap-2 max-sm:flex-1 md:h-10 md:rounded-[10px]">
+                    <Button size="lg" disabled={busy || spent} onClick={more} className="gap-2 max-sm:flex-1 md:h-10 md:rounded-[10px]">
                       {!typing && <Orb size={20} />}
                       {typing ? "Type more" : n ? "Speak more" : "Speak again"}
                     </Button>
@@ -557,7 +692,7 @@ export function VoiceScreen({
 
       {/* For assistive tech: what state the screen is in, without reading every word as it is heard. */}
       <p role="status" className="sr-only">
-        {busy ? "Sorting into tasks" : phase === "listening" ? "Listening" : problem ? problem.message : n ? `${tasks(n)} ready to add` : ""}
+        {busy ? "Sorting into tasks" : hearing ? "Writing down what you said" : phase === "listening" ? "Listening" : problem ? problem.message : n ? `${tasks(n)} ready to add` : ""}
       </p>
 
       {openDayMenu && dayMenu && <Menu anchor={dayMenu.anchor} trigger={dayMenu.trigger} align="end" label="Day" entries={dayEntries(openDayMenu)} onClose={() => setDayMenu(null)} />}

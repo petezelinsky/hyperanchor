@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { badRequest, currentUserId, unauthorized } from "@/lib/api";
-import { sql } from "@/lib/db";
-import { DAILY_REQUESTS, DraftError, draftsConfigured, draftTasks, shiftDay, TEXT_MAX } from "@/lib/drafts";
+import { reserve, settle, type Spend } from "@/lib/budget";
+import { DraftError, draftsConfigured, draftTasks, shiftDay, sortingEstimate, TEXT_MAX } from "@/lib/drafts";
 import { isDate } from "@/lib/validate";
 
 // Claude usually answers in a second or two; the function may wait out one retry.
@@ -10,10 +10,10 @@ export const maxDuration = 60;
 const failure = (code: string, status: number) => NextResponse.json({ error: code }, { status });
 
 /**
- * Text (what was said, or typed) → task drafts: `{ text, today, weekStart? }` → `{ tasks: [{ title, description, date }] }`.
- * Nothing is saved: the client shows the drafts and creates the ones the person keeps with POST /api/tasks.
- * Errors carry a code the clients word themselves: `not_configured` (503), `limit` (429), `refused` (422),
- * `busy` (503), `failed` (502).
+ * Text (what was said, or typed) → task drafts: `{ text, today, weekStart? }` → `{ tasks: [{ title, description, date }], left }`
+ * (`left`: tokens left today). Nothing is saved: the client shows the drafts and creates the ones the person keeps with
+ * POST /api/tasks. Errors carry a code the clients word themselves: `not_configured` (503), `limit` (429: not enough
+ * tokens left today), `refused` (422), `busy` (503), `failed` (502).
  */
 export async function POST(req: NextRequest) {
   const userId = await currentUserId();
@@ -31,24 +31,20 @@ export async function POST(req: NextRequest) {
 
   if (!draftsConfigured()) return failure("not_configured", 503);
 
-  // Counted before the call, so the allowance holds even when requests arrive side by side.
-  const [usage] = await sql<{ requests: number; day: string }[]>`
-    insert into ai_usage (user_id, day, requests, chars) values (${userId}, current_date, 1, ${text.length})
-    on conflict (user_id, day) do update set requests = ai_usage.requests + 1, chars = ai_usage.chars + excluded.chars
-    returning requests, day::text as day`;
-  if (usage.requests > DAILY_REQUESTS) return failure("limit", 429);
-
-  // What the call cost in tokens goes on the same day's line (the account menu's Usage adds them up).
-  const count = async ({ input, output }: { input: number; output: number }) => {
-    await sql`
-      update ai_usage set input_tokens = input_tokens + ${input}, output_tokens = output_tokens + ${output}
-      where user_id = ${userId} and day = ${usage.day}`;
-  };
-
+  // Set aside before the call, so the day's allowance holds even when requests arrive side by side.
+  const hold = await reserve(userId, sortingEstimate(text), text.length);
+  if (!hold) return failure("limit", 429);
+  const cost: { spend: Spend | null } = { spend: null };
   try {
-    return NextResponse.json({ tasks: await draftTasks(text, today, weekStart, count) });
+    const tasks = await draftTasks(text, today, weekStart, (spend) => {
+      cost.spend = spend;
+    });
+    const spent = cost.spend ? cost.spend.input + cost.spend.output : hold.estimate;
+    return NextResponse.json({ tasks, left: Math.max(0, hold.left - spent) });
   } catch (e) {
     if (!(e instanceof DraftError)) throw e;
     return failure(e.kind, e.kind === "refused" ? 422 : e.kind === "failed" ? 502 : 503);
+  } finally {
+    await settle(hold, cost.spend);
   }
 }
