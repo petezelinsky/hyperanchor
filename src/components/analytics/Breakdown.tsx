@@ -9,14 +9,14 @@ import { Button, Checkbox } from "../ui";
 import { Card } from "./parts";
 
 /** Average completed per weekday. Emphasis: the best day in the accent, the rest de-emphasized. */
-export function WeekdayCard({ days }: { days: DayStat[] }) {
+export function WeekdayCard({ days, className = "" }: { days: DayStat[]; className?: string }) {
   const ws = weekdayStats(days);
   const short = weekdayNames("short");
   const max = Math.max(...ws.map((w) => w.avg));
   const best = max > 0 ? ws.reduce((b, w) => (w.avg > b.avg ? w : b)) : null;
 
   return (
-    <Card title="By weekday" aside={<span className="text-caption text-ink-3">Average done per day</span>}>
+    <Card title="By weekday" className={className} aside={<span className="text-caption text-ink-3">Average done per day</span>}>
       <div className="space-y-2">
         {ws.map((w) => {
           const top = best?.index === w.index;

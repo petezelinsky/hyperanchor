@@ -31,10 +31,6 @@ create table if not exists users (
 
 alter table users enable row level security;
 
--- Pro isn't open yet: who asked to be told when it is, and which billing they picked ('yearly' or 'monthly').
-alter table users add column if not exists pro_interest text;
-alter table users add column if not exists pro_interest_at timestamptz;
-
 -- Turning text into tasks (voice): how many requests each person made on a day (UTC), and how much text. The daily
 -- allowance is counted here; the words themselves are never stored.
 create table if not exists ai_usage (

@@ -174,6 +174,7 @@ export function TaskTable({
       key={t.id}
       task={t}
       selected={state.selectedId === t.id}
+      active={menu?.task.id === t.id}
       editingField={state.editing?.id === t.id ? state.editing.field : null}
       tomorrow={tomorrow}
       actions={actions}

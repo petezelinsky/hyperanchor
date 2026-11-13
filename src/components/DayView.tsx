@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { formatMedium, parseYmd, relativeDay, dayName } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { ArrowRightIcon, TrashIcon } from "./icons";
@@ -97,7 +97,9 @@ export function DayView({
   );
 }
 
-const CHUNK = 50;
+/** How many tasks from earlier days show at first, and how many more each "Show more" adds. */
+const FIRST = 12;
+const MORE = 40;
 
 /** A quiet line above the list, with its actions after the words; what it opens appears below it. */
 function Notice({ children, action, more }: { children: React.ReactNode; action: React.ReactNode; more?: React.ReactNode }) {
@@ -122,26 +124,16 @@ function MoveButton({ label, onClick }: { label: string; onClick: () => void }) 
 }
 
 /**
- * Every task left open on an earlier day, as one quiet line. Review opens them most recent first, to tick off, bring to
- * today or let go one by one, and only then offers to move them all. The line keeps its size, so nothing jumps; a long
- * list scrolls inside.
+ * Every task left open on an earlier day, as one quiet line. It opens on the most recent ones, to tick off, bring to
+ * today or let go one by one, and offers to move them all. The list is part of the page (no box scrolling inside it)
+ * and shows a dozen at first, more on request: hundreds of old tasks cost nothing until someone asks to see them.
  */
 function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; todayKey: string; actions: TableActions; onMoveAll: () => void }) {
   const [open, setOpen] = useState(false);
-  // The list exists only while it's open (and while it closes), and grows by 50 as it's scrolled: hundreds of old tasks
-  // cost nothing until someone looks at them.
-  const [limit, setLimit] = useState(CHUNK);
-  const end = useRef<HTMLLIElement>(null);
+  const [limit, setLimit] = useState(FIRST);
   useEffect(() => {
-    if (!open) setLimit(CHUNK);
+    if (!open) setLimit(FIRST);
   }, [open]);
-  useEffect(() => {
-    const el = end.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => e.isIntersecting && setLimit((l) => l + CHUNK), { root: el.parentElement, rootMargin: "200px" });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [open, limit, tasks.length]);
   const n = tasks.length;
   const thisYear = parseYmd(todayKey).getFullYear();
   const when = (date: string) => {
@@ -158,7 +150,7 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
             <span>Most recent first. Tick off, bring to today, or let go.</span>
             <MoveButton label={n === 1 ? "Move to today" : "Move all to today"} onClick={onMoveAll} />
           </div>
-          <ul className="mt-1 max-h-[min(52vh,440px)] overflow-y-auto overscroll-contain rounded-lg shadow-ring-line">
+          <ul className="mt-1 rounded-lg shadow-ring-line">
             {tasks.slice(0, limit).map((t, i) => (
               <li key={t.id} data-flip={t.id} className={`flex items-center gap-3 py-1.5 pr-2 pl-3.5 ${i ? "border-t border-line" : ""}`}>
                 <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
@@ -175,8 +167,16 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
                 </IconButton>
               </li>
             ))}
-            {limit < n && <li ref={end} aria-hidden="true" className="h-px" />}
           </ul>
+          {limit < n && (
+            <button
+              type="button"
+              onClick={() => setLimit((l) => l + MORE)}
+              className="tap relative mt-2.5 text-caption font-medium text-ink-2 underline decoration-ink-4 underline-offset-[3px] hover:text-ink hover:decoration-current"
+            >
+              Show {Math.min(MORE, n - limit)} more
+            </button>
+          )}
         </div>
       </Accordion>
     </div>

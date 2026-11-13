@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { exitCopy } from "./motion";
+import { exitCopy, motion as motionTokens, reducedMotion as reduced } from "./motion";
 
 // ── Buttons ──────────────────────────────────────────────────────────────────
 
@@ -605,34 +605,108 @@ export function Kbd({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * A list that opens and closes by its height (one of the two things whose layout animates). Its content exists only
- * while open or closing, and it clips only while it moves.
+ * A list that opens and closes in place, moving by transforms only: the list is laid out once, at its full size, and is
+ * revealed from the top while everything under it slides down (and back up as it closes). Nothing is laid out again
+ * frame by frame, so a long list opens as smoothly as a short one. Its content exists only while open or closing.
  */
 export function Accordion({ open, children }: { open: boolean; children: React.ReactNode }) {
   const [mounted, setMounted] = useState(open);
-  const [moving, setMoving] = useState(false);
+  // Opening mounts the content in the same render, so the first frame already has it in place (clipped).
+  if (open && !mounted) setMounted(true);
+  const box = useRef<HTMLDivElement>(null);
   const first = useRef(true);
-  useEffect(() => {
+  const running = useRef<{ anims: Animation[]; followers: HTMLElement[] }>({ anims: [], followers: [] });
+
+  useLayoutEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
-    setMoving(true);
-    if (open) setMounted(true);
+    const el = box.current;
+    if (!el) return;
+    // A toggle mid-way turns around from where things are now.
+    const hiddenNow = running.current.anims.length ? clipBottom(el) : open ? null : 0;
+    for (const a of running.current.anims) a.cancel();
+    running.current = { anims: [], followers: [] };
+    const h = el.offsetHeight;
+    if (!h) {
+      if (!open) setMounted(false);
+      return;
+    }
+    const m = motionTokens();
+    if (reduced()) {
+      if (open) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: m.reduced });
+      else setMounted(false);
+      return;
+    }
+    const from = Math.min(h, hiddenNow ?? h);
+    const to = open ? 0 : h;
+    const duration = Math.max(90, (m.base * Math.abs(to - from)) / h);
+    const timing: KeyframeAnimationOptions = { duration, easing: open ? m.out : m.in, fill: "both" };
+    const followers = below(el, h);
+    const anims = [
+      el.animate([{ clipPath: `inset(0 0 ${from}px 0)` }, { clipPath: `inset(0 0 ${to}px 0)` }], timing),
+      ...followers.map((f) => f.animate([{ transform: `translateY(${-from}px)` }, { transform: `translateY(${-to}px)` }], timing)),
+    ];
+    // The rows themselves settle in as they're revealed.
+    const inner = el.firstElementChild;
+    if (open && from === h && inner) anims.push(inner.animate([{ opacity: 0.25, transform: "translateY(-6px)" }, { opacity: 1, transform: "none" }], { duration: m.base, easing: m.out }));
+    running.current = { anims, followers };
+    void anims[0].finished.then(
+      () => {
+        if (running.current.anims !== anims) return;
+        if (open) {
+          for (const a of anims) a.cancel();
+          running.current = { anims: [], followers: [] };
+        } else setMounted(false); // the space closes in the same frame as the slid-up rows let go (below)
+      },
+      () => {},
+    );
   }, [open]);
+
+  // Closed: the content is gone and the rows under it are where they slid to, so they let go of the slide.
+  useLayoutEffect(() => {
+    if (mounted || !running.current.anims.length) return;
+    for (const a of running.current.anims) a.cancel();
+    running.current = { anims: [], followers: [] };
+  }, [mounted]);
+
   return (
-    <div
-      // One column that never grows past the space it has (long single lines inside truncate instead of widening the page).
-      className={`grid grid-cols-[minmax(0,1fr)] transition-[grid-template-rows] duration-(--duration-base) ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
-      onTransitionEnd={(e) => {
-        if (e.target !== e.currentTarget) return;
-        setMoving(false);
-        if (!open) setMounted(false);
-      }}
-    >
-      <div className={`min-h-0 ${open && !moving ? "" : "overflow-hidden"}`} inert={!open}>
-        {(open || mounted) && children}
-      </div>
+    // One column that never grows past the space it has (long single lines inside truncate instead of widening the page).
+    <div ref={box} className="grid grid-cols-[minmax(0,1fr)]" inert={!open}>
+      {(open || mounted) && <div className="min-w-0">{children}</div>}
     </div>
   );
+}
+
+/** How much of `el` is clipped away at the bottom right now (an accordion caught mid-way). */
+function clipBottom(el: HTMLElement): number | null {
+  const m = /^inset\(([^)]*)\)/.exec(getComputedStyle(el).clipPath);
+  if (!m) return null;
+  // inset(top right bottom left), shortened the way CSS shortens margins.
+  const v = m[1].trim().split(/\s+/).map((x) => parseFloat(x) || 0);
+  return v.length >= 3 ? v[2] : v[0];
+}
+
+/**
+ * What sits under `el` on the page and moves when it changes height: its later siblings, then its parents' later
+ * siblings, up to the scrolling container. Only what can be seen while it moves (`reach` px beyond the screen).
+ */
+function below(el: HTMLElement, reach: number): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  const top = el.getBoundingClientRect().top;
+  const limit = window.innerHeight + reach;
+  for (let node: HTMLElement | null = el; node && node !== document.body; node = node.parentElement) {
+    for (let s = node.nextElementSibling; s; s = s.nextElementSibling) {
+      if (!(s instanceof HTMLElement)) continue;
+      const st = getComputedStyle(s);
+      if (st.position === "fixed" || st.position === "absolute" || st.position === "sticky" || st.display === "none") continue;
+      const r = s.getBoundingClientRect();
+      if (r.top < top || r.top > limit) continue;
+      out.push(s);
+    }
+    const parent: HTMLElement | null = node.parentElement;
+    if (!parent || /(auto|scroll)/.test(getComputedStyle(parent).overflowY)) break;
+  }
+  return out;
 }

@@ -78,6 +78,7 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
       variant="card"
       task={t}
       selected={state.selectedId === t.id}
+      active={menu?.task.id === t.id}
       editingField={state.editing?.id === t.id ? state.editing.field : null}
       tomorrow={tomorrow}
       actions={actions}

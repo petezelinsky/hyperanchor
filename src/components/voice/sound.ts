@@ -1,12 +1,9 @@
 import { readSounds } from "../prefs";
 
 /**
- * The app's own small sounds, made on the spot (no audio files): single soft drops whose pitch glides, rather than a
- * two-note chime. One that rises when listening starts, one that falls and settles when what was said has come back as
- * tasks, a short one when they are added. Quiet, brief, and silent when Settings says so.
- *
- * (What the browser or the device plays by itself when the microphone opens — a dictation tone, a headset switching to
- * its call mode — isn't ours to change.)
+ * The app's one small sound, made on the spot (no audio file): soft drops whose pitch glides, when the focus timer is
+ * up. Quiet, brief, and silent when Settings says so. (Speaking tasks makes no sound of its own; what the browser or
+ * the device plays when the microphone opens isn't ours to change.)
  */
 
 let ctx: AudioContext | null = null;
@@ -49,23 +46,6 @@ function drop({ from, to, at = 0, gain = 0.08, glide = 0.09, tail = 0.34 }: Drop
   // Right after it's asked for, the sound may still be waking up: the drop plays as soon as it has.
   if (audio.state === "running") play();
   else void audio.resume().then(play, () => {});
-}
-
-/** Listening starts: a drop that rises, with a breath of air an octave above it. */
-export function soundListening() {
-  drop({ from: 392, to: 784, gain: 0.075, glide: 0.11, tail: 0.38 });
-  drop({ from: 784, to: 1568, gain: 0.014, glide: 0.11, tail: 0.24 });
-}
-
-/** What was said has come back as tasks: a drop that falls and settles. */
-export function soundReady() {
-  drop({ from: 988, to: 659, gain: 0.065, glide: 0.08, tail: 0.42 });
-  drop({ from: 1976, to: 1318, gain: 0.012, glide: 0.08, tail: 0.26 });
-}
-
-/** The tasks are in the list: one short, low drop. */
-export function soundAdded() {
-  drop({ from: 523, to: 440, gain: 0.06, glide: 0.05, tail: 0.22 });
 }
 
 /** The focus timer is up: three unhurried drops, each a little lower. */

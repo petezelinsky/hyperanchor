@@ -1,12 +1,25 @@
 /**
  * The microphone's loudness and how it spreads over the voice's range, read many times a second, so the sphere can move
- * to every sound. Nothing is recorded and nothing leaves the page: the numbers are worked out here and thrown away.
+ * to every sound (and the recording knows when the person has stopped talking). The numbers are worked out here and
+ * thrown away.
  *
- * Chrome and Edge on computers only. On phones (and in Safari) the browser's speech recognition needs the microphone
- * to itself (a second listener makes it go deaf), so there the sphere moves to the words as they are recognized instead.
+ * With the recording (speech heard on the server) it listens to the recording's own microphone, in every browser. With
+ * the browser's speech recognition, only Chrome and Edge on computers: elsewhere the recognition needs the microphone to
+ * itself (a second listener makes it go deaf), and the sphere moves to the words as they are recognized instead.
  */
 
 export const METER_BANDS = 16;
+
+let shared: AudioContext | null = null;
+/** Called from the press that opens listening: Safari lets audio run only when it is started by a press. */
+export function primeAudio() {
+  try {
+    shared ??= new AudioContext();
+    void shared.resume();
+  } catch {
+    // No audio here: the sphere moves by itself, and listening still works.
+  }
+}
 
 export const canMeter = () => {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return false;
@@ -21,7 +34,15 @@ export class Meter {
   level = 0;
   /** 0…1 each: the same, from the low end of a voice to the high. */
   readonly bands = new Float32Array(METER_BANDS);
+  /** When the microphone was last read (performance.now()). */
+  at = 0;
+  /** Whether any sound has reached the meter yet: false while the browser keeps its audio asleep. */
+  live = false;
   private ctx: AudioContext | null = null;
+  /** The context is this meter's own (not the shared one), so it closes it when done. */
+  private ownCtx = false;
+  private source: MediaStreamAudioSourceNode | null = null;
+  /** The microphone, when this meter asked for it (and so stops it). */
   private stream: MediaStream | null = null;
   private analyser: AnalyserNode | null = null;
   private wave = new Float32Array(0);
@@ -42,22 +63,7 @@ export class Meter {
         return false;
       }
       this.stream = stream;
-      const ctx = new AudioContext();
-      this.ctx = ctx;
-      void ctx.resume();
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = 0.5;
-      analyser.minDecibels = -88;
-      analyser.maxDecibels = -18;
-      // Into the analyser only: nothing is played back.
-      ctx.createMediaStreamSource(stream).connect(analyser);
-      this.analyser = analyser;
-      this.wave = new Float32Array(analyser.fftSize);
-      this.spectrum = new Uint8Array(analyser.frequencyBinCount);
-      // A voice lives between about 90 Hz and 5 kHz: sixteen bands, each a little wider than the last.
-      const perBin = ctx.sampleRate / analyser.fftSize;
-      this.edges = Array.from({ length: METER_BANDS + 1 }, (_, k) => Math.max(1, Math.round((90 * Math.pow(5000 / 90, k / METER_BANDS)) / perBin)));
+      this.connect(stream);
       return true;
     } catch {
       this.stop();
@@ -65,14 +71,49 @@ export class Meter {
     }
   }
 
+  /** Listens to a microphone someone else holds (the recording's): nothing is asked for, and it is left running. */
+  attach(stream: MediaStream): boolean {
+    try {
+      this.connect(stream);
+      return true;
+    } catch {
+      this.stop();
+      return false;
+    }
+  }
+
+  private connect(stream: MediaStream) {
+    // The context opened by the press when there is one (Safari keeps any other asleep).
+    const ctx = shared && shared.state !== "closed" ? shared : new AudioContext();
+    this.ownCtx = ctx !== shared;
+    this.ctx = ctx;
+    void ctx.resume();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.5;
+    analyser.minDecibels = -88;
+    analyser.maxDecibels = -18;
+    // Into the analyser only: nothing is played back.
+    this.source = ctx.createMediaStreamSource(stream);
+    this.source.connect(analyser);
+    this.analyser = analyser;
+    this.wave = new Float32Array(analyser.fftSize);
+    this.spectrum = new Uint8Array(analyser.frequencyBinCount);
+    // A voice lives between about 90 Hz and 5 kHz: sixteen bands, each a little wider than the last.
+    const perBin = ctx.sampleRate / analyser.fftSize;
+    this.edges = Array.from({ length: METER_BANDS + 1 }, (_, k) => Math.max(1, Math.round((90 * Math.pow(5000 / 90, k / METER_BANDS)) / perBin)));
+  }
+
   /** Reads the microphone now: updates `level` and `bands`. False while there is nothing to read. */
   read(): boolean {
     const a = this.analyser;
     if (!a) return false;
+    this.at = performance.now();
     a.getFloatTimeDomainData(this.wave);
     let sum = 0;
     for (let i = 0; i < this.wave.length; i++) sum += this.wave[i] * this.wave[i];
     const rms = Math.sqrt(sum / this.wave.length);
+    if (rms > 0.0004) this.live = true;
     // The room's hum is learned (slowly when it grows, quickly when it falls) and taken away; the loudest moment so far
     // sets the top, and fades, so a quiet voice fills the range as well as a loud one.
     this.floor += (rms - this.floor) * (rms < this.floor ? 0.3 : 0.003);
@@ -102,9 +143,13 @@ export class Meter {
   stop() {
     this.stopped = true;
     this.analyser = null;
+    try {
+      this.source?.disconnect();
+    } catch {}
+    this.source = null;
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;
-    void this.ctx?.close().catch(() => {});
+    if (this.ownCtx) void this.ctx?.close().catch(() => {});
     this.ctx = null;
     this.level = 0;
     this.bands.fill(0);
