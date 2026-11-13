@@ -89,8 +89,17 @@ final class WebParityTests: XCTestCase {
 
     func testSortingAndFilter() {
         let sample = Self.fixtures.sortSample
-        for option in SortOption.allCases {
-            XCTAssertEqual(TaskSorting.sorted(sample, by: option).map(\.id), Self.fixtures.sorting[option.rawValue], option.label)
+        // The web's sorts by the names scripts/ios-fixtures.mjs gives them.
+        let sorts: [String: TaskSort] = [
+            "manual": .manual,
+            "orderAdded": TaskSort(key: .added, ascending: true),
+            "newestFirst": .newestFirst,
+            "nameAscending": .nameAscending,
+            "nameDescending": .nameDescending,
+        ]
+        for (name, expected) in Self.fixtures.sorting {
+            guard let sort = sorts[name] else { return XCTFail("No sort named \(name)") }
+            XCTAssertEqual(TaskSorting.sorted(sample, by: sort).map(\.id), expected, name)
         }
         for m in Self.fixtures.matching {
             XCTAssertEqual(sample.filter { TaskSorting.matches($0, query: m.query) }.map(\.id), m.ids, "query “\(m.query)”")
@@ -98,7 +107,7 @@ final class WebParityTests: XCTestCase {
     }
 
     func testAnalyticsMatchTheWeb() {
-        let byDateMap = Dictionary(grouping: TaskSorting.sorted(Self.fixtures.tasks, by: .orderAdded), by: \.date)
+        let byDateMap = Dictionary(grouping: TaskSorting.sorted(Self.fixtures.tasks, by: TaskSort(key: .added, ascending: true)), by: \.date)
         let byDate = { (d: DayKey) in byDateMap[d] ?? [] }
         XCTAssertFalse(Self.fixtures.scenarios.isEmpty)
         for s in Self.fixtures.scenarios {

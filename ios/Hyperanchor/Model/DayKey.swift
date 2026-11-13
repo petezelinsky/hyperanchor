@@ -3,7 +3,7 @@ import Foundation
 /// A local calendar day — the app's unit of planning. Serialized as "YYYY-MM-DD", like the web and the API.
 ///
 /// Stored as a day number (days since 1970-01-01), so arithmetic and comparisons never touch time zones
-/// or daylight saving. Weeks start on Monday.
+/// or daylight saving. Weeks start on Monday, or on Sunday when the person picks it in Settings (`weekStart`).
 struct DayKey: Hashable, Comparable, Sendable {
     /// Days since 1970-01-01.
     let ordinal: Int
@@ -42,8 +42,18 @@ struct DayKey: Hashable, Comparable, Sendable {
     /// 1…31
     var day: Int { Self.civilFromDays(ordinal).day }
 
-    /// Monday-first weekday, 0…6 (1970-01-01 was a Thursday).
-    var weekday: Int { ((ordinal + 3) % 7 + 7) % 7 }
+    /// The first day of the week everywhere in the app: 1 = Monday (the default), 0 = Sunday (`setWeekStart` on the
+    /// web). Set on the main thread from Settings before anything is drawn with it.
+    nonisolated(unsafe) static var weekStart = 1
+
+    /// The day of the week as JavaScript's `getDay()`: 0 = Sunday … 6 = Saturday (1970-01-01 was a Thursday).
+    var dayOfWeek: Int { ((ordinal + 4) % 7 + 7) % 7 }
+
+    /// Position in its week, 0…6, counting from the first day of the week (`dowIndex` on the web).
+    var weekday: Int { (dayOfWeek - Self.weekStart + 7) % 7 }
+
+    /// Saturday or Sunday.
+    var isWeekend: Bool { dayOfWeek == 0 || dayOfWeek == 6 }
 
     /// Local midnight of this day.
     func date(calendar: Calendar = .current) -> Date {
@@ -58,7 +68,7 @@ struct DayKey: Hashable, Comparable, Sendable {
     /// Whole days from `other` to `self` (positive when `self` is later).
     func days(since other: DayKey) -> Int { ordinal - other.ordinal }
 
-    /// Monday of this day's week.
+    /// The first day of this day's week.
     var startOfWeek: DayKey { adding(days: -weekday) }
 
     /// First day of this day's month.

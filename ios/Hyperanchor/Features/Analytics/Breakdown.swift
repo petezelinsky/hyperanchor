@@ -23,7 +23,7 @@ struct Heatmap: View {
                     VStack(alignment: .leading, spacing: gap) {
                         Color.clear.frame(height: 14)
                         ForEach(0..<7, id: \.self) { i in
-                            Text(i % 2 == 0 && i < 6 ? Dates.dowShort[i] : "")
+                            Text(i % 2 == 0 && i < 6 ? Dates.weekdayNames(.short)[i] : "")
                                 .font(.system(size: 9.5))
                                 .foregroundStyle(.ink3)
                                 .frame(height: cell)
@@ -111,7 +111,7 @@ struct WeekdayCard: View {
                 ForEach(ws) { w in
                     let top = best?.index == w.index
                     HStack(spacing: 12) {
-                        Text(Dates.dowShort[w.index])
+                        Text(Dates.weekdayNames(.short)[w.index])
                             .font(.footnote.weight(top ? .semibold : .regular))
                             .foregroundStyle(top ? .ink : .ink2)
                             .frame(width: 34, alignment: .leading)
@@ -131,12 +131,12 @@ struct WeekdayCard: View {
                         .frame(width: 76, alignment: .trailing)
                     }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(Dates.dowFull[w.index]): \(Stats.fmt1(w.avg)) a day, \(w.rate.map(Stats.pct) ?? "no tasks")")
+                    .accessibilityLabel("\(Dates.weekdayNames(.full)[w.index]): \(Stats.fmt1(w.avg)) a day, \(w.rate.map(Stats.pct) ?? "no tasks")")
                 }
             }
             Group {
                 if let best {
-                    Text("You get the most done on ") + Text("\(Dates.dowFull[best.index])s").fontWeight(.semibold).foregroundStyle(.ink) + Text(".")
+                    Text("You get the most done on ") + Text("\(Dates.weekdayNames(.full)[best.index])s").fontWeight(.semibold).foregroundStyle(.ink) + Text(".")
                 } else {
                     Text("Not enough completed tasks yet.")
                 }

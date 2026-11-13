@@ -98,7 +98,8 @@ final class Toaster {
     }
 }
 
-/// Appearance, remembered on this device (as on the web).
+/// Settings remembered on this device (as the web keeps them in localStorage): appearance, accent, the first day of
+/// the week, the task order, the focus timer, sounds, the spoken language, the sidebar on iPad.
 @MainActor
 @Observable
 final class Preferences {
@@ -117,9 +118,47 @@ final class Preferences {
         didSet { defaults.set(accent.rawValue, forKey: "accent") }
     }
 
-    /// Whether the Day view's Completed group is expanded.
+    /// Whether the Day view's Done fold is open.
     var completedExpanded: Bool {
         didSet { defaults.set(completedExpanded, forKey: "completedExpanded") }
+    }
+
+    /// The first day of the week: 1 = Monday (the default), 0 = Sunday. In Week, Month and Progress.
+    var weekStart: Int {
+        didSet {
+            defaults.set(weekStart, forKey: "weekStart")
+            DayKey.weekStart = weekStart
+        }
+    }
+
+    /// How a day's tasks are ordered (Settings → Task order): the person's own order by default.
+    var sort: TaskSort {
+        didSet { defaults.set(try? JSONEncoder().encode(sort), forKey: "sort") }
+    }
+
+    /// The focus timer's length in minutes (5…60, 25 by default), remembered once chosen.
+    var focusMinutes: Int {
+        didSet { defaults.set(focusMinutes, forKey: "focusMinutes") }
+    }
+
+    /// A soft chime when the focus timer is up.
+    var sounds: Bool {
+        didSet { defaults.set(sounds, forKey: "sounds") }
+    }
+
+    /// The language speech is heard in ("ru"); nil: worked out from the person's tasks and the device.
+    var voiceLanguage: String? {
+        didSet { defaults.set(voiceLanguage, forKey: "voiceLanguage") }
+    }
+
+    /// iPad: the sidebar is hidden (its button or `[` brings it back).
+    var sidebarHidden: Bool {
+        didSet { defaults.set(sidebarHidden, forKey: "sidebarHidden") }
+    }
+
+    /// The first-run note with examples has been seen (or dismissed).
+    var welcomed: Bool {
+        didSet { defaults.set(welcomed, forKey: "welcomed") }
     }
 
     /// Today's open tasks as a badge on the app icon (like the web's tab title).
@@ -135,6 +174,14 @@ final class Preferences {
         accent = AccentChoice(rawValue: defaults.string(forKey: "accent") ?? "") ?? .default
         completedExpanded = defaults.object(forKey: "completedExpanded") as? Bool ?? true
         showBadge = defaults.bool(forKey: "showBadge")
+        weekStart = defaults.object(forKey: "weekStart") as? Int == 0 ? 0 : 1
+        sort = defaults.data(forKey: "sort").flatMap { try? JSONDecoder().decode(TaskSort.self, from: $0) } ?? .manual
+        focusMinutes = min(60, max(5, defaults.object(forKey: "focusMinutes") as? Int ?? 25))
+        sounds = defaults.object(forKey: "sounds") as? Bool ?? true
+        voiceLanguage = defaults.string(forKey: "voiceLanguage")
+        sidebarHidden = defaults.bool(forKey: "sidebarHidden")
+        welcomed = defaults.bool(forKey: "welcomed")
+        DayKey.weekStart = weekStart
     }
 }
 

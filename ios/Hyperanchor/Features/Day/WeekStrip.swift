@@ -74,7 +74,7 @@ private struct WeekPage: View {
         let dot: Color? = tasks.isEmpty ? nil : done == tasks.count ? palette.accent : .ink4
         return Button { select(day) } label: {
             VStack(spacing: 1) {
-                Text(Dates.dowShort[day.weekday])
+                Text(Dates.dayShort(day))
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(on ? AnyShapeStyle(.opacity(0.75)) : isToday ? AnyShapeStyle(palette.accentInk) : AnyShapeStyle(.ink3))
                 Text("\(day.day)")

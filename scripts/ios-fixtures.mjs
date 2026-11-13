@@ -146,10 +146,25 @@ const sortSample = [
   ["d", "eclair", "2026-10-22T10:00:00.000Z"],
   ["e", "banana split", "2026-10-22T07:30:00.000Z"],
   ["f", "zebra", "2026-10-22T06:00:00.000Z"],
-].map(([id, title, createdAt]) => ({ id, date: "2026-10-22", title, description: id === "e" ? "Call Mom first" : "", done: false, createdAt, updatedAt: createdAt }));
-const SORTS = { orderAdded: { key: "added", dir: "asc" }, newestFirst: { key: "added", dir: "desc" }, nameAscending: { key: "title", dir: "asc" }, nameDescending: { key: "title", dir: "desc" } };
+].map(([id, title, createdAt]) => ({
+  id,
+  date: "2026-10-22",
+  title,
+  description: id === "e" ? "Call Mom first" : "",
+  done: false,
+  // Two of them were moved by hand: "d" to the top, "a" between "e" (07:30) and "c" (08:00). The rest sort by when they were added.
+  position: id === "d" ? 0 : id === "a" ? Date.parse("2026-10-22T07:45:00.000Z") : null,
+  createdAt,
+  updatedAt: createdAt,
+}));
+// The in-list filter (the iOS app's; the web searches on the server instead): title or notes contain the query.
+const matchesQuery = (t, query) => {
+  const q = query.trim().toLowerCase();
+  return !q || t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q);
+};
+const SORTS = { manual: { key: "manual", dir: "asc" }, orderAdded: { key: "added", dir: "asc" }, newestFirst: { key: "added", dir: "desc" }, nameAscending: { key: "title", dir: "asc" }, nameDescending: { key: "title", dir: "desc" } };
 const sorting = Object.fromEntries(Object.entries(SORTS).map(([name, sort]) => [name, tasksLib.sortTasks(sortSample, sort).map((t) => t.id)]));
-const matching = ["", "zeb", "MOM", "  apple ", "x"].map((q) => ({ query: q, ids: sortSample.filter((t) => tasksLib.matchesQuery(t, q)).map((t) => t.id) }));
+const matching = ["", "zeb", "MOM", "  apple ", "x"].map((q) => ({ query: q, ids: sortSample.filter((t) => matchesQuery(t, q)).map((t) => t.id) }));
 
 const numbers = {
   niceMax: [0, 3, 4, 4.5, 7, 10, 11, 33, 50, 51, 99, 100, 101, 260].map((v) => [v, stats.niceMax(v)]),

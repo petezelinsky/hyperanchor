@@ -78,8 +78,8 @@ struct MonthScreen: View {
             }
             .background(.surface)
             .navigationTitle("\(Dates.months[month.month - 1]) \(String(month.year))")
+            .toolbar(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { AccountMenu(user: user) }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button("Previous Month", systemImage: "chevron.left") { shift(-1) }
                     Button("Next Month", systemImage: "chevron.right") { shift(1) }
@@ -100,7 +100,7 @@ struct MonthScreen: View {
     private var weekdayHeader: some View {
         HStack(spacing: 0) {
             ForEach(0..<7, id: \.self) { i in
-                Text(sizeClass == .regular ? Dates.dowShort[i] : String(Dates.dowShort[i].prefix(1)))
+                Text(sizeClass == .regular ? Dates.weekdayNames(.short)[i] : Dates.weekdayNames(.letter)[i])
                     .font(.caption.weight(.medium))
                     .foregroundStyle(i >= 5 ? .ink3 : .ink2)
                     .frame(maxWidth: .infinity)

@@ -19,7 +19,7 @@ struct AppCommands: Commands {
                 .disabled(!model.keyboard.signedIn)
         }
         CommandMenu("View") {
-            ForEach(Router.Tab.allCases, id: \.self) { tab in
+            ForEach([Router.Tab.day, .week, .month, .analytics], id: \.self) { tab in
                 Button(tab.label) { model.keyboard.show(tab) }
                     .keyboardShortcut(KeyEquivalent(Character(String(tab.rawValue.prefix(1)))), modifiers: [])
             }

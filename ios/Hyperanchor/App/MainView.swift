@@ -1,7 +1,9 @@
 import SwiftUI
 import WidgetKit
 
-/// The four views — Day · Week · Month · Analytics — plus Settings, Focus and the toasts.
+/// Edge to edge, as on the web: on iPad the sidebar on the left (it can be hidden) and the work area beside it with
+/// its bar on top; on iPhone the bar's two rows on top and the page under them. Focus, Speak, Search and Settings
+/// open over it.
 struct MainView: View {
     let user: AppUser
     @Environment(Router.self) private var router
@@ -9,28 +11,24 @@ struct MainView: View {
     @Environment(TodayClock.self) private var clock
     @Environment(Preferences.self) private var prefs
     @Environment(\.palette) private var palette
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         @Bindable var router = router
-        TabView(selection: $router.tab) {
-            DayScreen(user: user)
-                .tint(.ink)
-                .tabItem { Label(Router.Tab.day.label, systemImage: Router.Tab.day.symbol) }
-                .tag(Router.Tab.day)
-                .accessibilityIdentifier("tab.day")
-            WeekScreen(user: user)
-                .tint(.ink)
-                .tabItem { Label(Router.Tab.week.label, systemImage: Router.Tab.week.symbol) }
-                .tag(Router.Tab.week)
-            MonthScreen(user: user)
-                .tint(.ink)
-                .tabItem { Label(Router.Tab.month.label, systemImage: Router.Tab.month.symbol) }
-                .tag(Router.Tab.month)
-            AnalyticsScreen(user: user)
-                .tint(.ink)
-                .tabItem { Label(Router.Tab.analytics.label, systemImage: Router.Tab.analytics.symbol) }
-                .tag(Router.Tab.analytics)
+        let wide = sizeClass == .regular
+        HStack(spacing: 0) {
+            if wide && !prefs.sidebarHidden {
+                Sidebar(user: user)
+                    .transition(.move(edge: .leading))
+            }
+            VStack(spacing: 0) {
+                AppBar(user: user, wide: wide)
+                PageContent(user: user)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .toastHost()
         }
+        .background(.surface)
         .tint(palette.accent)
         .sheet(isPresented: $router.showSettings) {
             SettingsView(user: user)
@@ -41,7 +39,13 @@ struct MainView: View {
         .fullScreenCover(isPresented: $router.focus) {
             FocusView()
         }
-        .onChange(of: router.tab) { _, _ in router.query = "" }
+        .fullScreenCover(isPresented: $router.showSpeak) {
+            SpeakView()
+        }
+        // An open Today follows midnight (and a change of time zone).
+        .onChange(of: clock.today) { old, new in
+            if router.selected == old { router.select(new) }
+        }
         .task(id: widgetSnapshot) {
             widgetSnapshot.save()
             WidgetCenter.shared.reloadAllTimelines()
@@ -71,40 +75,25 @@ struct MainView: View {
 }
 
 extension View {
-    /// Each tab shows toasts above its own bottom edge (so above the tab bar).
+    /// Toasts show above the bottom edge of the work area.
     func toastHost() -> some View {
         overlay(alignment: .bottom) { ToastOverlay() }
     }
 }
 
-/// The avatar in the navigation bar; opens the account menu.
-struct AccountMenu: View {
+/// The page on screen: Home's day, week or month; Progress; Goals and Agent (coming).
+struct PageContent: View {
     let user: AppUser
     @Environment(Router.self) private var router
-    @Environment(AppModel.self) private var model
-    @State private var legal: URL?
 
     var body: some View {
-        Menu {
-            Section(user.email) {
-                Button("Settings", systemImage: "gearshape") { router.showSettings = true }
-                if UIDevice.current.userInterfaceIdiom == .pad {
-                    Button("Keyboard Shortcuts", systemImage: "keyboard") { router.showShortcuts = true }
-                }
-            }
-            Section {
-                Button("Privacy Policy", systemImage: "hand.raised") { legal = AppConfig.privacyURL }
-                Button("Terms of Service", systemImage: "doc.text") { legal = AppConfig.termsURL }
-                Button("Support", systemImage: "questionmark.circle") { legal = AppConfig.supportURL }
-            }
-            Section {
-                Button("Sign Out", systemImage: "rectangle.portrait.and.arrow.right") { model.signOut() }
-            }
-        } label: {
-            Avatar(user: user, size: 30)
+        switch router.tab {
+        case .day: DayScreen(user: user)
+        case .week: WeekScreen(user: user)
+        case .month: MonthScreen(user: user)
+        case .analytics: AnalyticsScreen(user: user)
+        case .goals: SoonPage(page: .goals)
+        case .agent: SoonPage(page: .agent)
         }
-        .accessibilityLabel("Account")
-        .accessibilityIdentifier("account")
-        .sheet(item: $legal) { SafariView(url: $0).ignoresSafeArea() }
     }
 }

@@ -118,7 +118,7 @@ struct FocusView: View {
             }
             .background(.canvas)
             .overlay { ConfettiView(trigger: confetti) }
-            .navigationTitle(Dates.relative(day, today: clock.today) ?? Dates.dowFull[day.weekday])
+            .navigationTitle(Dates.relative(day, today: clock.today) ?? Dates.dayName(day))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // In focus the header keeps one way out; new thoughts go into the field under the card.
@@ -192,7 +192,7 @@ struct FocusView: View {
 
     /// Open tasks in list order, "Not now" ones last; a task just ticked off stays first while its check plays.
     private func queue(_ all: [TaskItem]) -> [TaskItem] {
-        let list = TaskSorting.sorted(all.filter { !$0.done || settling.contains($0.id) }, by: router.sort)
+        let list = TaskSorting.sorted(all.filter { !$0.done || settling.contains($0.id) }, by: .manual)
         let deferred = later.compactMap { id in list.first { $0.id == id } }
         return list.filter { !later.contains($0.id) } + deferred
     }

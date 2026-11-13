@@ -23,7 +23,7 @@ struct DayScreen: View {
         @Bindable var router = router
         @Bindable var editor = editor
         let all = store.tasks(on: day)
-        let filtered = TaskSorting.sorted(all.filter { TaskSorting.matches($0, query: router.query) }, by: router.sort)
+        let filtered = TaskSorting.sorted(all.filter { TaskSorting.matches($0, query: router.query) }, by: prefs.sort)
         let open = filtered.filter { !$0.done || editor.isSettling($0.id) }
         let completed = filtered.filter { $0.done && !editor.isSettling($0.id) }
         let doneCount = all.count(where: \.done)
@@ -89,7 +89,8 @@ struct DayScreen: View {
                 .readableContent()
                 .animation(.snappy(duration: 0.35), value: open.map(\.id))
                 .animation(.snappy(duration: 0.35), value: completed.map(\.id))
-                .navigationTitle(Dates.relative(day, today: today) ?? Dates.dowFull[day.weekday])
+                .navigationTitle(Dates.relative(day, today: today) ?? Dates.dayName(day))
+                .toolbar(.hidden, for: .navigationBar)
                 .searchable(text: $router.query, placement: .navigationBarDrawer, prompt: "Filter")
                 .toolbar { toolbar(hasOpen: all.contains { !$0.done }, proxy: proxy) }
                 .keyboardDoneButton(focus: $focus)
@@ -180,9 +181,6 @@ struct DayScreen: View {
     @ToolbarContentBuilder
     private func toolbar(hasOpen: Bool, proxy: ScrollViewProxy) -> some ToolbarContent {
         @Bindable var router = router
-        ToolbarItem(placement: .topBarLeading) {
-            AccountMenu(user: user)
-        }
         ToolbarItemGroup(placement: .topBarTrailing) {
             Button { router.focus = true } label: {
                 Label { Text("Focus") } icon: { FocusIcon(enabled: hasOpen) }
@@ -190,12 +188,6 @@ struct DayScreen: View {
             .disabled(!hasOpen)
             .accessibilityHint("One task at a time")
             .accessibilityIdentifier("focus")
-            Menu("Sort", systemImage: "arrow.up.arrow.down") {
-                Picker("Sort by", selection: $router.sort) {
-                    ForEach(SortOption.allCases) { Text($0.label).tag($0) }
-                }
-            }
-            .accessibilityIdentifier("sort")
             Button("New Task", systemImage: "plus") { openComposer(proxy) }
                 .accessibilityIdentifier("newTask")
         }

@@ -26,7 +26,7 @@ struct WeekScreen: View {
         let done = all.count(where: \.done)
         let searching = !router.query.trimmingCharacters(in: .whitespaces).isEmpty
         let sections = days.map { day in
-            let list = TaskSorting.sorted(store.tasks(on: day).filter { TaskSorting.matches($0, query: router.query) }, by: router.sort)
+            let list = TaskSorting.sorted(store.tasks(on: day), by: .manual)
             return (day: day, open: list.filter { !$0.done || editor.isSettling($0.id) }, completed: list.filter { $0.done && !editor.isSettling($0.id) })
         }
         let visible = searching ? sections.filter { !$0.open.isEmpty || !$0.completed.isEmpty } : sections
@@ -93,9 +93,9 @@ struct WeekScreen: View {
             .readableContent()
             .animation(.snappy(duration: 0.35), value: sections.flatMap { $0.open.map(\.id) + ["|"] + $0.completed.map(\.id) })
             .navigationTitle(title)
+            .toolbar(.hidden, for: .navigationBar)
             .searchable(text: $router.query, placement: .navigationBarDrawer, prompt: "Filter")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { AccountMenu(user: user) }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button("Previous Week", systemImage: "chevron.left") { router.selected = router.selected.adding(days: -7) }
                     Button("Next Week", systemImage: "chevron.right") { router.selected = router.selected.adding(days: 7) }
@@ -138,7 +138,7 @@ private struct DayHeader: View {
             // Huge text: the weekday gets a line of its own.
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    Text(Dates.dowFull[day.weekday])
+                    Text(Dates.dayName(day))
                         .font(.headline)
                         .foregroundStyle(.ink)
                         .lineLimit(1)
@@ -166,12 +166,12 @@ private struct DayHeader: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Add task to \(Dates.dowFull[day.weekday])")
+        .accessibilityLabel("Add task to \(Dates.dayName(day))")
     }
 
     private var row: some View {
         HStack(spacing: 8) {
-            Text(Dates.dowFull[day.weekday])
+            Text(Dates.dayName(day))
                 .font(.headline)
                 .foregroundStyle(.ink)
             Text(Dates.short(day))

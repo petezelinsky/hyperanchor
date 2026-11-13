@@ -75,9 +75,9 @@ struct AnalyticsScreen: View {
                 .frame(maxWidth: .infinity)
             }
             .background(.canvas)
-            .navigationTitle("Analytics")
+            .navigationTitle("Progress")
+            .toolbar(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { AccountMenu(user: user) }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button("Previous \(period.label)", systemImage: "chevron.left") { router.periodOffset -= 1 }
                     Button("Next \(period.label)", systemImage: "chevron.right") { router.periodOffset = min(0, router.periodOffset + 1) }
@@ -196,7 +196,7 @@ struct ChartModel {
         } else {
             bars = days.map { d in
                 Bar(id: d.key.description,
-                    label: period == .week ? Dates.dowShort[d.key.weekday] : String(d.key.day),
+                    label: period == .week ? Dates.dayShort(d.key) : String(d.key.day),
                     sub: period == .week ? String(d.key.day) : nil,
                     major: d.key.day == 1 || d.key.day % 5 == 0,
                     title: Dates.long(d.key), done: d.done, total: d.total, elapsed: d.elapsed, current: d.isToday, tasks: d.tasks, target: .day(d.key))

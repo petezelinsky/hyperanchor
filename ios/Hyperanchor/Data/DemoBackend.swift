@@ -58,6 +58,103 @@ actor DemoBackend: Backend {
         tasks.removeAll()
     }
 
+    func fetchOpenTasks(before: DayKey) async throws -> [TaskItem] {
+        try await roundTrip()
+        return tasks.values.filter { !$0.done && $0.date < before }
+            .sorted { $0.date != $1.date ? $0.date > $1.date : $0.createdAt > $1.createdAt }
+    }
+
+    func searchTasks(_ query: String, today: DayKey) async throws -> [TaskItem] {
+        try await roundTrip()
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { throw APIError.server(status: 400, message: "Invalid query") }
+        let found = tasks.values.filter { TaskSorting.matches($0, query: q) }
+        // Today and the days ahead first (soonest first), then the past (most recent first), as the server orders them.
+        return found.sorted { a, b in
+            let fa = a.date >= today, fb = b.date >= today
+            if fa != fb { return fa }
+            if a.date != b.date { return fa ? a.date < b.date : a.date > b.date }
+            return a.createdAt > b.createdAt
+        }.prefix(50).map { $0 }
+    }
+
+    func exportCSV() async throws -> Data {
+        try await roundTrip()
+        let cell = { (v: String) in v.contains(where: { ",\"\n\r".contains($0) }) ? "\"\(v.replacingOccurrences(of: "\"", with: "\"\""))\"" : v }
+        let rows = tasks.values.sorted { $0.date != $1.date ? $0.date < $1.date : $0.createdAt < $1.createdAt }
+            .map { [$0.date.description, cell($0.title), cell($0.notes), $0.done ? "yes" : "no", $0.createdAt, $0.updatedAt].joined(separator: ",") }
+        return Data(("\u{FEFF}" + (["date,title,notes,done,created,updated"] + rows).joined(separator: "\r\n") + "\r\n").utf8)
+    }
+
+    private var tokensUsed = 1840
+    private let tokenLimit = 10_000
+
+    func usage() async throws -> Usage {
+        try await roundTrip()
+        return Usage(today: .init(used: tokensUsed, left: max(0, tokenLimit - tokensUsed), limit: tokenLimit),
+                     features: .init(voice: true, transcribe: true, summary: true))
+    }
+
+    private func spend(_ tokens: Int) throws -> Int {
+        guard tokenLimit - tokensUsed >= tokens else { throw AIFailure.limit }
+        tokensUsed += tokens
+        return tokenLimit - tokensUsed
+    }
+
+    func transcribe(audio: Data, mimeType: String, seconds: Double, language: String?) async throws -> (text: String, left: Int) {
+        do { try await roundTrip() } catch { throw AIFailure.offline }
+        try? await Task.sleep(for: .milliseconds(700))
+        let left = try spend(Int(seconds * 17) + 150)
+        return ("Tomorrow call the dentist about the crown and buy oat milk. On Friday book the flights for March, window seat.", left)
+    }
+
+    func parseTasks(text: String, today: DayKey, weekStart: Int) async throws -> (tasks: [TaskDraft], left: Int) {
+        do { try await roundTrip() } catch { throw AIFailure.offline }
+        try? await Task.sleep(for: .milliseconds(900))
+        let left = try spend(1900 + text.count / 2)
+        // The demo has no model: what was said is split into sentences, with "tomorrow" and weekdays understood.
+        var day = today
+        var drafts: [TaskDraft] = []
+        let sentences = text.split(whereSeparator: { ".!?\n".contains($0) }).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        for sentence in sentences {
+            var words = sentence
+            let lower = words.lowercased()
+            if lower.hasPrefix("tomorrow") { day = today.adding(days: 1); words = String(words.dropFirst("tomorrow".count)) }
+            for (i, name) in ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"].enumerated() where lower.hasPrefix("on \(name)") {
+                day = (0..<7).map { today.adding(days: $0) }.first { $0.dayOfWeek == i } ?? today
+                words = String(words.dropFirst("on \(name)".count))
+            }
+            var note = ""
+            if let comma = words.lastIndex(of: ",") {
+                note = words[words.index(after: comma)...].trimmingCharacters(in: .whitespaces)
+                words = String(words[..<comma])
+            }
+            for part in words.components(separatedBy: " and ") {
+                let t = part.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard t.count > 2 else { continue }
+                drafts.append(TaskDraft(title: t.prefix(1).uppercased() + t.dropFirst(), notes: note.prefix(1).uppercased() + note.dropFirst(), date: day))
+            }
+        }
+        return (drafts, left)
+    }
+
+    func summarize(_ input: SummaryInput) async throws -> (summary: AISummary, tokens: Int, left: Int) {
+        do { try await roundTrip() } catch { throw AIFailure.offline }
+        try? await Task.sleep(for: .milliseconds(1200))
+        let left = try spend(2800)
+        let best = input.series.max { $0.done < $1.done }
+        let summary = AISummary(
+            headline: "\(input.done) of \(input.planned) done \(input.current ? "so far" : "in all"), most of it early in the \(input.period.rawValue).",
+            points: [
+                best.map { "\($0.label) carried the most, with \($0.done) of \($0.planned) done." } ?? "Most days had something done.",
+                input.openTitles.first.map { "“\($0.title)” is still open." } ?? "Nothing was left open.",
+                "Days with something done: \(input.activeDays) of \(input.elapsedDays).",
+            ],
+            next: "Put the one thing you keep moving first on the first day of the next \(input.period.rawValue)."
+        )
+        return (summary, 2800, left)
+    }
+
     static let user = AppUser(name: "Alex Morgan", email: "alex@example.com", image: nil)
 
     /// A believable few weeks: mostly-finished past days, a couple of loose ends, a planned future.
