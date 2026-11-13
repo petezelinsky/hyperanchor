@@ -1,7 +1,8 @@
 import SwiftUI
 import WidgetKit
 
-/// The Today widget: how the day is going and what's still open. Tapping opens Today in the app.
+/// The Today widget: how the day is going and what's still open, in the app's look (square boxes, the accent as the
+/// app has it — graphite by default). Tapping opens Today in the app.
 @main
 struct HyperanchorWidgets: WidgetBundle {
     var body: some Widget {
@@ -59,10 +60,10 @@ struct TodayWidgetView: View {
             if s.day == today || s.day.isEmpty {
                 content(s)
             } else {
-                message("A new day", "Open Hyperanchor to plan it.", s)
+                message("A new day", "Open Hyperanchor to plan it.")
             }
         } else {
-            message("Today", "Sign in to Hyperanchor to see today’s tasks.", nil)
+            message("Today", "Sign in to Hyperanchor to see today’s tasks.")
         }
     }
 
@@ -70,7 +71,6 @@ struct TodayWidgetView: View {
     private func content(_ s: WidgetSnapshot) -> some View {
         let done = s.tasks.filter(\.done).count
         let open = s.tasks.filter { !$0.done }
-        let accent = color(s.accent)
         switch family {
         case .systemMedium:
             HStack(alignment: .top, spacing: 16) {
@@ -78,67 +78,70 @@ struct TodayWidgetView: View {
                     header(s)
                     Spacer(minLength: 0)
                     Text(status(s, done: done))
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .font(.footnote)
+                        .foregroundStyle(Ink.quiet)
                         .monospacedDigit()
                 }
-                .frame(width: 112, alignment: .leading)
-                list(open, accent: accent, limit: 4, allDone: !s.tasks.isEmpty && open.isEmpty)
+                .frame(width: 104, alignment: .leading)
+                list(open, limit: 4, allDone: !s.tasks.isEmpty && open.isEmpty)
             }
         default:
             VStack(alignment: .leading, spacing: 8) {
                 header(s)
                 if s.tasks.isEmpty {
                     Spacer(minLength: 0)
-                    Text("Nothing planned yet").font(.footnote).foregroundStyle(.secondary)
+                    Text("Nothing planned yet").font(.footnote).foregroundStyle(Ink.quiet)
                 } else if open.isEmpty {
                     Spacer(minLength: 0)
-                    Text("All done").font(.title3.weight(.semibold))
-                    Text("Nice work.").font(.footnote).foregroundStyle(.secondary)
+                    Text("All done").font(.title3.weight(.semibold)).tracking(-0.3).foregroundStyle(Ink.main)
+                    Text("\(s.tasks.count) of \(s.tasks.count)").font(.footnote).foregroundStyle(Ink.quiet).monospacedDigit()
                 } else {
                     Text("\(open.count) left")
-                        .font(.title2.weight(.bold))
+                        .font(.title2.weight(.semibold))
                         .tracking(-0.5)
                         .monospacedDigit()
-                    list(open, accent: accent, limit: 2, allDone: false)
+                        .foregroundStyle(Ink.main)
+                    list(open, limit: 2, allDone: false)
                 }
             }
         }
     }
 
     private func header(_ s: WidgetSnapshot) -> some View {
-        HStack(alignment: .top) {
-            Text("Today").font(.headline).tracking(-0.3)
+        HStack(alignment: .center) {
+            Text("Today").font(.headline).tracking(-0.3).foregroundStyle(Ink.main)
             Spacer(minLength: 4)
             Ring(value: s.tasks.isEmpty ? 0 : Double(s.tasks.filter(\.done).count) / Double(s.tasks.count), accent: color(s.accent), track: color(s.track))
-                .frame(width: 22, height: 22)
+                .frame(width: 18, height: 18)
         }
     }
 
-    private func list(_ open: [WidgetSnapshot.Item], accent: Color, limit: Int, allDone: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private func list(_ open: [WidgetSnapshot.Item], limit: Int, allDone: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
             if allDone {
-                Text("All done for today. Nice work!").font(.subheadline).foregroundStyle(.secondary)
+                Text("All done for today.").font(.subheadline).foregroundStyle(Ink.quiet)
             } else if open.isEmpty {
-                Text("Nothing planned yet").font(.subheadline).foregroundStyle(.secondary)
+                Text("Nothing planned yet").font(.subheadline).foregroundStyle(Ink.quiet)
             }
             ForEach(Array(open.prefix(limit).enumerated()), id: \.offset) { _, t in
-                HStack(spacing: 7) {
-                    Circle().strokeBorder(.secondary.opacity(0.6), lineWidth: 1.3).frame(width: 12, height: 12)
-                    Text(t.title).font(.subheadline).lineLimit(1)
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .strokeBorder(Ink.box, lineWidth: 1.25)
+                        .frame(width: 13, height: 13)
+                    Text(t.title).font(.subheadline).foregroundStyle(Ink.main).lineLimit(1)
                 }
             }
             if open.count > limit {
-                Text("+\(open.count - limit) more").font(.caption).foregroundStyle(.secondary).padding(.leading, 19)
+                Text("\(open.count - limit) more").font(.caption).foregroundStyle(Ink.quiet).padding(.leading, 21)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private func message(_ title: String, _ text: String, _ s: WidgetSnapshot?) -> some View {
+    private func message(_ title: String, _ text: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.headline)
-            Text(text).font(.footnote).foregroundStyle(.secondary)
+            Text(title).font(.headline).foregroundStyle(Ink.main)
+            Text(text).font(.footnote).foregroundStyle(Ink.quiet)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -155,6 +158,23 @@ struct TodayWidgetView: View {
     }
 }
 
+/// The app's neutrals (design/tokens.json): ink, the quiet gray for text, an open box's edge.
+private enum Ink {
+    static let main = Color(light: 0x171717, dark: 0xEDEDED)
+    static let quiet = Color(light: 0x6B6B6B, dark: 0x8A8A8A)
+    static let box = Color(light: 0x8A8A8A, dark: 0x707070)
+}
+
+private extension Color {
+    init(light: UInt32, dark: UInt32) {
+        func c(_ hex: UInt32) -> UIColor {
+            UIColor(red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+        }
+        let l = c(light), d = c(dark)
+        self.init(uiColor: UIColor { $0.userInterfaceStyle == .dark ? d : l })
+    }
+}
+
 private struct Ring: View {
     let value: Double
     let accent: Color
@@ -162,10 +182,11 @@ private struct Ring: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(track, lineWidth: 3.5)
-            Circle().trim(from: 0, to: value).stroke(accent, style: StrokeStyle(lineWidth: 3.5, lineCap: .round)).rotationEffect(.degrees(-90))
+            Circle().stroke(track, lineWidth: 2.5)
+            Circle().trim(from: 0, to: value).stroke(accent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round)).rotationEffect(.degrees(-90))
+                .opacity(value > 0 ? 1 : 0)
         }
-        .padding(1.75)
+        .padding(1.25)
     }
 }
 

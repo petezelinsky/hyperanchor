@@ -174,10 +174,20 @@ final class Router {
         settingsPage = page
         showSettings = true
     }
+
+    /// ⌥↑ / ⌥↓: move the picked task one place up or down its day (the visible list carries it out).
+    var nudgeRequest: NudgeRequest?
 }
 
 /// "Do this to that task" — each request is new, even for the same task.
 struct TaskRequest: Equatable {
     let id: String
+    let nonce = UUID()
+}
+
+/// "Move that task one place up (-1) or down (+1)" — each request is new, even for the same task.
+struct NudgeRequest: Equatable {
+    let id: String
+    let direction: Int
     let nonce = UUID()
 }

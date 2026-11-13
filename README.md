@@ -27,7 +27,7 @@
 
 Стек: Next.js 16 (App Router) · TypeScript · Tailwind CSS v4 · Auth.js v5 (Google, Apple, JWT-сессии) · Postgres (`postgres.js`) · `jose` (проверка токенов входа iOS-приложения).
 
-Нативное приложение для iPhone и iPad — в `ios/` (см. `ios/README.md`); оно работает с тем же API и теми же задачами.
+Нативное приложение для iPhone и iPad — в `ios/` (см. `ios/README.md`); оно работает с тем же API и теми же задачами и повторяет сайт: шапка в две строки на iPhone и сайдбар с одной шапкой на iPad, панель аккаунта, Settings, поиск (`/`, ⌘K) и клавиши; название `hyperanchor` текстом, а иконка приложения — тот же знак «hy», что у сайта на домашнем экране (`ios/scripts/render-icon.swift` рисует её прямо по `src/app/icon.svg`).
 
 ## Локальный запуск
 
