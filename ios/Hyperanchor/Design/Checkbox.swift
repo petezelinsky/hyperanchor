@@ -49,29 +49,30 @@ struct CheckCircle: View {
                 } keyframes: { _ in
                     KeyframeTrack(\.scale) {
                         LinearKeyframe(1, duration: 0)
-                        CubicKeyframe(2.1, duration: 0.55)
+                        CubicKeyframe(2.1, duration: Tokens.Motion.data)
                     }
                     KeyframeTrack(\.opacity) {
                         LinearKeyframe(0.4, duration: 0)
-                        CubicKeyframe(0, duration: 0.55)
+                        CubicKeyframe(0, duration: Tokens.Motion.data)
                     }
                 }
         }
         .keyframeAnimator(initialValue: 1.0, trigger: celebrations) { view, scale in
             view.scaleEffect(scale)
         } keyframes: { _ in
-            CubicKeyframe(0.75, duration: 0.02)
-            CubicKeyframe(1.12, duration: 0.18)
-            CubicKeyframe(1, duration: 0.17)
+            // The web's check-pop: 0.75 → 1.12 → 1 over 360 ms.
+            CubicKeyframe(0.75, duration: 0.01)
+            CubicKeyframe(1.12, duration: Tokens.Motion.move * 0.55)
+            CubicKeyframe(1, duration: Tokens.Motion.move * 0.45)
         }
         .animation(.easeOut(duration: 0.2), value: checked)
         .onChange(of: checked) { _, now in
             if now, !reduceMotion {
                 celebrations += 1
                 drawn = 0
-                withAnimation(.easeOut(duration: 0.32).delay(0.06)) { drawn = 1 }
+                withAnimation(Motion.out(Tokens.Motion.base).delay(0.06)) { drawn = 1 }
             } else {
-                withAnimation(.easeOut(duration: 0.15)) { drawn = now ? 1 : 0 }
+                withAnimation(.easeOut(duration: Tokens.Motion.fast)) { drawn = now ? 1 : 0 }
             }
         }
     }
