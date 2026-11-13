@@ -190,11 +190,12 @@ final class FlowTests: XCTestCase {
         waitFor(app.descendants(matching: .any).matching(NSPredicate(format: "identifier == 'bar.count' AND label == '3 of 7 done'")).firstMatch)
     }
 
-    func testSwipeToDeleteAndUndo() {
+    func testDeleteFromTheMenuAndUndo() {
         app.launch()
         let row = button("Call Mom")
         waitFor(row)
-        row.swipeLeft()
+        // A left swipe moves a task to tomorrow (as on the web's phones); deleting is in the menu.
+        row.press(forDuration: 1.0)
         button("Delete").tap()
         waitFor(app.staticTexts["Deleted “Call Mom”"])
         XCTAssertFalse(button("Call Mom").exists)

@@ -48,15 +48,19 @@ struct DayComposerBar: View {
                 .font(.system(size: 14, weight: .regular))
                 .foregroundStyle(.ink2)
                 .accessibilityHidden(true)
-            TextField("New task", text: line, prompt: Text("New task").foregroundStyle(.ink3), axis: .vertical)
+            // One line, as quick capture is: Return adds (on-screen and hardware keyboards alike, after the keyboard has
+            // settled its autocorrection) and the field keeps the keyboard for the next one.
+            TextField("New task", text: $text, prompt: Text("New task").foregroundStyle(.ink3))
                 .font(.token(Tokens.Typography.callout))
                 .foregroundStyle(.ink)
-                .lineLimit(1...4)
                 .focused(focus, equals: .newTitle)
-                // A hardware keyboard's Return adds too (the on-screen one types a line break, which the text catches).
-                .onKeyPress(.return, phases: .down) { _ in
+                .submitLabel(.return)
+                .onSubmit {
                     add()
-                    return .handled
+                    focus.wrappedValue = .newTitle
+                }
+                .onChange(of: text) { _, next in
+                    if next.count > TaskItem.titleMax { text = String(next.prefix(TaskItem.titleMax)) }
                 }
                 .onKeyPress(.escape) {
                     text = ""
@@ -71,21 +75,5 @@ struct DayComposerBar: View {
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, minHeight: height, alignment: .leading)
         .contentShape(Capsule())
-    }
-
-    /// The field's text: Return adds the task and the field stays open for the next one (a field that grows takes Return
-    /// as a new line, so it never closes the keyboard); pasted line breaks become spaces.
-    private var line: Binding<String> {
-        Binding(
-            get: { text },
-            set: { next in
-                guard next.contains("\n") else { return text = String(next.prefix(TaskItem.titleMax)) }
-                if next.replacingOccurrences(of: "\n", with: "") == text {
-                    add()
-                } else {
-                    text = String(next.replacingOccurrences(of: "\n", with: " ").prefix(TaskItem.titleMax))
-                }
-            }
-        )
     }
 }
