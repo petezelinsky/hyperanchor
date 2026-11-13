@@ -36,10 +36,14 @@ struct FocusKeys: UIViewRepresentable {
         /// Takes the keyboard when it should have it: once on screen, and again when typing is over.
         func claim() {
             guard active, window != nil, !isFirstResponder else { return }
-            // After the current update, so a field giving up the keyboard has done so.
+            // After the current update, so a field giving up the keyboard has done so; and again shortly if the screen is
+            // still coming up and can't take it yet.
             Task { [weak self] in
-                guard let self, self.active, self.window != nil, !self.isFirstResponder else { return }
-                self.becomeFirstResponder()
+                for attempt in 0..<5 {
+                    if attempt > 0 { try? await Task.sleep(for: .milliseconds(200)) }
+                    guard let self, self.active, self.window != nil else { return }
+                    if self.isFirstResponder || self.becomeFirstResponder() { return }
+                }
             }
         }
 

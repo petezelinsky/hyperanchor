@@ -278,14 +278,66 @@ struct FocusView: View {
     }
 }
 
-/// Done and Later under the deck: quiet, with their keys on a keyboard.
+/// Done and Later under the deck, with their keys on a keyboard: on iOS 26 two buttons of glass (Done the prominent
+/// one); before it, and with Reduce Transparency, quiet words as on the web.
 private struct FocusActions: View {
     let canPutOff: Bool
     let done: () -> Void
     let later: () -> Void
     @Environment(\.showsKeyHints) private var keyHints
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.palette) private var palette
 
     var body: some View {
+        if #available(iOS 26.0, *) {
+            if reduceTransparency { quiet } else { glass }
+        } else {
+            quiet
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private var glass: some View {
+        GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+                Button(action: done) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark")
+                            .font(.footnote.weight(.semibold))
+                            .accessibilityHidden(true)
+                        Text("Done")
+                        if keyHints { KeyHint(key: "Space", tone: .onPrimary) }
+                    }
+                    // The accent's own ink on it: white on black, black on the light accent of dark mode.
+                    .foregroundStyle(palette.onAccent)
+                    .padding(.horizontal, 4)
+                }
+                .buttonStyle(.glassProminent)
+                .tint(palette.accent)
+                .accessibilityLabel("Done")
+                .accessibilityIdentifier("focus.done")
+                if canPutOff {
+                    Button(action: later) {
+                        HStack(spacing: 6) {
+                            Text("Later")
+                            if keyHints { KeyHint(key: "→") }
+                        }
+                        .foregroundStyle(.ink)
+                        .padding(.horizontal, 4)
+                    }
+                    .buttonStyle(.glass)
+                    .accessibilityLabel("Later")
+                    .accessibilityHint("Puts the task at the end of the queue")
+                    .accessibilityIdentifier("focus.later")
+                }
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .lineLimit(1)
+        .controlSize(.large)
+    }
+
+    private var quiet: some View {
         HStack(spacing: 4) {
             Button(action: done) {
                 HStack(spacing: 8) {
@@ -344,7 +396,6 @@ private struct ThoughtLine: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
         let focused = capturing.wrappedValue
         HStack(spacing: 10) {
             ZStack {
@@ -373,6 +424,8 @@ private struct ThoughtLine: View {
                 .onChange(of: text) { _, now in
                     if now.count > TaskItem.titleMax { text = String(now.prefix(TaskItem.titleMax)) }
                 }
+                .accessibilityLabel("Add a task for later")
+                .accessibilityIdentifier("focus.capture")
                 // The words on the empty line, in the ink as on the web; "Added for later" once a thought is kept.
                 .background(alignment: .leading) {
                     if text.isEmpty {
@@ -384,22 +437,53 @@ private struct ThoughtLine: View {
                     }
                 }
                 .font(regular ? .footnote : .callout)
-                .accessibilityLabel("Add a task for later")
-                .accessibilityIdentifier("focus.capture")
             if keyHints, !focused { KeyHint(key: "N") }
         }
         .foregroundStyle(focused ? Color.ink2 : Color.ink3)
-        .padding(.leading, 12)
-        .padding(.trailing, 8)
-        .frame(minHeight: 40)
-        .background { shape.fill(focused ? Color.surface : .clear) }
-        .overlay { shape.strokeBorder(focused ? Color.line2 : .clear, lineWidth: 1) }
-        .contentShape(shape)
+        .modifier(ThoughtSurface(focused: focused))
         .onTapGesture { capturing.wrappedValue = true }
         .frame(maxWidth: 400)
         .padding(.horizontal, 12)
         .animation(Motion.out(Tokens.Motion.fast), value: focused)
         .animation(reduceMotion ? Motion.reduced : Motion.out(Tokens.Motion.fast), value: kept)
+    }
+}
+
+/// The line's surface: on iOS 26 a capsule of glass; before it, and with Reduce Transparency, the web's quiet line, white
+/// with a hairline while it's being typed in.
+private struct ThoughtSurface: ViewModifier {
+    let focused: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            if reduceTransparency { quiet(content) } else { glass(content) }
+        } else {
+            quiet(content)
+        }
+    }
+
+    private func quiet(_ content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
+        return content
+            .padding(.leading, 12)
+            .padding(.trailing, 8)
+            .frame(minHeight: 40)
+            .background { shape.fill(focused ? Color.surface : .clear) }
+            .overlay { shape.strokeBorder(focused ? Color.line2 : .clear, lineWidth: 1) }
+            .contentShape(shape)
+    }
+
+    @available(iOS 26.0, *)
+    private func glass(_ content: Content) -> some View {
+        GlassEffectContainer {
+            content
+                .padding(.leading, 16)
+                .padding(.trailing, 12)
+                .frame(minHeight: 44)
+                .glassEffect(.regular.interactive(), in: Capsule())
+                .contentShape(Capsule())
+        }
     }
 }
 

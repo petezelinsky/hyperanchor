@@ -26,7 +26,9 @@ struct FocusTimer: View {
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(.ink)
                     .lineLimit(1)
-                    .padding(.horizontal, 8)
+                    // Narrow phones: a little smaller rather than cut off.
+                    .minimumScaleFactor(0.75)
+                    .padding(.horizontal, 4)
                     .frame(minHeight: 32)
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)).combined(with: .offset(y: -3)))
             } else {
@@ -83,13 +85,9 @@ struct FocusTimer: View {
                 .frame(width: 1, height: 32)
             Menu {
                 Section("Timer") {
-                    Picker("Timer", selection: Binding(get: { minutes }, set: { prefs.focusMinutes = $0 })) {
-                        ForEach(Self.lengths, id: \.self) { length in
-                            Text("\(length) min").tag(length)
-                        }
+                    ForEach(Self.lengths, id: \.self) { length in
+                        Toggle("\(length) min", isOn: Binding(get: { minutes == length }, set: { if $0 { prefs.focusMinutes = length } }))
                     }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
                 }
             } label: {
                 Image(systemName: "chevron.down")
