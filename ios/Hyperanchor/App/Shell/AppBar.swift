@@ -1,215 +1,354 @@
 import SwiftUI
 
-/// The bar on top of the work area (`AppBar` in Sidebar.tsx). iPad: one row in three parts that never crowd each
-/// other — the arrows, the page's name and date and the way back to the present; the switch in the middle; the day's
-/// count and Focus on the right. iPhone: two rows — the name of the app, the switch and the account; then the arrows,
-/// the date and the page's actions.
+/// iPad: the bar on top of the work area (`AppBar` in Sidebar.tsx), one row in three parts that never crowd each other.
+/// On the left, what's on screen: the arrows, then its name and date (the arrows come first, so they stay put however
+/// long the date is), and the way back to the present once away from it. In the middle, the switch (Day / Week / Month,
+/// or Progress's periods). On the right, the day's count beside Focus. With the sidebar hidden, the button that brings
+/// it back is the only thing before the arrows, and saving's status moves to the right.
 struct AppBar: View {
-    let user: AppUser
-    let wide: Bool
     @Environment(Router.self) private var router
     @Environment(TodayClock.self) private var clock
-    @Environment(TaskStore.self) private var store
     @Environment(Preferences.self) private var prefs
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let bar = BarModel(router: router, today: clock.today)
-        if wide {
-            HStack(spacing: 16) {
-                HStack(spacing: 8) {
-                    if prefs.sidebarHidden {
-                        Button {
-                            withAnimation(Motion.choose(Motion.out(), reduceMotion: reduceMotion)) { prefs.sidebarHidden = false }
-                        } label: {
-                            Image(systemName: Icon.sidebar).font(.system(size: 15)).foregroundStyle(.ink2).tapTarget(36)
-                        }
-                        .buttonStyle(PressableStyle())
-                        .accessibilityLabel("Show sidebar")
-                    }
-                    left(bar, short: false)
+        HStack(spacing: 16) {
+            HStack(spacing: 8) {
+                if prefs.sidebarHidden {
+                    SidebarButton(hide: false)
+                        .padding(.leading, -4)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                center
-                HStack(spacing: 12) {
-                    if prefs.sidebarHidden { SyncStatus() }
-                    actions(wide: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                BarLeading(bar: bar, wide: true)
             }
-            .padding(.horizontal, 16)
-            .frame(height: 56)
-            .background(.surface)
-            .hairline(.bottom)
-        } else {
-            VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    Wordmark()
-                    Spacer(minLength: 8)
-                    center
-                    AccountButton(user: user)
-                }
-                .padding(.horizontal, 16)
-                .frame(height: 52)
-                HStack(spacing: 12) {
-                    left(bar, short: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    HStack(spacing: 10) {
-                        SyncStatus(short: true)
-                        actions(wide: false)
-                    }
-                    .fixedSize()
-                }
-                .padding(.horizontal, 16)
-                .frame(height: 48)
-                .hairline(.bottom)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            BarSwitch()
+            HStack(spacing: 12) {
+                if prefs.sidebarHidden { SyncStatus() }
+                BarActions(wide: true)
             }
-            .background(.surface)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 56)
+        .background(.surface)
+        .hairline(.bottom)
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+    }
+}
+
+/// iPhone, the first row: the app's name, the switch and the account. It stays on top while the page scrolls and draws
+/// its edge only once something is under it. Where the row is short of room (large text), the switch narrows, then the
+/// name steps aside.
+struct PhoneTopBar: View {
+    let user: AppUser
+    /// Something has scrolled under the row.
+    let scrolled: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ViewThatFits(in: .horizontal) {
+                row(name: true, compact: false)
+                row(name: true, compact: true)
+                row(name: false, compact: true)
+            }
+            AccountButton(user: user)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 52)
+        .background(.surface)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(.line).frame(height: 1).opacity(scrolled ? 1 : 0)
+        }
+        .animation(.easeOut(duration: Tokens.Motion.fast), value: scrolled)
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     }
 
-    /// The arrows, then the name and the date (the arrows first, so they stay put however long the date is), and the
-    /// way back to the present.
-    private func left(_ bar: BarModel, short: Bool) -> some View {
+    private func row(name: Bool, compact: Bool) -> some View {
+        HStack(spacing: 12) {
+            if name { Wordmark(size: 17) }
+            Spacer(minLength: 0)
+            BarSwitch(compact: compact)
+        }
+    }
+}
+
+/// iPhone, the second row: the arrows, the page's name and date and the way back; saving, the day's count and Focus.
+/// It scrolls away with the page (MainView slides it up under the first row).
+struct PhoneDateBar: View {
+    @Environment(Router.self) private var router
+    @Environment(TodayClock.self) private var clock
+
+    var body: some View {
+        let bar = BarModel(router: router, today: clock.today)
+        HStack(spacing: 12) {
+            BarLeading(bar: bar, wide: false)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 10) {
+                SyncStatus(short: true)
+                BarActions(wide: false)
+            }
+            .fixedSize()
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 48)
+        .background(.surface)
+        .hairline(.bottom)
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+    }
+}
+
+/// The arrows, the name and the date, and the way back to the present.
+struct BarLeading: View {
+    let bar: BarModel
+    /// iPad: the date in full where it fits.
+    let wide: Bool
+    @Environment(Router.self) private var router
+    @Environment(TodayClock.self) private var clock
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
         HStack(spacing: 4) {
             if let nav = bar.nav {
                 StepperArrows(prevLabel: nav.prev, nextLabel: nav.next, nextDisabled: nav.nextDisabled,
                               onPrev: { step(-1) }, onNext: { step(1) })
-                    .padding(.trailing, 4)
             }
-            title(bar.head, short: short)
+            BarTitle(head: bar.head, wide: wide)
+                .layoutPriority(1)
             if let back = bar.nav?.back {
-                Button {
+                ReturnButton(label: back) {
                     withAnimation(Motion.choose(Motion.settle, reduceMotion: reduceMotion)) { router.goToToday(clock.today) }
-                } label: {
-                    Image(systemName: Icon.back)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.ink2)
-                        .frame(width: 28, height: 28)
-                        .tapTarget()
                 }
-                .buttonStyle(PressableStyle())
-                .accessibilityLabel(back)
-                .transition(.opacity)
+                // It pops in (just fades with Reduce Motion) and leaves in 110 ms.
+                .transition(.asymmetric(insertion: reduceMotion ? .opacity.animation(Motion.reduced)
+                                            : .opacity.combined(with: .scale(scale: 0.96)).animation(Motion.out(Tokens.Motion.fast)),
+                                        removal: .opacity.animation(Motion.exit)))
             }
         }
+        // Without arrows the name lines up with the edge.
+        .padding(.leading, bar.nav == nil ? -8 : 0)
     }
 
-    @ViewBuilder
-    private func title(_ head: BarModel.Head, short: Bool) -> some View {
-        let words = HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(head.title)
-                .font(.system(.headline, weight: .semibold))
-                .tracking(-0.24)
-                .foregroundStyle(.ink)
-                .lineLimit(1)
-                .fixedSize()
-            if let soft = short ? (head.softShort ?? head.soft) : head.soft {
-                Text(soft)
-                    .font(.subheadline)
-                    .monospacedDigit()
-                    .foregroundStyle(.ink3)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-        }
-        .padding(.horizontal, 8)
-        .frame(height: 32)
+    private func step(_ direction: Int) {
+        router.selectedTask = nil
+        router.step(direction)
+    }
+}
 
+/// The page's name and the date beside it, on one baseline (Day: "Today  Friday, November 13"). Day's and Week's are a
+/// button that opens the month to pick a day from. The date is given in full where there's room, else short, else cut.
+struct BarTitle: View {
+    let head: BarModel.Head
+    let wide: Bool
+    @Environment(Router.self) private var router
+
+    var body: some View {
         if head.picksDay {
             Button {
                 router.showDayPicker.toggle()
             } label: {
                 words
                     .background(router.showDayPicker ? Color.surface3 : .clear, in: RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
-                    .contentShape(Rectangle())
+                    .contentShape(TallerShape(by: 6))
             }
             .buttonStyle(PressableStyle())
+            .accessibilityLabel(spoken)
             .accessibilityHint("Pick a day")
-            .popover(isPresented: Binding(get: { router.showDayPicker }, set: { router.showDayPicker = $0 }), arrowEdge: .top) {
-                DayPicker()
+            .accessibilityIdentifier("bar.title")
+            .popover(isPresented: Binding(get: { wide && router.showDayPicker }, set: { router.showDayPicker = $0 }), arrowEdge: .top) {
+                DayPicker(large: false)
+                    .frame(width: 284)
                     .presentationCompactAdaptation(.popover)
             }
         } else {
             words
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(spoken)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("bar.title")
         }
     }
 
-    @ViewBuilder
-    private var center: some View {
+    private var words: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(head.title)
+                .font(.token(Tokens.Typography.headline, weight: .semibold))
+                .tracking(-0.014 * 17)
+                .foregroundStyle(.ink)
+                .lineLimit(1)
+                .fixedSize()
+            if let soft = head.soft {
+                ViewThatFits(in: .horizontal) {
+                    if wide { date(soft) }
+                    date(head.softShort ?? soft)
+                    date(head.softShort ?? soft).truncationMode(.tail).frame(minWidth: 0)
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(minHeight: 32)
+    }
+
+    private func date(_ text: String) -> some View {
+        Text(text)
+            .font(.token(Tokens.Typography.body))
+            .monospacedDigit()
+            .foregroundStyle(.ink3)
+            .lineLimit(1)
+    }
+
+    private var spoken: String {
+        head.soft.map { "\(head.title), \($0)" } ?? head.title
+    }
+}
+
+/// The switch in the middle: Day / Week / Month, or Progress's periods. Nothing on Goals and Agent.
+struct BarSwitch: View {
+    var compact = false
+    @Environment(Router.self) private var router
+
+    var body: some View {
         if router.tab == .analytics {
             SegmentedSwitch(label: "Period", options: Stats.Period.allCases.map { ($0, $0.label) },
                             selection: Binding(get: { router.period }, set: { router.period = $0; router.periodOffset = 0 }),
-                            compact: !wide)
+                            compact: compact)
+                .accessibilityIdentifier("periodSwitch")
         } else if router.tab.isPlanner {
             SegmentedSwitch(label: "View", options: Router.Tab.planner.map { ($0, $0.label) },
-                            selection: Binding(get: { router.tab }, set: { show($0) }),
-                            compact: !wide)
+                            selection: Binding(get: { router.tab }, set: { router.show($0) }),
+                            compact: compact)
                 .accessibilityIdentifier("viewSwitch")
         }
     }
+}
 
-    /// The page's own actions, on the right: how much of the day is done, beside Focus.
-    @ViewBuilder
-    private func actions(wide: Bool) -> some View {
+/// What the planner offers on the right: how much of the day on screen is done (Day), beside Focus.
+struct BarActions: View {
+    let wide: Bool
+    @Environment(Router.self) private var router
+    @Environment(TaskStore.self) private var store
+
+    var body: some View {
         if router.tab.isPlanner {
             if router.tab == .day {
                 let list = store.tasks(on: router.selected)
                 DayCount(done: list.count { $0.done }, total: list.count)
+                    .accessibilityIdentifier("bar.count")
             }
-            let hasOpen = store.tasks(on: router.tab == .day ? router.selected : clock.today).contains { !$0.done }
-            Button {
-                if router.tab != .day { router.tab = .day }
-                router.focus = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: Icon.focus).font(.system(size: 13, weight: .regular))
-                    if wide { Text("Focus").font(.footnote.weight(.medium)) }
-                }
-                .foregroundStyle(hasOpen ? .ink : .ink4)
-                .padding(.horizontal, wide ? 10 : 0)
-                .frame(width: wide ? nil : 32, height: 32)
-                .background(.surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous).strokeBorder(.line2, lineWidth: 1))
-                .tapTarget()
-            }
-            .buttonStyle(PressableStyle())
-            .disabled(!hasOpen)
-            .accessibilityLabel("Focus")
-            .accessibilityHint("One task at a time")
-            .accessibilityIdentifier("focus")
+            FocusButton(wide: wide)
         }
-    }
-
-    private func step(_ direction: Int) {
-        withAnimation(Motion.choose(Motion.settle, reduceMotion: reduceMotion)) { router.step(direction) }
-    }
-
-    private func show(_ tab: Router.Tab) {
-        router.selectedTask = nil
-        if tab == .month { router.month = router.selected.startOfMonth }
-        router.tab = tab
     }
 }
 
-/// The avatar (iPhone, top right); opens the account panel.
+/// Focus: one task at a time, on the day picked (a plain outlined button; just the sign on iPhone). Off when the day has
+/// nothing left to do.
+struct FocusButton: View {
+    let wide: Bool
+    @Environment(Router.self) private var router
+    @Environment(TaskStore.self) private var store
+
+    var body: some View {
+        let hasOpen = store.tasks(on: router.selected).contains { !$0.done }
+        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
+        Button {
+            router.startFocus(hasOpen: hasOpen)
+        } label: {
+            HStack(spacing: 6) {
+                FocusGlyph(size: 15)
+                if wide {
+                    Text("Focus").font(.token(Tokens.Typography.footnote, weight: .medium))
+                }
+            }
+            .foregroundStyle(.ink)
+            .padding(.leading, wide ? 10 : 0)
+            .padding(.trailing, wide ? 12 : 0)
+            .frame(width: wide ? nil : 32, height: 32)
+            .background(.surface, in: shape)
+            .overlay(shape.strokeBorder(.line2, lineWidth: 1))
+            .opacity(hasOpen ? 1 : 0.4)
+            .tapTarget()
+        }
+        .buttonStyle(PressableStyle())
+        .disabled(!hasOpen)
+        .accessibilityLabel("Focus")
+        .accessibilityHint("One task at a time")
+        .accessibilityIdentifier("focus")
+    }
+}
+
+/// The avatar (iPhone, top right): opens the account panel. Ringed while the panel is open.
 struct AccountButton: View {
     let user: AppUser
     @Environment(Router.self) private var router
 
     var body: some View {
+        @Bindable var router = router
         Button {
             router.showAccount = true
         } label: {
             Avatar(user: user, size: 30)
+                .padding(3.5)
+                .overlay {
+                    Circle().strokeBorder(.ink, lineWidth: 1.5).opacity(router.showAccount ? 1 : 0)
+                }
+                .padding(-3.5)
                 .tapTarget()
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel("\(user.name): account")
         .accessibilityIdentifier("account")
-        .popover(isPresented: Binding(get: { router.showAccount }, set: { router.showAccount = $0 }), arrowEdge: .top) {
+        .popover(isPresented: $router.showAccount, arrowEdge: .top) {
             AccountPanel(user: user, phone: true)
                 .presentationCompactAdaptation(.popover)
         }
+    }
+}
+
+/// Shows or hides the sidebar (iPad); `[` does the same.
+struct SidebarButton: View {
+    /// In the sidebar's head (it hides it); otherwise in the bar (it brings it back).
+    let hide: Bool
+    @Environment(Preferences.self) private var prefs
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button {
+            withAnimation(Motion.choose(Motion.out(), reduceMotion: reduceMotion)) { prefs.sidebarHidden.toggle() }
+        } label: {
+            Image(systemName: Icon.sidebar)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(hide ? .ink3 : .ink2)
+                .frame(width: hide ? 28 : 32, height: hide ? 28 : 32)
+                .tapTarget()
+        }
+        .buttonStyle(PressableStyle())
+        .accessibilityLabel(hide ? "Hide sidebar" : "Show sidebar")
+        .accessibilityIdentifier(hide ? "sidebar.hide" : "sidebar.show")
+    }
+}
+
+extension Router {
+    /// The switch and D / W / M (`showView` on the web): a planner view, picking no task; Month shows the picked day's month.
+    func show(_ view: Tab) {
+        selectedTask = nil
+        if view != .day { focus = false }
+        if view == .month { month = selected.startOfMonth }
+        tab = view
+    }
+
+    /// Home (sidebar, account panel): from another page, the planner view last on screen; from Home itself, today.
+    func goHome(today: DayKey) {
+        focus = false
+        if page == .home {
+            goToToday(today)
+            show(.day)
+        } else {
+            open(.home)
+        }
+    }
+
+    /// Focus, from the bar or `F`: on the day picked, when there's something left to do.
+    func startFocus(hasOpen: Bool) {
+        if tab != .day { show(.day) }
+        if hasOpen { focus = true }
     }
 }

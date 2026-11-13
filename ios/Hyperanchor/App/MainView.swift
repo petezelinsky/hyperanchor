@@ -1,17 +1,25 @@
 import SwiftUI
 import WidgetKit
 
-/// Edge to edge, as on the web: on iPad the sidebar on the left (it can be hidden) and the work area beside it with
-/// its bar on top; on iPhone the bar's two rows on top and the page under them. Focus, Speak, Search and Settings
-/// open over it.
+/// Edge to edge, as on the web: on iPad the sidebar on the left (it can be hidden) and the work area beside it with one
+/// bar on top; on iPhone the bar's two rows on top — the first stays put, the second scrolls away with the page — and the
+/// page under them. Focus, Speak, Search, Settings and the month to pick a day from open over it.
 struct MainView: View {
     let user: AppUser
     @Environment(Router.self) private var router
     @Environment(TaskStore.self) private var store
     @Environment(TodayClock.self) private var clock
     @Environment(Preferences.self) private var prefs
+    @Environment(Toaster.self) private var toaster
+    @Environment(AppModel.self) private var model
     @Environment(\.palette) private var palette
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var sync = SyncState()
+    /// iPhone: how far the page has scrolled; the bar's second row goes up with it.
+    @State private var scrolled: CGFloat = 0
+    @State private var dateBarHeight: CGFloat = 48
+    @State private var askUndo = false
 
     var body: some View {
         @Bindable var router = router
@@ -19,22 +27,39 @@ struct MainView: View {
         HStack(spacing: 0) {
             if wide && !prefs.sidebarHidden {
                 Sidebar(user: user)
-                    .transition(.move(edge: .leading))
+                    .transition(reduceMotion ? .opacity : .move(edge: .leading))
             }
             VStack(spacing: 0) {
-                AppBar(user: user, wide: wide)
+                if wide {
+                    AppBar()
+                } else {
+                    PhoneTopBar(user: user, scrolled: scrolled > 4)
+                        .zIndex(1)
+                }
                 PageContent(user: user)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .safeAreaInset(edge: .top, spacing: 0) {
+                        if !wide {
+                            PhoneDateBar()
+                                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { dateBarHeight = $0 }
+                                .offset(y: -min(max(scrolled, 0), dateBarHeight))
+                        }
+                    }
+                    .modifier(ScrollTracker(offset: $scrolled, enabled: !wide))
             }
-            .toastHost()
+            .toastHost(bottom: wide ? 24 : 20)
         }
         .background(.surface)
         .tint(palette.accent)
+        .environment(sync)
         .sheet(isPresented: $router.showSettings) {
             SettingsView(user: user)
         }
-        .sheet(isPresented: $router.showShortcuts) {
-            ShortcutsView()
+        .sheet(isPresented: $router.showSearch) {
+            SearchView()
+        }
+        .sheet(isPresented: Binding(get: { !wide && router.showDayPicker }, set: { router.showDayPicker = $0 })) {
+            DayPickerSheet()
         }
         .fullScreenCover(isPresented: $router.focus) {
             FocusView()
@@ -42,10 +67,35 @@ struct MainView: View {
         .fullScreenCover(isPresented: $router.showSpeak) {
             SpeakView()
         }
+        // Shaking the iPhone takes back the last action, after asking (as iOS does everywhere).
+        .alert("Undo the last action?", isPresented: $askUndo) {
+            Button("Cancel", role: .cancel) {}
+            Button("Undo") { model.keyboard.undo() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .deviceDidShake)) { _ in
+            guard store.undoCount > 0, !router.showSettings, !router.showSearch, !router.showDayPicker, !router.focus, !router.showSpeak else { return }
+            askUndo = true
+        }
+        // The keyboard shortcut list now lives in Settings.
+        .onChange(of: router.showShortcuts) { _, show in
+            guard show else { return }
+            router.showShortcuts = false
+            router.openSettings(.shortcuts)
+        }
+        // A new page starts with its bar in place.
+        .onChange(of: router.tab) { _, _ in scrolled = 0 }
         // An open Today follows midnight (and a change of time zone).
         .onChange(of: clock.today) { old, new in
             if router.selected == old { router.select(new) }
         }
+        // Saving shows only when it takes a moment: quick saves don't flash "Saving…".
+        .task(id: store.pendingCount > 0) {
+            guard store.pendingCount > 0 else { sync.slow = false; return }
+            try? await Task.sleep(for: .milliseconds(700))
+            if !Task.isCancelled { sync.slow = store.pendingCount > 0 }
+        }
+        .task { await AIOffer.shared.refresh(model.session.backend) }
+        .onDisappear { AIOffer.shared.reset() }
         .task(id: widgetSnapshot) {
             widgetSnapshot.save()
             WidgetCenter.shared.reloadAllTimelines()
@@ -74,10 +124,46 @@ struct MainView: View {
     }
 }
 
+/// iPhone: follows how far the page on screen has scrolled (iOS 18 and later; before, the bar's second row stays).
+private struct ScrollTracker: ViewModifier {
+    @Binding var offset: CGFloat
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18, *) {
+            // A sideways strip inside the page (wider than it is shown) doesn't move the bar.
+            content.onScrollGeometryChange(for: CGFloat?.self) { g in
+                g.contentSize.width > g.containerSize.width + 1 ? nil : g.contentOffset.y + g.contentInsets.top
+            } action: { _, y in
+                if enabled, let y { offset = y }
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// iPhone: the month to pick a day from, in a sheet as tall as it is.
+private struct DayPickerSheet: View {
+    @State private var height: CGFloat = 360
+
+    var body: some View {
+        DayPicker(large: true)
+            .padding(.horizontal, 12)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+            .frame(maxHeight: .infinity, alignment: .top)
+            .presentationDetents([.height(height)])
+            .presentationBackground(.elevated)
+            .presentationCornerRadius(Tokens.Radius.card + 8)
+    }
+}
+
 extension View {
-    /// Toasts show above the bottom edge of the work area.
-    func toastHost() -> some View {
-        overlay(alignment: .bottom) { ToastOverlay() }
+    /// Toasts show above the bottom edge of the area this is applied to (20 pt on iPhone, 24 on iPad, as on the web).
+    func toastHost(bottom: CGFloat = 20) -> some View {
+        overlay(alignment: .bottom) { ToastOverlay(bottom: bottom) }
     }
 }
 
