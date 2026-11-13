@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The week as a list of days, where seven lanes don't fit (iPhone, a narrow iPad window): a band per day with its name,
 /// its date and how much is done (today marked), + on today and the days ahead, then the day's tasks — what's left, then
-/// what's done. A day without tasks is just its band. Swipe right: done (or open again); swipe left: tomorrow. Hold a
-/// task for its menu, or drag it to another place or another day.
+/// what's done. A day without tasks is just its band. Swipe right: done (or open again); swipe left: tomorrow; hold a
+/// task (or tap its ⋯) for its menu.
 struct WeekList: View {
     let days: [WeekDay]
     let work: WeekWork
@@ -16,15 +16,12 @@ struct WeekList: View {
                     switch row.kind {
                     case .header(let day, let lineAbove):
                         BandHeader(day: day, lineAbove: lineAbove, work: work)
-                            .moveDisabled(true)
                     case .composer(let day):
                         BandComposer(day: day, work: work)
-                            .moveDisabled(true)
                     case .task(let task, let last):
                         BandRow(task: task, hairline: !last, work: work)
                     }
                 }
-                .onMove { from, to in move(rows, from: from, to: to) }
             }
             .listStyle(.plain)
             .environment(\.defaultMinListRowHeight, 0)
@@ -42,11 +39,6 @@ struct WeekList: View {
             }
         }
     }
-
-    private func move(_ rows: [WeekListRow], from: IndexSet, to: Int) {
-        guard let source = from.first, let target = WeekListRow.destination(of: source, to: to, in: rows) else { return }
-        work.drop(target.task, on: target.day, at: target.index)
-    }
 }
 
 /// A line of the list: a day's band, the composer under it, or a task.
@@ -63,26 +55,6 @@ struct WeekListRow: Identifiable {
     let kind: Kind
 
     static func composerID(_ day: DayKey) -> String { "composer-\(day.ordinal)" }
-
-    /// Where a task dragged from row `source` to the gap before row `to` (the list's own numbering) lands: the day is the
-    /// band above that gap, the place is among that day's open tasks above it (the task itself left out).
-    static func destination(of source: Int, to: Int, in rows: [WeekListRow]) -> (task: String, day: DayKey, index: Int)? {
-        guard rows.indices.contains(source), case .task(let task, _) = rows[source].kind else { return nil }
-        var rest = rows
-        rest.remove(at: source)
-        let gap = min(max(0, to > source ? to - 1 : to), rest.count)
-        var index = 0
-        for row in rest[..<gap].reversed() {
-            switch row.kind {
-            case .header(let day, _): return (task.id, day.day, index)
-            case .task(let t, _) where !t.done: index += 1
-            default: break
-            }
-        }
-        // Above the first band: the top of the first day.
-        guard case .header(let first, _)? = rows.first?.kind else { return nil }
-        return (task.id, first.day, 0)
-    }
 
     static func rows(_ days: [WeekDay], composerDay: DayKey?) -> [WeekListRow] {
         var rows: [WeekListRow] = []

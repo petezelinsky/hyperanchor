@@ -1,7 +1,7 @@
 import XCTest
 @testable import Hyperanchor
 
-/// Week and Month: how a week is laid out, where a task dragged in the list of days lands, and how long words break.
+/// Week and Month: how a week is laid out, where the list of days draws its lines, and how long words break.
 @MainActor
 final class WeekMonthTests: XCTestCase {
     private let monday = DayKey(year: 2026, month: 11, day: 9)
@@ -36,30 +36,6 @@ final class WeekMonthTests: XCTestCase {
         let settled = WeekDay.week(from: monday, store: store, sort: .manual, settling: [])
         XCTAssertEqual(settled[0].open.map(\.id), [c.id])
         XCTAssertEqual(Set(settled[0].done.map(\.id)), [a.id, b.id])
-    }
-
-    func testATaskDroppedInTheListLandsUnderTheBandAbove() {
-        let a = task("a", on: monday), b = task("b", on: monday), c = task("c", on: monday, done: true), d = task("d", on: tuesday)
-        let days = [WeekDay(day: monday, open: [a, b], done: [c]), WeekDay(day: tuesday, open: [d], done: []), WeekDay(day: wednesday, open: [], done: [])]
-        let rows = WeekListRow.rows(days, composerDay: nil)
-        // Monday, a, b, c, Tuesday, d, Wednesday
-        XCTAssertEqual(rows.map(\.id), ["day-\(monday.ordinal)", "a", "b", "c", "day-\(tuesday.ordinal)", "d", "day-\(wednesday.ordinal)"])
-
-        func landing(_ source: Int, _ to: Int) -> (String, DayKey, Int)? {
-            WeekListRow.destination(of: source, to: to, in: rows).map { ($0.task, $0.day, $0.index) }
-        }
-        // To Tuesday, under d.
-        XCTAssertTrue(landing(1, 6)! == ("a", tuesday, 1))
-        // To the empty Wednesday, past the end of the list.
-        XCTAssertTrue(landing(1, 7)! == ("a", wednesday, 0))
-        // Up to the top of Monday, above a.
-        XCTAssertTrue(landing(5, 1)! == ("d", monday, 0))
-        // Above the first band still means the top of the first day.
-        XCTAssertTrue(landing(2, 0)! == ("b", monday, 0))
-        // Within Monday, below the done task: after the open ones (a done task takes no place in the order).
-        XCTAssertTrue(landing(1, 4)! == ("a", monday, 1))
-        // Bands don't move.
-        XCTAssertNil(landing(0, 3))
     }
 
     func testABandHasALineAboveItOnlyAfterADayWithTasks() {
