@@ -23,6 +23,8 @@ struct DayScreen: View {
     @State private var earlierLoaded = false
     @State private var speaks = SpeakOffer.known ?? false
     @State private var width: CGFloat = 0
+    /// iPhone: what's being written in the bar at the bottom.
+    @State private var draft = ""
     @FocusState private var focus: TaskField?
 
     private var today: DayKey { clock.today }
@@ -96,6 +98,12 @@ struct DayScreen: View {
             }
             // Each day is a list of its own (it starts at the top, and rows never shuffle over from the day before).
             .id(day)
+            // iPhone: new tasks are written at the bottom, where the thumb is; the list scrolls under the bar.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if !wide {
+                    DayComposerBar(text: $draft, focus: $focus, speaks: speaks) { addAtEnd(proxy) }
+                }
+            }
         }
     }
 
@@ -165,6 +173,7 @@ struct DayScreen: View {
             leaving: editor.leaving.values.map(\.task).filter { $0.date == day && !here.contains($0.id) },
             settling: settling,
             sort: prefs.sort,
+            newTaskRow: wide,
             composing: editor.composerDay == day,
             picked: Set([router.selectedTask, editor.editing].compactMap { $0 }),
             carried: day == today
@@ -181,8 +190,32 @@ struct DayScreen: View {
 
     private func openComposer(_ proxy: ScrollViewProxy?) {
         router.selectedTask = nil
+        guard wide else {
+            // iPhone: the bar at the bottom takes the keyboard.
+            editor.finishEditing(store: store)
+            Task { focus = .newTitle }
+            return
+        }
         editor.openComposer(on: day, store: store, focus: $focus)
         withAnimation(TaskActions.motion(Motion.settle)) { proxy?.scrollTo("new", anchor: .top) }
+    }
+
+    /// iPhone: Return in the bar adds the task at the end of the day's open tasks (a run keeps the order it was written
+    /// in) and brings it into view just above the bar; the field stays open for the next one.
+    private func addAtEnd(_ proxy: ScrollViewProxy) {
+        let title = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        draft = ""
+        guard !title.isEmpty else { return }
+        let last = store.openInOrder(on: day).last
+        let added = withAnimation(TaskActions.motion(Motion.out())) {
+            store.create(title: String(title.prefix(TaskItem.titleMax)), date: day, position: TaskSorting.placeBetween(last, nil))
+        }
+        Task {
+            try? await Task.sleep(for: .milliseconds(60))
+            // The field stays with the keyboard for the next one, whatever the list did meanwhile.
+            if focus != .newTitle { focus = .newTitle }
+            withAnimation(TaskActions.motion(Motion.settle)) { proxy.scrollTo(added.id, anchor: .bottom) }
+        }
     }
 
     /// Folds open and close by height, as the web's lists do (240 ms; easing out to open, in to close).
@@ -327,6 +360,8 @@ extension DayEntry {
         /// Tasks just ticked: they stay with what's left while the tick plays.
         var settling: Set<String> = []
         var sort: TaskSort = .manual
+        /// "New task" at the top (iPad, as the web); iPhone writes new tasks in the bar at the bottom.
+        var newTaskRow = true
         var composing = false
         /// The picked task (and the one being edited).
         var picked: Set<String> = []
@@ -355,7 +390,7 @@ extension DayEntry {
         let leftOpen = input.stored.filter { !$0.done }
         if past, !leftOpen.isEmpty { out.append(DayEntry(id: "left-open", kind: .leftOpen(leftOpen))) }
 
-        out.append(DayEntry(id: "new", kind: .newTask, hairline: line(open.first)))
+        if input.newTaskRow { out.append(DayEntry(id: "new", kind: .newTask, hairline: line(open.first))) }
 
         // My order: a task can go one place up or down among the open ones (not while its tick plays).
         let reorderable = open.filter { !$0.done && !leavingIDs.contains($0.id) }

@@ -188,16 +188,12 @@ struct EditableTaskRow: View {
                       move: { editor.leave(task, to: $0, actions: actions) })
     }
 
-    /// VoiceOver: the menu's actions, on the row itself.
+    /// VoiceOver: the menu's actions, on the row itself (the swipes add Done or Open and Tomorrow on their own).
     @ViewBuilder
     private var voiceOverActions: some View {
-        Button(task.done ? "Mark as open" : "Mark as done", action: toggle)
         Button("Edit", action: edit)
         if task.date != actions.today {
             Button("Move to today") { editor.leave(task, to: actions.today, actions: actions) }
-        }
-        if task.date != actions.tomorrow {
-            Button("Move to tomorrow") { editor.leave(task, to: actions.tomorrow, actions: actions) }
         }
         if task.date != actions.nextWeek {
             Button("Move to next week") { editor.leave(task, to: actions.nextWeek, actions: actions) }

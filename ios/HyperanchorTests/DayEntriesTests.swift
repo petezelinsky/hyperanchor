@@ -107,6 +107,12 @@ final class DayEntriesTests: XCTestCase {
         XCTAssertEqual(first.map(\.hairline), [false, true, true])
     }
 
+    func testOnIPhoneNewTasksAreWrittenAtTheBottomSoTheListHasNoNewTaskRow() {
+        let rows = DayEntry.rows(.init(day: today, today: today, stored: [task("a", today)], newTaskRow: false))
+        XCTAssertEqual(ids(rows), ["a"])
+        XCTAssertEqual(words(DayEntry.rows(.init(day: today, today: today, stored: [], newTaskRow: false))), "Nothing planned yet.")
+    }
+
     func testATaskOnItsWayElsewhereStaysWhereItWasForAMoment() {
         let stored = [task("a", today, position: 1), task("c", today, position: 3)]
         let leaving = [task("b", today, position: 2)]
