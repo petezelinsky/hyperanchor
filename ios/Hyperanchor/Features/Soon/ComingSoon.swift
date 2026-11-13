@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Pages that aren't open yet: Goals and Agent (ComingSoon.tsx). Each says in a few lines what it will be, and shows it
+/// Pages that aren't open yet: Timeline, Goals and Agent (ComingSoon.tsx). Each says in a few lines what it will be, and shows it
 /// with a quiet example that can't be touched. One centered column on the page's white.
 struct ComingSoon: View {
     let page: Router.Page
@@ -15,7 +15,11 @@ struct ComingSoon: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 SoonTag()
-                if page == .goals { GoalsPreview() } else { AgentPreview() }
+                switch page {
+                case .timeline: TimelinePreview()
+                case .goals: GoalsPreview()
+                default: AgentPreview()
+                }
             }
             .opacity(shown ? 1 : 0)
             .offset(y: shown || reduceMotion ? 0 : 8)
@@ -67,6 +71,110 @@ extension View {
         background(.surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous).strokeBorder(.line2, lineWidth: 1))
             .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
+    }
+}
+
+// MARK: - Timeline
+
+/// "Where the week went.": two weeks as bars, one day pointed at, and what was on it.
+private struct TimelinePreview: View {
+    /// Two weeks of November, Monday first: how many tasks each day held.
+    private static let load = [4, 6, 5, 7, 3, 1, 0, 5, 8, 6, 4, 3, 2, 1]
+    /// The day pointed at: Thursday, November 12.
+    private static let pick = 10
+    private static let top = 8.0
+    private static let gap: CGFloat = 5
+    private static let letters = ["M", "T", "W", "T", "F", "S", "S"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SoonTitle(text: "Where the week went.")
+            SoonLead(text: "The line of time: day, week, month, year. Bars show the load; point at one to see what was there.")
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Thu, Nov 12").type(Tokens.Typography.callout, weight: .semibold).foregroundStyle(.ink)
+                        Text("3 of 4 done").type(Tokens.Typography.footnote).foregroundStyle(.ink3)
+                    }
+                    Spacer(minLength: 8)
+                    // The scale it will offer, drawn quietly (nothing to press yet).
+                    HStack(spacing: 0) {
+                        ForEach(["Day", "Week", "Month", "Year"], id: \.self) { s in
+                            Text(s)
+                                .type(Tokens.Typography.caption, weight: .medium)
+                                .foregroundStyle(s == "Day" ? .ink : .ink3)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background {
+                                    if s == "Day" {
+                                        RoundedRectangle(cornerRadius: 6, style: .continuous).fill(.surface)
+                                            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(.line2, lineWidth: 1))
+                                    }
+                                }
+                        }
+                    }
+                    .padding(2)
+                    .background(.surface2, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.line, lineWidth: 1))
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .hairline(.bottom)
+
+                VStack(spacing: 8) {
+                    bars.frame(height: 76)
+                    HStack(spacing: Self.gap) {
+                        ForEach(Self.load.indices, id: \.self) { i in
+                            Text(Self.letters[i % 7])
+                                .type(Tokens.Typography.caption2, weight: i == Self.pick ? .semibold : .regular)
+                                .foregroundStyle(i == Self.pick ? .ink : .ink3)
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 12)
+                .accessibilityHidden(true)
+
+                VStack(spacing: 0) {
+                    GoalStep(state: .done, title: "Call the bank about the card limit")
+                    GoalStep(state: .done, title: "Review Jonas’s pull request")
+                    GoalStep(state: .done, title: "Gym")
+                    GoalStep(state: .todo, title: "Book the dentist", last: true)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .hairline(.top)
+            }
+            .exampleCard()
+            .padding(.top, 36)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Example: two weeks of November, with Thursday, November 12 pointed at. 3 of 4 done: Call the bank about the card limit, done. Review Jonas’s pull request, done. Gym, done. Book the dentist.")
+        }
+    }
+
+    /// The bars, and the finger: a hairline from the top down to the day it points at.
+    private var bars: some View {
+        GeometryReader { g in
+            let n = CGFloat(Self.load.count)
+            let w = (g.size.width - Self.gap * (n - 1)) / n
+            ZStack(alignment: .bottomLeading) {
+                HStack(alignment: .bottom, spacing: Self.gap) {
+                    ForEach(Self.load.indices, id: \.self) { i in
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(i == Self.pick ? Color.ink : .line2)
+                            .frame(width: w, height: max(0.05, Double(Self.load[i]) / Self.top) * g.size.height)
+                    }
+                }
+                let x = (w + Self.gap) * CGFloat(Self.pick) + w / 2
+                let fingerHeight = (1 - Double(Self.load[Self.pick]) / Self.top) * g.size.height - 4
+                Rectangle().fill(.ink)
+                    .frame(width: 1, height: max(0, fingerHeight))
+                    .overlay(alignment: .top) { Circle().fill(.ink).frame(width: 7, height: 7).offset(y: -3) }
+                    .position(x: x, y: max(0, fingerHeight) / 2)
+            }
+        }
     }
 }
 

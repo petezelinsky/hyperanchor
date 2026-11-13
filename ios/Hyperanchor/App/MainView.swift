@@ -206,6 +206,7 @@ struct PageContent: View {
         case .month: MonthScreen(user: user)
         case .analytics: AnalyticsScreen(user: user)
         case .goals: ComingSoon(page: .goals)
+        case .timeline: ComingSoon(page: .timeline)
         case .agent: ComingSoon(page: .agent)
         }
     }

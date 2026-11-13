@@ -9,7 +9,7 @@ import Observation
 final class Router {
     /// The web's `View`: Home's three views, then the other pages.
     enum Tab: String, Hashable, CaseIterable {
-        case day, week, month, analytics, goals, agent
+        case day, week, month, analytics, timeline, goals, agent
 
         var label: String {
             switch self {
@@ -17,6 +17,7 @@ final class Router {
             case .week: "Week"
             case .month: "Month"
             case .analytics: "Progress"
+            case .timeline: "Timeline"
             case .goals: "Goals"
             case .agent: "Agent"
             }
@@ -24,7 +25,15 @@ final class Router {
 
         /// Day, Week or Month: the planner (Home).
         var isPlanner: Bool { self == .day || self == .week || self == .month }
-        var page: Page { isPlanner ? .home : self == .analytics ? .progress : self == .goals ? .goals : .agent }
+        var page: Page {
+            switch self {
+            case .day, .week, .month: .home
+            case .analytics: .progress
+            case .timeline: .timeline
+            case .goals: .goals
+            case .agent: .agent
+            }
+        }
 
         /// The planner's switch.
         static let planner: [Tab] = [.day, .week, .month]
@@ -32,20 +41,21 @@ final class Router {
 
     /// The sidebar's pages (and, on iPhone, the account panel's).
     enum Page: String, Hashable, CaseIterable, Identifiable {
-        case home, progress, goals, agent
+        case home, progress, timeline, goals, agent
         var id: String { rawValue }
 
         var label: String {
             switch self {
             case .home: "Home"
             case .progress: "Progress"
+            case .timeline: "Timeline"
             case .goals: "Goals"
             case .agent: "Agent"
             }
         }
 
         /// Not built yet: marked Soon.
-        var soon: Bool { self == .goals || self == .agent }
+        var soon: Bool { self == .timeline || self == .goals || self == .agent }
     }
 
     /// Settings' own pages.
@@ -116,6 +126,7 @@ final class Router {
         switch page {
         case .home: tab = lastPlanner
         case .progress: tab = .analytics
+        case .timeline: tab = .timeline
         case .goals: tab = .goals
         case .agent: tab = .agent
         }
@@ -149,7 +160,7 @@ final class Router {
         case .week: selected.startOfWeek == today.startOfWeek
         case .month: month == today.startOfMonth
         case .analytics: periodOffset == 0
-        case .goals, .agent: true
+        case .timeline, .goals, .agent: true
         }
     }
 
@@ -160,7 +171,7 @@ final class Router {
         case .week: selected = selected.adding(days: 7 * direction)
         case .month: month = month.addingMonths(direction)
         case .analytics: periodOffset = min(0, periodOffset + direction)
-        case .goals, .agent: break
+        case .timeline, .goals, .agent: break
         }
         if tab == .day || tab == .week { month = selected.startOfMonth }
     }

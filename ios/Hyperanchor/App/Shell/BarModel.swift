@@ -61,6 +61,9 @@ struct BarModel {
             let name = router.period.rawValue
             nav = Nav(prev: "Previous \(name)", next: "Next \(name)", nextDisabled: router.periodOffset == 0,
                       back: router.periodOffset != 0 ? "Back to this \(name)" : nil)
+        case .timeline:
+            head = Head(title: "Timeline")
+            nav = nil
         case .goals:
             head = Head(title: "Goals")
             nav = nil

@@ -171,9 +171,12 @@ final class FlowTests: XCTestCase {
     func testAddATaskAndComplete() {
         app.launch()
         waitForTitle("Today")
-        button("newTask").tap()
+        // iPad writes new tasks in the web's row at the top (opened by New task); iPhone in the bar at the bottom.
+        let newTask = button("newTask")
+        if newTask.waitForExistence(timeout: 2) { newTask.tap() }
         let title = app.textFields["composer.title"]
         waitFor(title)
+        if !newTask.exists { title.tap() }
         title.typeText("Buy oat milk\n")
         waitFor(button("Mark “Buy oat milk” as done"))
         // The row stays open, with the keyboard, for the next one.

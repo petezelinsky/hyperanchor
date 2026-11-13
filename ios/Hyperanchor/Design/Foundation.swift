@@ -117,8 +117,12 @@ struct DayCount: View {
 enum Icon {
     static let home = "house"
     static let progress = "chart.bar"
-    static let goals = "flag"
-    static let agent = "sparkles"
+    /// A milestone diamond (the web's new Goals mark).
+    static let goals = "diamond"
+    /// One slender four-pointed spark: Agent, and anything the AI does.
+    static let agent = "sparkle"
+    /// Three spans of time, one after another.
+    static let timeline = "calendar.day.timeline.left"
     static let focus = "viewfinder"
     static let sidebar = "sidebar.left"
     static let back = "arrow.uturn.backward"
@@ -132,12 +136,13 @@ enum Icon {
     static let previous = "chevron.left"
     static let next = "chevron.right"
     static let close = "xmark"
-    static let summary = "sparkles"
+    static let summary = "sparkle"
 
     static func symbol(for page: Router.Page) -> String {
         switch page {
         case .home: home
         case .progress: progress
+        case .timeline: timeline
         case .goals: goals
         case .agent: agent
         }
