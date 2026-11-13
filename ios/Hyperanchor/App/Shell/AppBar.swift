@@ -156,7 +156,9 @@ struct BarTitle: View {
             .accessibilityIdentifier("bar.title")
             .popover(isPresented: Binding(get: { wide && router.showDayPicker }, set: { router.showDayPicker = $0 }), arrowEdge: .top) {
                 DayPicker(large: false)
+                    .padding(12)
                     .frame(width: 284)
+                    .presentationBackground(.elevated)
                     .presentationCompactAdaptation(.popover)
             }
         } else {
