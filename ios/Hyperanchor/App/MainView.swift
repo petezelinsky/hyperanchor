@@ -92,8 +92,8 @@ struct PageContent: View {
         case .week: WeekScreen(user: user)
         case .month: MonthScreen(user: user)
         case .analytics: AnalyticsScreen(user: user)
-        case .goals: SoonPage(page: .goals)
-        case .agent: SoonPage(page: .agent)
+        case .goals: ComingSoon(page: .goals)
+        case .agent: ComingSoon(page: .agent)
         }
     }
 }
