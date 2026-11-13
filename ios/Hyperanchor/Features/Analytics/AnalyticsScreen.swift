@@ -1,264 +1,229 @@
 import SwiftUI
 
-/// Week / month / year: KPI tiles against the previous period, completed per day (or month), the year's
-/// activity, the strongest weekday, what was left open, and every number as a table. Only elapsed days count.
+/// Progress (AnalyticsView.tsx): the period on screen, a week, a month or a year, in panels across the whole work area.
+/// The AI summary on top (where the server has the AI); then the four figures; the days (or months) as bars, with
+/// what's left open (a week) or the weekdays beside them; the year's activity; what's left open and the history of
+/// every day. The page's name, its dates, the period switch and the arrows are in the bar above.
 struct AnalyticsScreen: View {
     let user: AppUser
 
     @Environment(TaskStore.self) private var store
     @Environment(Router.self) private var router
     @Environment(TodayClock.self) private var clock
-    @Environment(Toaster.self) private var toaster
+    @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.dynamicTypeSize) private var typeSize
-
-    private var today: DayKey { clock.today }
+    @State private var lens = LensDriver()
+    @State private var viewport: CGSize = .zero
+    /// Today's AI allowance and whether the server offers the summary (nil until it answers).
+    @State private var usage: Usage?
+    @State private var left: Int?
 
     var body: some View {
-        @Bindable var router = router
+        let today = clock.today
         let period = router.period
         let offset = router.periodOffset
-        let byDate = { (d: DayKey) in store.tasks(on: d) }
-        let b = Stats.bounds(period, offset: offset, today: today)
-        let days = Stats.dayStats(b, today: today, byDate: byDate)
-        let sum = Stats.summarize(days)
-        let prev = Stats.summarize(Stats.dayStats(Stats.bounds(period, offset: offset - 1, today: today), today: today, byDate: byDate))
-        let current = offset == 0
-        let model = ChartModel(period: period, days: days, bounds: b, today: today, sum: sum)
-        let longest = Stats.longestStreak(days)
-        let end = current ? today : b.end
-        let recent = (0..<7).map { i in byDate(end.adding(days: i - 6)).contains(where: \.done) }
-        let actions = TaskActions(store: store, toaster: toaster, today: today)
+        let report = Stats.Report(period: period, offset: offset, today: today, firstDay: store.firstDay, byDate: store.progressTasks(on:))
+        let layout = ProgressLayout(width: viewport.width, compact: sizeClass == .compact, typeSize: typeSize)
 
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 12) {
-                    controls(period: period, offset: offset, label: label(period, b))
-
-                    Kpis(
-                        sum: sum, prev: prev, period: period, current: current, spark: model.spark,
-                        streak: current ? Stats.currentStreak(today: today, byDate: byDate) : longest,
-                        longest: longest, recent: recent, columns: typeSize.isAccessibilitySize ? 1 : sizeClass == .regular ? 4 : 2
-                    )
-
-                    Card(title: period == .year ? "Completed per month" : "Completed per day") {
-                        CompletionChart(model: model, pick: pick)
-                        if sum.upcoming > 0 {
-                            Text("\(sum.upcoming == 1 ? "1 more task is" : "\(sum.upcoming) more tasks are") planned for the rest of this \(period.rawValue).")
-                                .font(.caption)
-                                .foregroundStyle(.ink3)
-                                .padding(.top, 10)
-                        }
-                    }
-
-                    if period == .year {
-                        Card(title: "Activity", aside: "Completed tasks per day") {
-                            Heatmap(days: days) { router.open($0) }
-                        }
-                    }
-
-                    let breakdown = Group {
-                        if period != .week { WeekdayCard(days: days) }
-                        LeftOpenCard(open: sum.open, actions: actions) { router.open($0) }
-                    }
-                    if sizeClass == .regular, period != .week {
-                        HStack(alignment: .top, spacing: 12) { breakdown }
-                    } else {
-                        breakdown
-                    }
-
-                    HistoryCard(rows: model.history, unit: period == .year ? "months" : "days", pick: pick)
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 24)
-                .frame(maxWidth: 1240)
-                .frame(maxWidth: .infinity)
-            }
-            .background(.canvas)
-            .navigationTitle("Progress")
-            .toolbar(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("Previous \(period.label)", systemImage: "chevron.left") { router.periodOffset -= 1 }
-                    Button("Next \(period.label)", systemImage: "chevron.right") { router.periodOffset = min(0, router.periodOffset + 1) }
-                        .disabled(current)
+        ScrollView {
+            Group {
+                if report.empty {
+                    EmptyNote(report: report, plan: { plan(period, today: today) }, back: { router.periodOffset = 0 })
+                } else {
+                    panels(report, layout: layout)
                 }
             }
-            .animation(.snappy(duration: 0.3), value: "\(period.rawValue)\(offset)")
-            .toastHost()
+            .padding(.horizontal, layout.margin)
+            .padding(.top, layout.phone ? 12 : 24)
+            .padding(.bottom, 40)
+            .frame(maxWidth: 1480)
+            .frame(maxWidth: .infinity)
+            .lensContent(lens)
         }
-        .task(id: "\(period.rawValue)\(offset)\(today)") {
+        // The page's gray, with the panels on it; the lens plays over all of it.
+        .background(.canvas)
+        .lensSurface(lens)
+        .environment(\.progressLayout, layout)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { viewport = $0 }
+        .refreshable { await reload(period, offset, today: today) }
+        .task(id: "\(period.rawValue) \(offset) \(today)") {
             await store.load(Stats.range(period, offset: offset, today: today))
         }
         .task(id: today) {
-            // The current streak can reach further back than the period on screen.
+            // "Days with something done" counts the whole year so far, and the first task can be further back.
             await store.load(today.adding(days: -365)...today)
         }
+        .task { await loadUsage() }
     }
 
-    private func controls(period: Stats.Period, offset: Int, label: String) -> some View {
-        @Bindable var router = router
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(label)
-                    .font(.subheadline)
-                    .foregroundStyle(.ink2)
-                Spacer()
-                if offset != 0 {
-                    Button(["week": "This Week", "month": "This Month", "year": "This Year"][period.rawValue]!) {
-                        router.periodOffset = 0
-                    }
-                    .buttonStyle(SecondaryButtonStyle(compact: true))
+    @ViewBuilder
+    private func panels(_ r: Stats.Report, layout: ProgressLayout) -> some View {
+        VStack(spacing: layout.gap) {
+            if usage?.features?.summary ?? true {
+                SummaryPanel(
+                    input: r.summaryInput,
+                    key: SummaryArchive.key(account: model.session.accountID ?? user.email, period: r.period, start: r.bounds.start),
+                    noun: r.period.rawValue,
+                    left: $left,
+                    lens: lens
+                )
+            }
+            Figures(figures: r.figures)
+            if layout.wide {
+                GridRow12(spans: [8, 4], gap: layout.gap) {
+                    chart(r)
+                    beside(r)
                 }
+            } else {
+                chart(r)
+                beside(r)
             }
-            Picker("Period", selection: Binding(get: { router.period }, set: { router.period = $0; router.periodOffset = 0 })) {
-                ForEach(Stats.Period.allCases) { Text($0.label).tag($0) }
+            if r.period == .year {
+                ActivityCard(days: r.days) { router.open($0) }
             }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("analytics.period")
+            if r.period == .week {
+                history(r)
+            } else if layout.wide {
+                GridRow12(spans: [5, 7], gap: layout.gap) {
+                    OpenCard(open: r.open, today: r.today)
+                    history(r)
+                }
+            } else {
+                OpenCard(open: r.open, today: r.today)
+                history(r)
+            }
         }
-        .padding(.bottom, 4)
     }
 
-    private func label(_ period: Stats.Period, _ b: Stats.Bounds) -> String {
-        switch period {
-        case .week: Dates.range(b.start, b.end)
-        case .month: "\(Dates.months[b.start.month - 1]) \(String(b.start.year))"
-        case .year: String(b.start.year)
+    private func chart(_ r: Stats.Report) -> some View {
+        Card(title: r.chartTitle) {
+            ChartLegend()
+        } content: {
+            BarChart(bars: r.bars, average: r.average, title: r.chartTitle, pick: pick)
+                // Another period's bars grow in again.
+                .id("\(r.period.rawValue) \(r.offset)")
         }
     }
 
-    /// A bar or history row: a day opens in Day; a month (year view) opens in Analytics.
-    private func pick(_ target: ChartModel.Target) {
+    /// Beside the chart: what's left open (a week), or the weekdays (a month, a year).
+    @ViewBuilder
+    private func beside(_ r: Stats.Report) -> some View {
+        if r.period == .week {
+            OpenCard(open: r.open, today: r.today)
+        } else {
+            WeekdayCard(days: r.days)
+        }
+    }
+
+    private func history(_ r: Stats.Report) -> some View {
+        HistoryCard(rows: r.history, unit: r.period == .year ? .months : .days, pick: pick)
+    }
+
+    /// A bar or a row: a day opens in Day; a month (from a year) opens here.
+    private func pick(_ target: Stats.Target) {
         switch target {
-        case .day(let d): router.open(d)
+        case .day(let day):
+            router.open(day)
         case .month(let offset):
             router.period = .month
             router.periodOffset = offset
         }
     }
-}
 
-/// The period's numbers, arranged for the chart, the sparkline and the history table.
-struct ChartModel {
-    enum Target: Hashable { case day(DayKey), month(offset: Int) }
-
-    struct Bar: Identifiable, Hashable {
-        let id: String
-        let label: String
-        /// Second label line (the date under the weekday).
-        var sub: String?
-        /// Labeled even when the axis is dense.
-        var major = true
-        let title: String
-        let done: Int
-        let total: Int
-        let elapsed: Bool
-        let current: Bool
-        var tasks: [TaskItem] = []
-        let target: Target
+    /// Goes to where this period gets planned (Week, or Month for a month or a year).
+    private func plan(_ period: Stats.Period, today: DayKey) {
+        router.goToToday(today)
+        router.tab = period == .week ? .week : .month
     }
 
-    struct Row: Identifiable, Hashable {
-        let id: String
-        let order: Int
-        let label: String
-        let done: Int
-        let planned: Int
-        let rate: Double?
-        var tasks: [TaskItem]?
-        var activeDays: String?
-        let target: Target
+    private func reload(_ period: Stats.Period, _ offset: Int, today: DayKey) async {
+        await store.load(Stats.range(period, offset: offset, today: today))
+        await loadUsage()
     }
 
-    let bars: [Bar]
-    let spark: [SparkPoint]
-    let history: [Row]
-    let average: Double
-
-    init(period: Stats.Period, days: [Stats.DayStat], bounds b: Stats.Bounds, today: DayKey, sum: Stats.Summary) {
-        if period == .year {
-            let months = Stats.monthStats(days)
-            let year = b.start.year
-            let monthOffset = { (m: Int) in (year - today.year) * 12 + (m + 1 - today.month) }
-            let isNow = { (m: Int) in year == today.year && m + 1 == today.month }
-            bars = months.map { m in
-                Bar(id: "m\(m.month)", label: Dates.monthsShort[m.month], title: "\(Dates.months[m.month]) \(year)", done: m.done, total: m.planned,
-                    elapsed: m.elapsedDays > 0, current: isNow(m.month), target: .month(offset: monthOffset(m.month)))
-            }
-            spark = months.map { SparkPoint(value: $0.done, current: isNow($0.month), elapsed: $0.elapsedDays > 0) }
-            history = months.filter { $0.planned > 0 }.map { m in
-                Row(id: "m\(m.month)", order: m.month, label: "\(Dates.months[m.month]) \(year)", done: m.done, planned: m.planned, rate: m.rate,
-                    activeDays: "\(m.activeDays) of \(m.elapsedDays)", target: .month(offset: monthOffset(m.month)))
-            }
-            let elapsedBars = bars.count(where: \.elapsed)
-            average = elapsedBars > 0 ? Double(sum.completed) / Double(elapsedBars) : 0
-        } else {
-            bars = days.map { d in
-                Bar(id: d.key.description,
-                    label: period == .week ? Dates.dayShort(d.key) : String(d.key.day),
-                    sub: period == .week ? String(d.key.day) : nil,
-                    major: d.key.day == 1 || d.key.day % 5 == 0,
-                    title: Dates.long(d.key), done: d.done, total: d.total, elapsed: d.elapsed, current: d.isToday, tasks: d.tasks, target: .day(d.key))
-            }
-            spark = days.map { SparkPoint(value: $0.done, current: $0.isToday, elapsed: $0.elapsed) }
-            history = days.enumerated().filter { $0.element.elapsed && $0.element.total > 0 }.map { i, d in
-                Row(id: d.key.description, order: i, label: Dates.relative(d.key, today: today) ?? Dates.medium(d.key), done: d.done, planned: d.total,
-                    rate: Double(d.done) / Double(d.total), tasks: d.tasks, target: .day(d.key))
-            }
-            average = sum.avg
-        }
+    private func loadUsage() async {
+        guard let answer = try? await model.session.backend.usage() else { return }
+        usage = answer
+        left = answer.today.left
     }
 }
 
-struct SparkPoint: Hashable {
-    let value: Int
-    let current: Bool
-    let elapsed: Bool
-}
-
-/// A white card on the canvas: a title, an optional note on the right, content.
-struct Card<Content: View>: View {
-    let title: String
-    var aside: String?
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(.headline)
-                    .tracking(-0.2)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer()
-                if let aside {
-                    Text(aside).font(.caption).foregroundStyle(.ink3).multilineTextAlignment(.trailing)
-                }
-            }
-            content
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous))
-        .elevation(Tokens.Shadow.lift, cornerRadius: Tokens.Radius.card)
-    }
-}
-
-/// A ratio against its limit: accent fill on a lighter accent track.
-struct Meter: View {
-    let value: Double?
-    var height: CGFloat = 6
+/// Done · Open · Average, beside the chart's title.
+private struct ChartLegend: View {
     @Environment(\.palette) private var palette
 
     var body: some View {
-        GeometryReader { g in
-            Capsule().fill(palette.accentTrack)
-                .overlay(alignment: .leading) {
-                    Capsule().fill(palette.accent).frame(width: g.size.width * max(0, min(1, value ?? 0)))
-                }
+        HStack(spacing: 16) {
+            swatch(palette.accent, "Done")
+            swatch(palette.accentTrack, "Open")
+            HStack(spacing: 6) {
+                Rectangle()
+                    .fill(.clear)
+                    .frame(width: 14, height: 1)
+                    .overlay {
+                        Rectangle().stroke(Color.ink3, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                            .frame(height: 0.5)
+                    }
+                Text("Average")
+            }
         }
-        .frame(height: height)
-        .animation(.easeOut(duration: 0.7), value: value)
+        .type(Tokens.Typography.caption)
+        .foregroundStyle(.ink2)
+        .lineLimit(1)
+        .fixedSize()
         .accessibilityHidden(true)
+    }
+
+    private func swatch(_ color: Color, _ label: String) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: Tokens.Radius.xs, style: .continuous).fill(color).frame(width: 10, height: 10)
+            Text(label)
+        }
+    }
+}
+
+/// Nothing to measure yet: a sentence where the numbers go, with the way to plan (or back to now).
+private struct EmptyNote: View {
+    let report: Stats.Report
+    let plan: () -> Void
+    let back: () -> Void
+    @Environment(\.progressLayout) private var layout
+
+    var body: some View {
+        let name = report.period.rawValue
+        let sentence = report.current ? "Nothing planned this \(name) yet. " : "Nothing was planned in \(report.label). "
+        let action = report.current ? (report.period == .week ? "Plan your week" : "Plan your month") : "Back to this \(name)"
+        var link = AttributedString(action)
+        link.link = URL(string: "hyperanchor-progress:action")
+        link.underlineStyle = Text.LineStyle(pattern: .solid, color: .ink4)
+        link.foregroundColor = .ink
+        link.font = .token(Tokens.Typography.callout, weight: .medium)
+
+        return Text(AttributedString(sentence) + link)
+            .type(Tokens.Typography.callout)
+            .foregroundStyle(.ink2)
+            .tint(.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(layout.padding)
+            .progressPanel()
+            .environment(\.openURL, OpenURLAction { _ in
+                report.current ? plan() : back()
+                return .handled
+            })
+    }
+}
+
+extension TaskStore {
+    /// The earliest day with a task, of everything loaded (it reaches a year back): Progress starts counting there.
+    var firstDay: DayKey? {
+        index.lazy.filter { !$0.value.isEmpty }.map(\.key).min()
+    }
+
+    /// A day's tasks in the person's own order, as the web hands them to Progress.
+    func progressTasks(on day: DayKey) -> [TaskItem] {
+        let list = tasks(on: day)
+        return list.contains { $0.position != nil } ? TaskSorting.sorted(list, by: .manual) : list
     }
 }
