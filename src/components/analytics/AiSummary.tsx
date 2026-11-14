@@ -5,6 +5,7 @@ import type { SummaryInput } from "@/lib/summary";
 import { toUnlock, UNLOCK, type SavedSummary, type SummaryState } from "@/lib/summaries";
 import type { Usage } from "@/lib/types";
 import { ChevronDown, HistoryIcon, SparkIcon } from "../icons";
+import { Orb } from "../voice/Orb";
 import { LiquidLens } from "../lens";
 import { motion, reducedMotion } from "../motion";
 import { Accordion, Button } from "../ui";
@@ -19,6 +20,21 @@ const HIDDEN = "hyperanchor:summary-hidden";
 
 /** Each period's state, kept while the page is open: coming back to a period shows its summary at once. */
 const known = new Map<string, SummaryState>();
+
+/**
+ * Asks for several periods' states at once (the day, week, month and year on screen), so switching between them
+ * finds each summary already there instead of opening a moment later.
+ */
+export function preloadSummaries(account: string, keys: string[]) {
+  const missing = keys.filter((k) => !known.has(`${account}:${k}`));
+  if (!missing.length) return;
+  fetch(`/api/summaries?keys=${missing.join(",")}`)
+    .then((r) => (r.ok ? (r.json() as Promise<{ states: Record<string, SummaryState> }>) : null))
+    .then((b) => {
+      if (b) for (const [k, s] of Object.entries(b.states)) if (!known.has(`${account}:${k}`)) known.set(`${account}:${k}`, s);
+    })
+    .catch(() => {});
+}
 
 const PROBLEMS: Record<string, string> = {
   limit: "That’s all of today’s AI tokens. More tomorrow.",
@@ -52,17 +68,18 @@ function Morph({ k, children }: { k: string; children: React.ReactNode }) {
 function Skeleton() {
   return (
     <div aria-hidden="true" className="border-t border-line px-5 pt-5 pb-6 md:px-6">
-      <div className="skeleton h-[22px] w-[58%] rounded-md" />
-      <div className="skeleton mt-2.5 h-[22px] w-[34%] rounded-md" />
-      <div className="mt-6 grid gap-x-6 gap-y-4 md:grid-cols-3">
+      <div className="skeleton h-[26px] w-[52%] rounded-md" />
+      <div className="skeleton mt-2.5 h-[26px] w-[30%] rounded-md" />
+      <div className="mt-5 grid gap-2.5 @3xl/analytics:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="space-y-2 border-t border-line pt-3.5">
-            <div className="skeleton h-3 w-full rounded-full" />
-            <div className="skeleton h-3 w-[88%] rounded-full" />
-            <div className="skeleton h-3 w-[56%] rounded-full" />
+          <div key={i} className="space-y-2 rounded-[12px] bg-surface-2 p-4 shadow-[inset_0_0_0_1px_var(--line)]">
+            <div className="skeleton h-3 w-full rounded-full" style={{ animationDelay: `${i * 120}ms` }} />
+            <div className="skeleton h-3 w-[86%] rounded-full" style={{ animationDelay: `${i * 120 + 60}ms` }} />
+            <div className="skeleton h-3 w-[52%] rounded-full" style={{ animationDelay: `${i * 120 + 120}ms` }} />
           </div>
         ))}
       </div>
+      <div className="skeleton mt-2.5 h-12 rounded-[12px]" />
     </div>
   );
 }
@@ -268,6 +285,10 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
   const frozen = useRef<View>(actual);
   if (!held) frozen.current = actual;
   const view = held ? frozen.current : actual;
+  // What it last showed stays in place while the panel folds away (an empty box can't fold smoothly).
+  const body = useRef<View>(view);
+  if (view.kind !== "none") body.current = view;
+  const shown = body.current;
 
   const doneSince = Math.max(0, done - (since ?? 0));
   const line = writing
@@ -285,11 +306,9 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
   return (
     <section ref={panel} aria-labelledby="ai-summary" aria-busy={writing} className={`min-w-0 overflow-hidden ${PANEL}`}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 p-5 md:px-6">
-        <span
-          aria-hidden="true"
-          className={`flex size-9 flex-none items-center justify-center rounded-[10px] bg-surface-2 text-ink shadow-ring-line ${writing ? "animate-[breathe_1.6s_ease-in-out_infinite]" : ""}`}
-        >
-          <SparkIcon size={17} />
+        {/* The sphere stands for the AI; it thinks for as long as the summary is being written. */}
+        <span aria-hidden="true" className="flex size-10 flex-none items-center justify-center rounded-full bg-surface-2 shadow-ring-line">
+          <Orb size={30} active={writing} className="text-ink" />
         </span>
         <div className="min-w-0 flex-1">
           <h2 id="ai-summary" className="text-body font-semibold text-ink">
@@ -297,9 +316,15 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
           </h2>
           <p className="mt-0.5 text-footnote text-ink-3">{line}</p>
           {state && !writing && !current && remaining > 0 && (
-            // How close the summary is: tasks done towards the next one.
-            <div aria-hidden="true" className="mt-2 h-1 max-w-[240px] overflow-hidden rounded-full bg-accent-track">
-              <div className="h-full origin-left rounded-full bg-accent transition-transform duration-(--duration-data) ease-out" style={{ transform: `scaleX(${Math.min(1, doneSince / UNLOCK[period])})` }} />
+            // How close the summary is: a pill for every task it takes (a line for the many a year takes).
+            <div aria-hidden="true" className="mt-2.5 flex h-1.5 max-w-[280px] gap-[3px]">
+              {UNLOCK[period] <= 32 ? (
+                Array.from({ length: UNLOCK[period] }, (_, i) => <span key={i} className={`min-w-0 flex-1 rounded-full ${i < doneSince ? "bg-accent" : "bg-surface-3"}`} />)
+              ) : (
+                <span className="flex-1 overflow-hidden rounded-full bg-surface-3">
+                  <span className="block h-full origin-left rounded-full bg-accent" style={{ transform: `scaleX(${Math.min(1, doneSince / UNLOCK[period])})` }} />
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -339,11 +364,11 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
       )}
 
       <Accordion open={view.kind !== "none"}>
-        <Morph k={view.kind === "summary" ? view.s.id : view.kind}>
-          {view.kind === "skeleton" ? (
+        <Morph k={shown.kind === "summary" ? shown.s.id : shown.kind}>
+          {shown.kind === "skeleton" ? (
             <Skeleton />
-          ) : view.kind === "summary" ? (
-            <SummaryBody s={view.s} noun={noun} fresh={view.fresh} className="border-t border-line px-5 pt-5 pb-6 md:px-6" />
+          ) : shown.kind === "summary" ? (
+            <SummaryBody s={shown.s} noun={noun} fresh={shown.fresh} className="border-t border-line px-5 pt-5 pb-6 md:px-6" />
           ) : null}
         </Morph>
       </Accordion>

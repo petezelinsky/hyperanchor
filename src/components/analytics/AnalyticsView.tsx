@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { addDays, dayName, dayShort, formatLong, formatMedium, formatShort, MONTHS, MONTHS_SHORT, parseYmd, relativeDay, weekdayNames, ymd } from "@/lib/dates";
 import { insights as readInsights } from "@/lib/insights";
 import { dayStats, monthStats, periodBounds, summarize, weekdayStats, type DayStat, type Period } from "@/lib/stats";
+import { startOfWeek } from "@/lib/dates";
 import type { SummaryInput } from "@/lib/summary";
 import type { Task } from "@/lib/types";
 import { shortRange } from "../WeekView";
-import { AiSummary } from "./AiSummary";
+import { AiSummary, preloadSummaries } from "./AiSummary";
 import { BarChart, type Bar } from "./BarChart";
-import { OpenCard, WeekdayCard } from "./Breakdown";
+import { OpenCard } from "./Breakdown";
 import { Detailed } from "./Detailed";
 import { Heatmap } from "./Heatmap";
 import { HistoryCard, type HistoryRow } from "./History";
@@ -22,17 +23,20 @@ const LAST: Record<Period, string> = { day: "Yesterday", week: "Last week", mont
 
 /**
  * Analytics: the period on screen (a day, a week, a month, a year) in a few panels across the work area, simple first.
- * The AI summary on top (where the server has the AI); the period at a glance (how much is done, how it compares);
- * the days (or months) as bars beside what's left open; for a year, its days as a grid. Everything finer (pace,
- * momentum, steadiness, the weekdays, the history) waits folded away in Detailed analytics. A click on a bar, a square
- * or a row opens that day (or month) in a small card beside it, with a way to go to it. The page's name, its dates, the
- * period switch and the arrows are in the bar above.
+ * The AI summary on top (where the server has the AI); the period at a glance (the count, its tasks as one line, how
+ * it compares); the days (or months) as bars beside what's left open; for a year, its days as a grid. Everything finer
+ * (pace, momentum, how the days spread, the weekdays, plan against done, the history) waits folded away in Detailed
+ * analytics. A click on a bar, a square or a row opens that day (or month) in a small card beside it, with a way to go
+ * to it. Another period arrives as one page, softly, with nothing in it jumping; until its tasks have come from the
+ * server, the page shows its shape instead of half the numbers. The page's name, its dates, the period switch and the
+ * arrows are in the bar above.
  */
 export function AnalyticsView({
   period,
   offset,
   todayKey,
   firstDay,
+  ready,
   ai,
   account,
   byDate,
@@ -48,6 +52,8 @@ export function AnalyticsView({
   todayKey: string;
   /** The earliest day the person has a task on: days before it don't count against them. */
   firstDay: string | null;
+  /** The period's tasks have come from the server (until then its numbers would be half there). */
+  ready: boolean;
   /** The server has the AI: the summary is offered. */
   ai: boolean;
   /** The signed-in account (what's remembered on this device is kept per account). */
@@ -62,6 +68,12 @@ export function AnalyticsView({
   onPlan: () => void;
 }) {
   const [pick, setPick] = useState<Pick | null>(null);
+  // The summaries of the day, week, month and year around today, asked for at once: switching finds them there.
+  useEffect(() => {
+    if (!ai) return;
+    const t = parseYmd(todayKey);
+    preloadSummaries(account, [`day:${todayKey}`, `week:${ymd(startOfWeek(t))}`, `month:${ymd(new Date(t.getFullYear(), t.getMonth(), 1))}`, `year:${t.getFullYear()}-01-01`]);
+  }, [ai, account, todayKey]);
   const b = periodBounds(period, offset, todayKey);
   // Days before the person's first task aren't theirs to be measured on: averages start when they started.
   const fromStart = (list: DayStat[]) => (firstDay ? list.map((d) => (d.key < firstDay ? { ...d, elapsed: false } : d)) : list);
@@ -181,7 +193,11 @@ export function AnalyticsView({
             onPick: (el) => pickDay(d, el),
           }));
 
-  const ins = readInsights(period, days, todayKey, byDate, prevDays.length ? prevSum.completed : null, firstDay);
+  const ins = readInsights(period, days, prevDays, todayKey, byDate, firstDay);
+  // The shape of the period for the overview: what was done on each of its days so far (a year: each month), and
+  // whether each finished day had something done.
+  const series = period === "year" ? months.filter((m) => m.elapsedDays > 0).map((m) => m.done) : days.filter((d) => d.key <= todayKey).map((d) => d.done);
+  const active = days.filter((d) => d.elapsed && (!d.isToday || d.done > 0)).map((d) => d.done > 0);
   // The last fortnight, up to today (or the period's end), for the streak.
   const fortnightEnd = b.end < today ? b.end : today;
   const fortnight = Array.from({ length: 14 }, (_, i) => byDate(ymd(addDays(fortnightEnd, i - 13))).some((t) => t.done));
@@ -231,7 +247,7 @@ export function AnalyticsView({
   const chart = (
     <Card
       title={period === "year" ? "Done per month" : period === "day" ? "The last two weeks" : "Done per day"}
-      className="lg:col-span-8"
+      className="@4xl/analytics:col-span-8"
       aside={
         <span className="flex items-center gap-4 text-caption text-ink-2">
           <span className="flex items-center gap-1.5">
@@ -263,10 +279,14 @@ export function AnalyticsView({
   );
 
   return (
-    // The page's grey, with the panels on it, edge to edge of the work area (the lens takes its picture from here).
-    <div data-lens="" className="min-h-full bg-canvas max-md:min-h-[calc(100dvh-100px)]">
-      <div className="mx-auto w-full max-w-[1480px] px-3 pt-3 pb-10 md:px-6 md:pt-6 lg:px-8">
-        {empty ? (
+    // White, like the task pages (so it never runs into the sidebar's grey), with the panels drawn on it by their
+    // hairlines, edge to edge of the work area (the lens takes its picture from here). The layout follows the width of
+    // this area, not of the window: a sidebar or a narrow window folds it the same way.
+    <div data-lens="" className="@container/analytics min-h-full bg-surface max-md:min-h-[calc(100dvh-100px)]">
+      <div key={`${period}:${offset}:${ready}`} className="mx-auto w-full max-w-[1480px] animate-[page-in_var(--duration-base)_var(--ease-out)_both] px-3 pt-3 pb-10 md:px-6 md:pt-6 @5xl/analytics:px-8">
+        {!ready ? (
+          <Shape />
+        ) : empty ? (
           // Nothing to measure yet: a sentence where the numbers go, instead of empty charts.
           <p className={`p-5 text-callout text-ink-2 md:p-6 ${PANEL}`}>
             {current ? `Nothing planned ${period === "day" ? "today" : `this ${period}`} yet. ` : `Nothing was planned in ${label}. `}
@@ -275,13 +295,13 @@ export function AnalyticsView({
             </button>
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-12">
+          <div className="grid grid-cols-1 gap-3 md:gap-4 @4xl/analytics:grid-cols-12">
             {ai && (
-              <div className="lg:col-span-12">
-                <AiSummary input={summaryInput} done={doneInPeriod} noun={noun} account={account} />
+              <div className="@4xl/analytics:col-span-12">
+                <AiSummary key={`${period}:${ymd(b.start)}`} input={summaryInput} done={doneInPeriod} noun={noun} account={account} />
               </div>
             )}
-            <div className="lg:col-span-12">
+            <div className="@4xl/analytics:col-span-12">
               <Overview
                 period={period}
                 eyebrow={eyebrow}
@@ -291,6 +311,9 @@ export function AnalyticsView({
                 prevSettled={prevSettled}
                 throughYesterday={throughYesterday}
                 open={open.length}
+                series={series}
+                active={active}
+                fortnight={fortnight}
                 insights={ins}
               />
             </div>
@@ -302,27 +325,22 @@ export function AnalyticsView({
               onMove={onMove}
               title={period === "day" && current ? "Still open" : "Left open"}
               empty={period === "day" ? (current ? "Nothing left for today." : "Everything on this day got done.") : "Nothing from earlier days is waiting."}
-              className="lg:col-span-4"
+              className="@4xl/analytics:col-span-4"
             />
             {period === "year" && (
-              <Card title="Activity" className="lg:col-span-12" aside={<span className="text-caption text-ink-3">Tasks done per day</span>}>
+              <Card title="Activity" className="@4xl/analytics:col-span-12" aside={<span className="text-caption text-ink-3">Tasks done per day</span>}>
                 <Heatmap days={days} todayKey={todayKey} onPick={(d, el) => pickDay(d, el)} />
               </Card>
             )}
-            <div className="lg:col-span-12">
-              <Detailed period={period} insights={ins} endsOn={endsOn} fortnight={fortnight}>
-                {(period === "month" || period === "year") && <WeekdayCard days={days} className="lg:col-span-5" />}
-                <HistoryCard
-                  rows={history}
-                  unit={period === "year" ? "months" : "days"}
-                  className={period === "month" || period === "year" ? "lg:col-span-7" : "lg:col-span-12"}
-                />
+            <div className="@4xl/analytics:col-span-12">
+              <Detailed period={period} insights={ins} days={days} endsOn={endsOn} fortnight={fortnight}>
+                <HistoryCard rows={history} unit={period === "year" ? "months" : "days"} />
               </Detailed>
             </div>
           </div>
         )}
       </div>
-      {pick && (
+      {pick && ready && (
         <Peek
           pick={pick}
           todayKey={todayKey}
@@ -331,6 +349,51 @@ export function AnalyticsView({
           onClose={() => setPick(null)}
         />
       )}
+    </div>
+  );
+}
+
+/** The page before its tasks have come: its shape, with a soft band of light passing over it. */
+function Shape() {
+  return (
+    <div aria-hidden="true" className="grid grid-cols-1 gap-3 md:gap-4 @4xl/analytics:grid-cols-12">
+      <div className={`flex items-center gap-4 p-5 md:px-6 @4xl/analytics:col-span-12 ${PANEL}`}>
+        <span className="skeleton size-10 flex-none rounded-full" />
+        <span className="flex-1 space-y-2">
+          <span className="skeleton block h-3.5 w-28 rounded-full" />
+          <span className="skeleton block h-3 w-[46%] rounded-full" />
+        </span>
+        <span className="skeleton h-8 w-28 rounded-sm" />
+      </div>
+      <div className={`p-5 md:p-6 @4xl/analytics:col-span-12 ${PANEL}`}>
+        <span className="skeleton block h-3 w-24 rounded-full" />
+        <span className="skeleton mt-3 block h-10 w-44 rounded-md" />
+        <span className="skeleton mt-6 block h-2.5 w-full rounded-full" />
+        <span className="mt-8 grid grid-cols-3 gap-6">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="space-y-2">
+              <span className="skeleton block h-3 w-16 rounded-full" />
+              <span className="skeleton block h-6 w-12 rounded-md" />
+            </span>
+          ))}
+        </span>
+      </div>
+      <div className={`h-[340px] p-5 md:p-6 @4xl/analytics:col-span-8 ${PANEL}`}>
+        <span className="skeleton block h-3.5 w-28 rounded-full" />
+        <span className="mt-8 flex h-[220px] items-end gap-3">
+          {[46, 72, 38, 88, 60, 30, 52].map((h, i) => (
+            <span key={i} className="skeleton flex-1 rounded-t-xs" style={{ height: `${h}%`, animationDelay: `${i * 60}ms` }} />
+          ))}
+        </span>
+      </div>
+      <div className={`h-[340px] p-5 md:p-6 @4xl/analytics:col-span-4 ${PANEL}`}>
+        <span className="skeleton block h-3.5 w-20 rounded-full" />
+        <span className="mt-7 block space-y-5">
+          {[70, 54, 62, 48].map((w, i) => (
+            <span key={i} className="skeleton block h-3 rounded-full" style={{ width: `${w}%` }} />
+          ))}
+        </span>
+      </div>
     </div>
   );
 }

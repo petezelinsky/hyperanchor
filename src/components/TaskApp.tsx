@@ -162,7 +162,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
     toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : 4000);
   }, []);
 
-  const { tasks, load, loadOpen, create, edit, remove, restore, merge, saving, waiting, trouble, loads } = useTasks(account, notify);
+  const { tasks, load, loadOpen, create, edit, remove, restore, merge, saving, waiting, trouble, loads, covers } = useTasks(account, notify);
 
   // ── Undo ────────────────────────────────────────────────────────────────────
   // The last 20 actions can be taken back: ⌘Z / Ctrl Z takes back the latest, a toast's Undo its own.
@@ -1081,6 +1081,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
                 offset={stats.offset}
                 todayKey={todayKey}
                 firstDay={firstDay}
+                ready={covers(...statsRange(stats.period, stats.offset, todayKey))}
                 ai={voice}
                 account={account}
                 byDate={byDate}

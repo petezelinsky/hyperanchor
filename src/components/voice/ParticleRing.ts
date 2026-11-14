@@ -14,8 +14,8 @@ const BINS = 360;
 const BANDS = 16;
 
 /**
- * speech: moves to the voice; steady: a calm breath; silent: still but alive; think: three comets of light run round
- * the ring while what was said is worked on.
+ * speech: moves to the voice; steady: a calm breath; silent: still but alive; think: one smooth wave goes round the
+ * ring clockwise, and the dots it passes swell and settle back, while what was said is worked on.
  */
 export type RingMode = "speech" | "steady" | "silent" | "think";
 
@@ -79,7 +79,7 @@ export class ParticleRing {
   private E = 0;
   /** 0 in silence, 1 while there's a voice: rises at once, falls slowly, so the ring doesn't shrink between words. */
   private wake = 0;
-  /** Where the comets are (think mode). */
+  /** Where the wave is on the ring (think mode), in radians, clockwise. */
   private spin = 0;
   /** A breath out (see `pulse`), fading. */
   private kick = 0;
@@ -273,21 +273,17 @@ export class ParticleRing {
       b.level += (target - b.level) * ease(target > b.level ? (heard ? 32 : 12) : heard ? 8.5 : 4.4);
     }
     const W = 0.3;
-    if (think && !o.reduced) {
-      // Three comets, each a bright head with a tail of light behind it, running round at slightly different paces.
-      this.spin += step * 2.1;
+    if (think) {
+      // One wave, a soft swell about a third of the ring long, going round clockwise once in about two seconds (slower
+      // with reduced motion). It rises gently ahead of its crest and falls away a little slower behind it.
+      this.spin = (this.spin + step * (o.reduced ? 1.2 : 3.1)) % TAU;
       for (let i = 0; i < BINS; i++) {
-        const a = (i / BINS) * TAU;
-        let v = 0;
-        for (let k = 0; k < 3; k++) {
-          const head = this.spin * (1 + k * 0.17) + (k * TAU) / 3;
-          let d = (head - a) % TAU;
-          if (d < 0) d += TAU;
-          if (d < 2.4) v += Math.exp(-d / 0.55);
-          const ahead = TAU - d;
-          if (ahead < 0.3) v += Math.exp(-((ahead / 0.09) ** 2));
-        }
-        this.act[i] = Math.min(1.25, v * 0.95) * this.level;
+        let d = ((i / BINS) * TAU - this.spin) % TAU;
+        if (d > Math.PI) d -= TAU;
+        if (d < -Math.PI) d += TAU;
+        // d < 0: behind the crest (where it has been); d > 0: ahead of it.
+        const wide = d < 0 ? 1.05 : 0.6;
+        this.act[i] = Math.exp(-((d / wide) ** 2)) * this.level;
       }
     } else
       for (let i = 0; i < BINS; i++) {
@@ -313,7 +309,7 @@ export class ParticleRing {
       p.pa += step * p.os * (0.3 + 1.1 * p.e);
       p.pb += step * p.sb;
       p.pc += step * p.sc * (1 + 0.5 * p.e);
-      p.ang += step * (p.flow * (0.018 + 0.1 * p.e) + (think ? 0.22 : 0)) * slide;
+      p.ang += step * p.flow * (0.018 + (think ? 0 : 0.1 * p.e)) * slide;
     }
   }
 
@@ -330,20 +326,23 @@ export class ParticleRing {
     const R = o.radius * (0.93 + 0.07 * k3) * (1 + 0.06 * this.E * this.level + 0.07 * kick);
     const ds = o.dotSize;
     const w = Math.max(this.wake, kick);
+    // Thinking: the dots stay where they are and swell as the wave passes; nothing flies.
+    const think = o.mode === "think";
     for (const p of this.dots) {
-      const e = p.e;
+      const e = think ? p.e * 0.1 : p.e;
       // Out to its place (a touch beyond, with a voice) as the ring wakes, and as its own part of the ring sounds.
       const open = Math.min(1, Math.max(w, e * 1.4));
       const off = p.off * (p.calm + (1.08 - p.calm) * open);
       const along = (e * 1.12 + kick * 0.6) * p.reach * (0.78 + 0.22 * Math.sin(p.pc));
-      const r = R + off + p.a * (7 + 17 * p.react) + Math.sin(p.pb) * 1.6 + p.dx * along + Math.cos(p.pa) * p.orb * e;
+      const swell = think ? p.a : 0;
+      const r = R + off + (think ? p.a * 5 : p.a * (7 + 17 * p.react)) + Math.sin(p.pb) * 1.6 + p.dx * along + Math.cos(p.pa) * p.orb * e;
       const tn = Math.cos(p.pb * 0.8 + p.pc) * 1.6 + p.dy * along + Math.sin(p.pa) * p.orb * e;
       const ca = Math.cos(p.ang);
       const sa = Math.sin(p.ang);
-      const fade = p.dim + (1 - p.dim) * open;
-      ctx.globalAlpha = Math.min(1, p.op * (0.84 + 0.16 * Math.sin(p.pc)) * (0.82 + 0.5 * e)) * fade * k3;
+      const fade = p.dim + (1 - p.dim) * Math.max(open, swell);
+      ctx.globalAlpha = Math.min(1, p.op * (0.84 + 0.16 * Math.sin(p.pc)) * (0.82 + 0.5 * e + 0.35 * swell)) * fade * k3;
       ctx.beginPath();
-      ctx.arc(400 + ca * r - sa * tn, 400 + sa * r + ca * tn, (p.size * ds * (1 + 0.28 * e)) / 2, 0, TAU);
+      ctx.arc(400 + ca * r - sa * tn, 400 + sa * r + ca * tn, (p.size * ds * (1 + 0.28 * e + 1.35 * swell)) / 2, 0, TAU);
       ctx.fill();
     }
     ctx.globalAlpha = 1;

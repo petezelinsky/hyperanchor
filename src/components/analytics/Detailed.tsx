@@ -1,111 +1,109 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { dayShort, formatShort } from "@/lib/dates";
-import type { Insights } from "@/lib/insights";
-import { fmt1, pct, type Period } from "@/lib/stats";
+import { dayShort, formatMedium, formatShort, weekdayNames } from "@/lib/dates";
+import type { Insights, Point } from "@/lib/insights";
+import { fmt1, pct, type DayStat, type Period } from "@/lib/stats";
 import { ChartIcon, ChevronDown } from "../icons";
 import { Accordion } from "../ui";
+import { BurnChart, PlanChart, SpreadChart, TrendChart, WeekdayChart } from "./charts";
 import { PANEL } from "./parts";
 
 const KEY = "hyperanchor:detailed";
 
-/** One finding: what it's about, the result in a word or a number, one plain sentence, a small picture, how it's worked out. */
-function Tile({ label, value, unit, line, formula, children }: { label: string; value: React.ReactNode; unit?: string; line: React.ReactNode; formula: string; children?: React.ReactNode }) {
+/**
+ * One finding with its chart: what it's about, the result in a word or a number, one plain sentence, the picture, and
+ * how it's worked out (the mathematics, in words).
+ */
+function Frame({
+  label,
+  value,
+  unit,
+  line,
+  formula,
+  legend,
+  className = "",
+  children,
+}: {
+  label: string;
+  value: React.ReactNode;
+  unit?: string;
+  line: React.ReactNode;
+  formula: string;
+  legend?: React.ReactNode;
+  className?: string;
+  children?: React.ReactNode;
+}) {
   return (
-    <div className="flex min-w-0 flex-col rounded-[12px] bg-surface p-4 shadow-[0_0_0_1px_var(--line)] md:p-5">
-      <div className="text-caption font-medium text-ink-3">{label}</div>
-      <div className="mt-1.5 flex items-baseline gap-1.5">
-        <span className="tabular font-display text-[24px] leading-[30px] font-semibold tracking-[-0.02em] text-ink">{value}</span>
-        {unit && <span className="text-footnote text-ink-3">{unit}</span>}
-      </div>
-      <p className="mt-1 text-footnote text-pretty text-ink-2">{line}</p>
-      {children && <div className="mt-4">{children}</div>}
-      {/* How it's worked out, in words: the mathematics, translated. */}
-      <p className="mt-auto flex gap-1.5 pt-4 text-caption text-ink-3">
-        <span aria-hidden="true" className="font-serif italic">ƒ</span>
-        <span className="min-w-0">{formula}</span>
-      </p>
-    </div>
-  );
-}
-
-/** Done so far, where the period is heading, and where the last one ended. */
-function PaceBar({ soFar, projected, previous }: { soFar: number; projected: number; previous: number | null }) {
-  const top = Math.max(1, projected, previous ?? 0) * 1.08;
-  return (
-    <div aria-hidden="true" className="relative pt-4">
-      <div className="relative h-2 overflow-hidden rounded-full bg-surface-3">
-        <div className="absolute inset-y-0 left-0 rounded-full bg-accent-track" style={{ width: `${(projected / top) * 100}%` }} />
-        <div className="absolute inset-y-0 left-0 rounded-full bg-accent" style={{ width: `${(soFar / top) * 100}%` }} />
-      </div>
-      {previous != null && previous > 0 && (
-        <div className="absolute top-0 bottom-[-3px] flex flex-col items-center" style={{ left: `${(previous / top) * 100}%` }}>
-          <span className="tabular -translate-x-1/2 text-caption-2 leading-3 whitespace-nowrap text-ink-3">{previous}</span>
-          <span className="mt-0.5 w-px flex-1 -translate-x-1/2 bg-ink-2" />
+    <section className={`flex min-w-0 flex-col rounded-[14px] bg-surface p-5 shadow-[0_0_0_1px_var(--line)] ${className}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="text-caption font-medium text-ink-3">{label}</h3>
+          <div className="mt-1.5 flex items-baseline gap-1.5">
+            <span className="tabular font-display text-[26px] leading-[32px] font-semibold tracking-[-0.022em] text-ink">{value}</span>
+            {unit && <span className="text-footnote text-ink-3">{unit}</span>}
+          </div>
         </div>
-      )}
-    </div>
+        {legend && <div className="flex flex-none flex-wrap items-center justify-end gap-x-3.5 gap-y-1 pt-0.5 text-caption text-ink-2">{legend}</div>}
+      </div>
+      <p className="mt-1 max-w-[62ch] text-footnote text-pretty text-ink-2">{line}</p>
+      {children && <div className="mt-5">{children}</div>}
+      <p className="mt-auto flex gap-1.5 pt-4 text-caption text-ink-3">
+        <span aria-hidden="true" className="font-serif italic">
+          ƒ
+        </span>
+        <span className="min-w-0 text-pretty">{formula}</span>
+      </p>
+    </section>
   );
 }
 
-/** Each day's count as a thin bar, and the straight line that fits them best over it. */
-function Sparkline({ series, from, to }: { series: number[]; from: number; to: number }) {
-  const W = 240;
-  const Hh = 44;
-  const max = Math.max(1, ...series, from, to);
-  const step = W / series.length;
-  const y = (v: number) => Hh - 2 - (v / max) * (Hh - 6);
-  return (
-    <svg viewBox={`0 0 ${W} ${Hh}`} preserveAspectRatio="none" className="block h-11 w-full" aria-hidden="true">
-      {series.map((v, i) => (
-        <rect key={i} x={i * step + step * 0.2} width={Math.max(1, step * 0.6)} y={y(v)} height={Hh - 2 - y(v)} rx={Math.min(1.5, step * 0.3)} fill="var(--ink-4)" />
-      ))}
-      <line x1={step / 2} x2={W - step / 2} y1={y(from)} y2={y(to)} stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
+/** A mark of a chart's legend: a solid line, a dashed one, or a quiet one. */
+const Key = ({ kind, children }: { kind: "solid" | "dashed" | "quiet" | "bar"; children: React.ReactNode }) => (
+  <span className="flex items-center gap-1.5 whitespace-nowrap">
+    {kind === "bar" ? (
+      <span className="h-2.5 w-1.5 rounded-[2px] bg-ink-4" />
+    ) : (
+      <span className={`w-3.5 border-t-2 ${kind === "solid" ? "border-accent" : kind === "dashed" ? "border-dotted border-ink-2" : "border-ink-4"}`} />
+    )}
+    {children}
+  </span>
+);
 
-/** Five steps that fill with the accent as the days get more alike. */
-function Steps({ score }: { score: number }) {
-  const on = Math.max(1, Math.round(score * 5));
+/** A figure of the strip under the charts. */
+function Fact({ label, value, unit, children }: { label: string; value: React.ReactNode; unit?: string; children?: React.ReactNode }) {
   return (
-    <div aria-hidden="true" className="flex gap-1">
-      {Array.from({ length: 5 }, (_, i) => (
-        <span key={i} className={`h-2 flex-1 rounded-full ${i < on ? "bg-accent" : "bg-surface-3"}`} />
-      ))}
-    </div>
-  );
-}
-
-/** The last fortnight as dots: filled where something got done. */
-function Dots({ days }: { days: boolean[] }) {
-  return (
-    <div aria-hidden="true" className="flex justify-between gap-1">
-      {days.map((d, i) => (
-        <span key={i} className={`size-2.5 rounded-full ${d ? "bg-accent" : "shadow-[inset_0_0_0_1.25px_var(--line-2)]"}`} />
-      ))}
+    <div className="min-w-0 bg-surface px-5 py-4">
+      <dt className="truncate text-caption text-ink-3">{label}</dt>
+      <dd className="mt-1 flex items-baseline gap-1.5">
+        <span className="tabular font-display text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">{value}</span>
+        {unit && <span className="truncate text-caption text-ink-3">{unit}</span>}
+      </dd>
+      {children && <dd className="mt-2">{children}</dd>}
     </div>
   );
 }
 
 /**
- * Detailed analytics: everything beyond the overview, folded away until asked for (and remembered open). First a few
- * findings worked out with a little mathematics, each said plainly and with its formula in words; then the period's
- * own tables (by weekday, history), passed in as `children`.
+ * Detailed analytics: everything beyond the overview, folded away until asked for (and remembered open). The period
+ * adding up against the one before, with where it is heading; momentum; how the days spread; the weekdays; what gets
+ * planned against what gets done; a strip of figures; then the history (passed in as `children`).
  */
 export function Detailed({
   period,
   insights,
+  days,
   endsOn,
   fortnight,
   children,
 }: {
   period: Period;
   insights: Insights;
+  /** The period's days (the pace is told day by day). */
+  days: DayStat[];
   /** "Sunday", "Nov 30", "Dec 31": where the pace leads. */
   endsOn: string;
-  /** The last 14 finished days, oldest first: whether each had something done. */
+  /** The last 14 days, oldest first: whether each had something done. */
   fortnight: boolean[];
   children?: React.ReactNode;
 }) {
@@ -124,9 +122,13 @@ export function Detailed({
     });
   };
 
-  const { pace, rank, momentum, steadiness, typical, planning, streak, window } = insights;
-  const unit = period === "year" ? "week" : "day";
-  const noun = period === "day" ? "day" : period;
+  const { burn, rank, momentum, spread, weekdays, plan, typical, streak, window } = insights;
+  const noun = period;
+  const names = weekdayNames("short");
+  const full = weekdayNames("full");
+  const bestDay = weekdays.reduce((b, d) => (d.avg > b.avg ? d : b), weekdays[0]);
+  const pointLabel = (p: Point) => (period === "year" ? `Week of ${formatShort(p.date)}` : formatMedium(p.date));
+  const need = "Needs a week of finished days to draw.";
 
   return (
     <section aria-labelledby="detailed" className={`min-w-0 ${PANEL}`}>
@@ -138,7 +140,7 @@ export function Detailed({
           <span id="detailed" className="block text-body font-semibold text-ink">
             Detailed analytics
           </span>
-          <span className="mt-0.5 block text-footnote text-ink-3">Pace, momentum, steadiness and the numbers behind the charts.</span>
+          <span className="mt-0.5 block text-footnote text-ink-3">Pace, momentum, how your days spread, and the numbers behind the charts.</span>
         </span>
         <span className="flex size-8 flex-none items-center justify-center rounded-full text-ink-2 transition-colors duration-(--duration-fast) group-hover:bg-surface-2 group-hover:text-ink">
           <ChevronDown size={16} className={`transition-transform duration-(--duration-base) ease-out ${open ? "rotate-180" : ""}`} />
@@ -146,119 +148,124 @@ export function Detailed({
       </button>
 
       <Accordion open={open}>
-        <div className="border-t border-line bg-canvas/60 p-3 md:p-5">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {pace ? (
-              <Tile
-                label="Pace"
-                value={`≈ ${pace.projected}`}
-                unit={`by ${endsOn}`}
-                line={
+        <div className="grid grid-cols-1 gap-3 border-t border-line bg-surface-2 p-3 md:gap-4 md:p-5 @4xl/analytics:grid-cols-12">
+          {burn ? (
+            <Frame
+              className="@4xl/analytics:col-span-7"
+              label="Pace"
+              value={burn.projected != null ? `≈ ${burn.projected}` : (burn.now[burn.now.length - 1] ?? 0)}
+              unit={burn.projected != null ? `by ${endsOn}` : "done in all"}
+              line={
+                burn.projected != null ? (
                   <>
-                    At your recent {fmt1(pace.perDay)} a day.{" "}
-                    {pace.previous != null ? (pace.previous > 0 ? `Last ${noun} ended with ${pace.previous}.` : `Last ${noun} had nothing done.`) : ""}
+                    Where this {noun} is heading at your recent {fmt1(burn.perDay)} a day.{" "}
+                    {burn.previous != null ? (burn.previous > 0 ? `Last ${noun} ended with ${burn.previous}.` : `Last ${noun} had nothing done.`) : ""}
                   </>
-                }
-                formula="done so far + your recent daily average × the days left"
-              >
-                <PaceBar soFar={pace.soFar} projected={pace.projected} previous={pace.previous} />
-              </Tile>
-            ) : rank ? (
-              <Tile
-                label="Against the days before"
-                value={rank.of ? pct(rank.beat / rank.of) : "—"}
-                line={rank.of ? `More done than on ${rank.beat} of the ${rank.of} days before it.` : "No days before it to compare with yet."}
-                formula="the share of the 28 days before with fewer tasks done"
-              />
-            ) : (
-              <Tile
-                label="Best day"
-                value={typical?.best ? typical.best.done : "—"}
-                unit={typical?.best ? `on ${formatShort(typical.best.date)}` : undefined}
-                line={typical?.best ? `The most you finished on one day this ${noun}.` : `Nothing was done this ${noun}.`}
-                formula="the day with the most tasks done"
-              />
-            )}
-
-            <Tile
-              label="Momentum"
-              value={momentum ? momentum.label : "—"}
-              line={
-                momentum
-                  ? `From about ${fmt1(momentum.from)} to ${fmt1(momentum.to)} a ${momentum.unit}, across ${window}.`
-                  : "Needs a week of finished days to draw a line through."
+                ) : burn.previous != null ? (
+                  `The ${noun} before ended with ${burn.previous}.`
+                ) : (
+                  `How the ${noun} added up, day by day.`
+                )
               }
-              formula={`the straight line that fits each ${unit}'s count best (least squares)`}
-            >
-              {momentum && <Sparkline series={momentum.series} from={momentum.from} to={momentum.to} />}
-            </Tile>
-
-            <Tile
-              label="Steadiness"
-              value={steadiness ? steadiness.label : "—"}
-              line={
-                steadiness
-                  ? steadiness.low === steadiness.high
-                    ? `Most days you finish about ${steadiness.low}.`
-                    : `Most days you finish between ${steadiness.low} and ${steadiness.high}.`
-                  : "Needs a week of finished days with something done."
+              legend={
+                <>
+                  <Key kind="solid">This {noun}</Key>
+                  {burn.before && <Key kind="quiet">Last {noun}</Key>}
+                  {burn.ahead && <Key kind="dashed">At your pace</Key>}
+                </>
               }
-              formula="1 ÷ (1 + spread ÷ average) of tasks done per day; most days = the middle half"
+              formula="done so far + your recent daily average × the days left; the cone is how far such a stretch usually strays (σ·√days)"
             >
-              {steadiness && <Steps score={steadiness.score} />}
-            </Tile>
+              <BurnChart burn={burn} dayLabel={(i) => (days[i] ? (period === "year" ? formatShort(days[i].date) : formatMedium(days[i].date)) : "")} vs={`at this point last ${noun}`} />
+            </Frame>
+          ) : (
+            <Frame
+              className="@4xl/analytics:col-span-5 @4xl/analytics:order-2"
+              label="Among the days before"
+              value={rank && rank.of ? pct(rank.beat / rank.of) : "—"}
+              unit={rank && rank.of ? "of them beaten" : undefined}
+              line={rank && rank.of ? `More done than on ${rank.beat} of the ${rank.of} days before it. A typical one of them: ${fmt1(rank.typical)}.` : "No days before it to compare with yet."}
+              formula="the share of the 28 days before with fewer tasks done; below, how those days spread"
+            >
+              {spread && <SpreadChart spread={spread} />}
+            </Frame>
+          )}
 
-            <Tile
-              label="A typical day"
-              value={typical ? fmt1(typical.median) : "—"}
-              unit="done"
+          <Frame
+            className={burn ? "@4xl/analytics:col-span-5" : "@4xl/analytics:col-span-7 @4xl/analytics:order-1"}
+            label="Momentum"
+            value={momentum ? momentum.label : "—"}
+            line={momentum ? `From about ${fmt1(momentum.from)} to ${fmt1(momentum.to)} a ${momentum.unit}, across ${window}.` : need}
+            legend={
+              momentum && (
+                <>
+                  <Key kind="solid">{period === "year" ? "4-week average" : "7-day average"}</Key>
+                  <Key kind="dashed">Trend</Key>
+                </>
+              )
+            }
+            formula={`the straight line that fits each ${momentum?.unit ?? "day"}'s count best (least squares); the curve is the average of the last ${period === "year" ? "four weeks" : "seven days"}`}
+          >
+            {momentum && <TrendChart momentum={momentum} dayLabel={pointLabel} />}
+          </Frame>
+
+          {burn && (
+            <Frame
+              className="@4xl/analytics:col-span-4"
+              label="How your days spread"
+              value={spread ? spread.label : "—"}
               line={
-                typical
-                  ? `Half of your planned days end with more, half with less.${typical.best && pace ? ` Best this ${noun}: ${dayShort(typical.best.date)}, ${formatShort(typical.best.date)}, with ${typical.best.done}.` : ""}`
-                  : "Nothing planned yet."
+                spread
+                  ? `${spread.low === spread.high ? `Most days you finish about ${spread.low}` : `Most days you finish between ${spread.low} and ${spread.high}`}; the median is ${fmt1(spread.median)}.`
+                  : need
               }
-              formula={`the median of days with something planned, across ${window}`}
-            />
-
-            <Tile
-              label="Plan against done"
-              value={planning ? `${fmt1(planning.ratio)}×` : "—"}
-              line={
-                planning
-                  ? planning.ratio <= 1.15
-                    ? "Your plans match what you finish. Keep them this size."
-                    : `You plan about ${fmt1(planning.ratio)} tasks for each one you finish. A realistic day for you: ${planning.realistic}.`
-                  : "Needs five days with something planned."
-              }
-              formula="tasks planned ÷ tasks done; a realistic day is what three days in four reach (75th percentile)"
+              formula="steadiness = 1 ÷ (1 + spread ÷ average); the bracket is the middle half of your days, the dot their median"
             >
-              {planning && (
-                <div aria-hidden="true" className="space-y-1.5">
-                  <div className="flex items-center gap-2 text-caption-2 text-ink-3">
-                    <span className="w-12">Planned</span>
-                    <span className="h-2 flex-1 rounded-full bg-accent-track" />
-                  </div>
-                  <div className="flex items-center gap-2 text-caption-2 text-ink-3">
-                    <span className="w-12">Done</span>
-                    <span className="flex h-2 flex-1">
-                      <span className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, 100 / planning.ratio)}%` }} />
-                    </span>
-                  </div>
-                </div>
-              )}
-            </Tile>
+              {spread && <SpreadChart spread={spread} />}
+            </Frame>
+          )}
 
-            <Tile
-              label="In a row"
-              value={streak.current}
-              unit={streak.current === 1 ? "day" : "days"}
-              line={`With something done${streak.current ? ", up to today" : ""}. The longest run here: ${streak.longest} ${streak.longest === 1 ? "day" : "days"}.`}
-              formula="consecutive days with at least one task done"
-            >
-              <Dots days={fortnight} />
-            </Tile>
-          </div>
-          {children && <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-12">{children}</div>}
+          <Frame
+            className={burn ? "@4xl/analytics:col-span-4" : "@4xl/analytics:order-3 @4xl/analytics:col-span-6"}
+            label="By weekday"
+            value={bestDay.avg > 0 ? `${full[bestDay.index]}s` : "—"}
+            unit={bestDay.avg > 0 ? "carry the most" : undefined}
+            line={bestDay.avg > 0 ? `About ${fmt1(bestDay.avg)} done on a ${full[bestDay.index]}; under each day, the share of what was planned.` : "Not enough done yet to compare."}
+            formula={`tasks done ÷ the number of such weekdays, across ${window}`}
+          >
+            <WeekdayChart weekdays={weekdays} names={names} />
+          </Frame>
+
+          <Frame
+            className={burn ? "@4xl/analytics:col-span-4" : "@4xl/analytics:order-4 @4xl/analytics:col-span-6"}
+            label="Plan against done"
+            value={plan ? pct(Math.min(1, plan.share)) : "—"}
+            unit={plan ? "of a plan gets done" : undefined}
+            line={
+              plan
+                ? plan.ratio <= 1.15
+                  ? "Your plans match what you finish. Keep them this size."
+                  : `You plan about ${fmt1(plan.ratio)} tasks for each one you finish. A realistic day for you: ${plan.realistic}.`
+                : "Needs five days with something planned."
+            }
+            formula="a line through the days (least squares, from zero); dashed: everything planned gets done; a realistic day is what three days in four reach"
+          >
+            {plan && <PlanChart plan={plan} />}
+          </Frame>
+
+          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-line shadow-[0_0_0_1px_var(--line)] md:grid-cols-4 @4xl/analytics:order-5 @4xl/analytics:col-span-12">
+            <Fact label="A typical day" value={typical ? fmt1(typical.median) : "—"} unit="done (median)" />
+            <Fact label="In a row" value={streak.current} unit={streak.current === 1 ? "day with something done" : "days with something done"}>
+              <div aria-hidden="true" className="flex max-w-[180px] justify-between gap-1">
+                {fortnight.map((d, i) => (
+                  <span key={i} className={`size-2 rounded-full ${d ? "bg-accent" : "shadow-[inset_0_0_0_1.25px_var(--line-2)]"}`} />
+                ))}
+              </div>
+            </Fact>
+            <Fact label="Longest run" value={streak.longest} unit={streak.longest === 1 ? "day" : "days"} />
+            <Fact label="Best day" value={typical?.best ? typical.best.done : "—"} unit={typical?.best ? `${dayShort(typical.best.date)}, ${formatShort(typical.best.date)}` : undefined} />
+          </dl>
+          {children && <div className="@4xl/analytics:order-6 @4xl/analytics:col-span-12">{children}</div>}
         </div>
       </Accordion>
     </section>

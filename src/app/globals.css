@@ -526,6 +526,21 @@ svg[data-icon] * {
   background-size: 100% 1.5px;
 }
 
+/* A chart's line drawing itself from left to right (the path is measured as 1 long). */
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+/* A page of Analytics arriving (another period, another week): it comes up as one, softly. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 /* An AI summary arriving: each part comes into focus in turn, out of a soft blur, settling up into place. */
 @keyframes summary-in {
   from {

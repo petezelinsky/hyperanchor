@@ -67,6 +67,8 @@ function outbox(key: string) {
  */
 export function useTasks(account: string, notify: Notify) {
   const [tasks, setTasks] = useState<Record<string, Task>>({});
+  // The ranges that have come back from the server at least once (so a page can tell "nothing there" from "not yet").
+  const covered = useRef<[string, string][]>([]);
   // Requests on the wire (for the "Saving…" hint), changes still waiting, and whether the first load has come back.
   const [inFlight, setInFlight] = useState(0);
   const [waiting, setWaiting] = useState(0);
@@ -247,6 +249,7 @@ export function useTasks(account: string, notify: Notify) {
           for (const t of fetched) next[t.id] = t;
           return settle(prev, next);
         });
+        covered.current = [...covered.current.filter(([a, b]) => !(a >= from && b <= to)), [from, to] as [string, string]].slice(-24);
         setLoads((n) => n + 1);
       } catch (e) {
         failedLoad(e, () => load(from, to));
@@ -379,5 +382,7 @@ export function useTasks(account: string, notify: Notify) {
   }, [engine]);
 
   const { load, loadOpen, create, edit, remove, restore, merge } = engine;
-  return { tasks, load, loadOpen, create, edit, remove, restore, merge, saving: inFlight > 0, waiting, trouble, loads };
+  /** Whether every day from `from` to `to` has come back from the server (in one range). Changes with `loads`. */
+  const covers = (from: string, to: string) => covered.current.some(([a, b]) => a <= from && b >= to);
+  return { tasks, load, loadOpen, create, edit, remove, restore, merge, saving: inFlight > 0, waiting, trouble, loads, covers };
 }

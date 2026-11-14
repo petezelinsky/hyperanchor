@@ -663,7 +663,7 @@ export function Accordion({ open, children }: { open: boolean; children: React.R
     const timing: KeyframeAnimationOptions = { duration, easing: open ? m.out : m.in, fill: "both" };
     // The edge: solid down to a soft band that ends where the rows below begin. The band narrows away as the last rows
     // arrive, so nothing changes when the animation lets go.
-    const soft = softEdges();
+    const soft = softEdges() && h <= 640;
     const edge = Math.min(EDGE, h * 0.5);
     const frames: Keyframe[] = Array.from({ length: 17 }, (_, i) => {
       const p = now + (to - now) * (i / 16);
@@ -687,8 +687,10 @@ export function Accordion({ open, children }: { open: boolean; children: React.R
     if (inner)
       anims.push(
         inner.animate(
-          open ? [{ opacity: now, transform: `translateY(${-6 * (1 - now)}px)` }, { opacity: 1, transform: "none" }] : [{ opacity: now }, { opacity: 0 }],
-          { duration: open ? duration : duration * 0.75, easing: open ? m.out : m.in, fill: "both" },
+          open
+            ? [{ opacity: soft ? now : now * now, transform: `translateY(${-6 * (1 - now)}px)` }, ...(soft ? [] : [{ opacity: 0.35, offset: 0.55 }]), { opacity: 1, transform: "none" }]
+            : [{ opacity: now }, { opacity: 0 }],
+          { duration: open ? duration : duration * (soft ? 0.75 : 0.6), easing: open ? m.out : m.in, fill: "both" },
         ),
       );
     const run: Unfold = { anims, from: now, to };
