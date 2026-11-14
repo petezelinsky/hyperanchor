@@ -12,8 +12,19 @@ import type { Field, TableActions } from "./types";
 // task's card.
 export const COLS = "grid grid-cols-[30px_minmax(0,1fr)_36px] pr-1.5 pl-3 md:pr-1";
 
-/** A task in a list is a card of its own: a soft rounded box with a hairline edge, a shade darker when picked. */
-export const CARD = "rounded-[10px] bg-surface shadow-[0_0_0_1px_var(--line-2)]";
+/** A task in a list is a card of its own: a soft rounded box with a pale hairline edge. */
+export const CARD = "rounded-[10px] bg-surface shadow-[0_0_0_1px_var(--line)]";
+
+/**
+ * How a task's card looks: an open one is a white card with a pale edge, a finished one is filled and has no edge (it
+ * has sunk into the page); under the pointer both take a shade, and a picked one gets a firm edge.
+ */
+const face = (done: boolean, picked: boolean) =>
+  picked
+    ? "bg-surface-3 shadow-[0_0_0_1px_var(--ink-4)] [--row-bg:var(--surface-3)]"
+    : done
+      ? "bg-canvas shadow-[0_0_0_1px_transparent] [--row-bg:var(--canvas)] pointer-fine:hover:bg-line pointer-fine:hover:[--row-bg:var(--line)]"
+      : "bg-surface shadow-[0_0_0_1px_var(--line)] [--row-bg:var(--surface)] pointer-fine:hover:bg-surface-3 pointer-fine:hover:shadow-[0_0_0_1px_var(--line-2)] pointer-fine:hover:[--row-bg:var(--surface-3)]";
 
 const SWIPE = 72; // px a finger has to travel for a swipe to count
 
@@ -33,7 +44,7 @@ function useFocusEnd(active: boolean) {
  * Touch only: a sideways swipe slides the row over its action — right finishes the task (or reopens it),
  * left moves it to tomorrow. Vertical movement is left to the page so scrolling stays natural.
  */
-function useSwipe(onRight: () => void, onLeft: () => void) {
+function useSwipe(onRight: () => void, onLeft: () => void, lifted: boolean) {
   const [dx, setDx] = useState(0);
   const [back, setBack] = useState(false);
   const gesture = useRef<{ x: number; y: number; id: number; mode: "idle" | "swipe" | "scroll" } | null>(null);
@@ -56,6 +67,13 @@ function useSwipe(onRight: () => void, onLeft: () => void) {
     onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
       const g = gesture.current;
       if (!g || e.pointerId !== g.id) return;
+      // A task that has lifted under the finger (a long press) is being carried, not swiped.
+      if (lifted || document.documentElement.dataset.dragging !== undefined) {
+        gesture.current = null;
+        if (moved.current) reset();
+        moved.current = 0;
+        return;
+      }
       const mx = e.clientX - g.x;
       const my = e.clientY - g.y;
       if (g.mode === "idle") {
@@ -160,6 +178,7 @@ export const TaskRow = memo(function TaskRow({
   const { dx, back, ...swipeHandlers } = useSwipe(
     () => actions.toggle(task),
     () => actions.move(task, tomorrow),
+    lifted,
   );
 
   const keys = (e: React.KeyboardEvent) => {
@@ -239,6 +258,8 @@ export const TaskRow = memo(function TaskRow({
     onClick: () => actions.select(task.id),
     onContextMenu: (e: React.MouseEvent) => {
       e.preventDefault();
+      // A long press that has lifted the task (touch) is a drag, not a call for the menu.
+      if (document.documentElement.dataset.dragging !== undefined) return;
       onMenu(task, { x: e.clientX, y: e.clientY });
     },
   } as const;
@@ -248,15 +269,11 @@ export const TaskRow = memo(function TaskRow({
       <div
         {...common}
         onPointerDown={(e) => !editing && drag.start(e, task)}
-        // A card, as in the Day list: a hairline edge that firms up under the pointer, a shade darker when picked. --row-bg
-        // is its shade right now, which the ⋯ button and the fade under it take on.
+        // A card, as in the Day list (see `face`). --row-bg is its shade right now, which the ⋯ button and the fade under
+        // it take on.
         className={`group/row relative rounded-[8px] ${compact ? "py-[5px]" : "py-[7px]"} px-2 transition-[background-color,box-shadow,opacity] duration-(--duration-fast) ${
           lifted ? "opacity-35" : ""
-        } ${
-          selected || editing || active
-            ? "bg-surface-2 shadow-[0_0_0_1px_var(--ink-4)] [--row-bg:var(--surface-2)]"
-            : "bg-surface shadow-[0_0_0_1px_var(--line-2)] [--row-bg:var(--surface)] pointer-fine:hover:shadow-[0_0_0_1px_var(--ink-4)]"
-        }`}
+        } ${face(task.done, selected || editing || active)}`}
       >
         <div className="flex items-start gap-2">
           <div role="gridcell" className="flex-none">
@@ -290,17 +307,15 @@ export const TaskRow = memo(function TaskRow({
         swipeHandlers.onPointerDown(e);
       }}
       style={{ touchAction: "pan-y" }}
-      // Each task is a card: a hairline edge that firms up under the pointer; a picked one is a shade darker. It clips
-      // only while swiped (so the menu button's touch area can reach past its edge).
+      // Each task is a card (see `face`). It clips only while swiped (so the menu button's touch area can reach past
+      // its edge).
       className={`group/row relative rounded-[10px] transition-[background-color,box-shadow,opacity] duration-(--duration-fast) ${dx !== 0 ? "overflow-hidden" : ""} ${
-        selected || editing || active
-          ? "z-[1] bg-surface-2 shadow-[0_0_0_1px_var(--ink-4)]"
-          : "bg-surface shadow-[0_0_0_1px_var(--line-2)] pointer-fine:hover:shadow-[0_0_0_1px_var(--ink-4)]"
-      } ${lifted ? "opacity-35" : ""}`}
+        selected || editing || active ? "z-[1]" : ""
+      } ${face(task.done, selected || editing || active)} ${lifted ? "opacity-35" : ""}`}
     >
       {dx !== 0 && <SwipeActions dx={dx} done={task.done} />}
       <div
-        className={`relative ${COLS} min-h-[50px] items-start md:min-h-12 ${dx !== 0 ? "rounded-[10px] bg-surface" : ""}`}
+        className={`relative ${COLS} min-h-[50px] items-start md:min-h-12 ${dx !== 0 ? "rounded-[10px] bg-(--row-bg)" : ""}`}
         style={{
           transform: dx ? `translateX(${dx}px)` : undefined,
           transition: back ? "transform var(--duration-base) var(--ease-out)" : undefined,

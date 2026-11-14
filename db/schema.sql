@@ -31,8 +31,8 @@ create table if not exists users (
 
 alter table users enable row level security;
 
--- An account's own daily AI allowance in tokens, in place of everyone's (AI_DAILY_TOKENS, 10,000 by default); null: the
--- usual one. Set by hand: update users set ai_daily_tokens = 1000000 where email = '…';
+-- Once an account's own daily AI allowance. No longer read: the allowance is 10,000 tokens a day for every account
+-- (src/lib/budget.ts). The column stays so older deployments keep working.
 alter table users add column if not exists ai_daily_tokens integer;
 
 -- Turning text into tasks (voice): how many requests each person made on a day (UTC), and how much text. The daily

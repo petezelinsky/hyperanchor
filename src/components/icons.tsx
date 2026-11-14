@@ -112,6 +112,15 @@ export const EllipsisIcon = ({ size = 16, className }: IconProps) => (
   </svg>
 );
 
+/** Usage: a gauge, its hand part of the way round. */
+export const UsageIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M2.6 11.4a5.900 5.900 0 1 1 10.8 0" />
+    <path d="M8 9.2 10.500 5.800" />
+    <circle cx="8" cy="9.2" r="0.500" />
+  </Svg>
+);
+
 /** History: a clock whose hand turns back. */
 export const HistoryIcon = (p: IconProps) => (
   <Svg {...p}>

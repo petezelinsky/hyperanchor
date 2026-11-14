@@ -7,7 +7,7 @@ import { SORTS } from "./table/TaskTable";
 import { Menu } from "./ui";
 
 /**
- * The order of the lists, in the bar beside the day's count: a quiet icon while the order is yours, which names the order
+ * The order of the list, at the end of the "New task" line: a quiet icon while the order is yours, which names the order
  * when it isn't (dragging is off then, and the list shouldn't look as if it were broken).
  */
 export function SortButton({ sort, onSort }: { sort: Sort; onSort: (s: Sort) => void }) {
@@ -26,9 +26,9 @@ export function SortButton({ sort, onSort }: { sort: Sort; onSort: (s: Sort) => 
           const el = e.currentTarget;
           setMenu((m) => (m ? null : el));
         }}
-        className={`tap relative flex h-8 flex-none items-center gap-1.5 rounded-sm text-footnote transition-colors duration-(--duration-fast) hover:bg-surface-2 hover:text-ink ${
-          mine ? "w-8 justify-center" : "pr-2.5 pl-2"
-        } ${menu ? "bg-surface-2 text-ink" : mine ? "text-ink-3" : "text-ink-2"}`}
+        className={`tap relative flex h-7 flex-none items-center gap-1.5 rounded-sm text-footnote transition-colors duration-(--duration-fast) hover:bg-surface-3 hover:text-ink ${
+          mine ? "w-7 justify-center" : "pr-2.5 pl-2"
+        } ${menu ? "bg-surface-3 text-ink" : mine ? "text-ink-3" : "text-ink-2"}`}
       >
         <SortIcon size={15} />
         {!mine && <span className="max-sm:hidden">{current.label}</span>}

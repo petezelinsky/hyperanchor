@@ -6,7 +6,7 @@ import { signOutAction } from "@/app/actions";
 import type { WeekStart } from "@/lib/dates";
 import type { AppUser } from "@/lib/types";
 import { Avatar } from "./Avatar";
-import { ArrowLeftIcon, ChevronDown, ChevronRight, DownloadIcon, SignOutIcon, XIcon } from "./icons";
+import { ArrowLeftIcon, ChevronDown, ChevronRight, DownloadIcon, XIcon } from "./icons";
 import { applyTheme, readSounds, readTheme, saveSounds, type Theme } from "./prefs";
 import { THEMES } from "./ThemeSwitch";
 import { Button, buttonClass, IconButton, Kbd, Menu, Modal, SegmentedControl, type MenuEntry } from "./ui";
@@ -66,7 +66,7 @@ function shortcuts(voice: boolean): { title: string; items: [string, string][] }
  * Settings: a window. Sections are named, not painted: General (appearance, the first day of the week, sounds, the
  * keyboard shortcuts on computers; the order of tasks is on the task pages themselves), Voice (the spoken language: worked out by itself unless one is
  * named here), your data, and the account, which opens one level down (where deleting it lives, at the very end).
- * Signing out sits at the foot. Every change applies at once.
+ * Signing out is in the account's panel, not here. Every change applies at once.
  */
 export function SettingsSheet({
   tab,
@@ -94,7 +94,6 @@ export function SettingsSheet({
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [sounds, setSounds] = useState(readSounds);
   const [language, setLanguage] = useState(readLanguageChoice);
-  const [signingOut, startSignOut] = useTransition();
   const guessed = languageName(guessLanguage(sample));
   // Opened straight on the shortcuts (?), Back closes; from Settings, it goes back to Settings.
   const back = tab === "shortcuts" && page === "shortcuts" ? null : () => setPage("settings");
@@ -231,10 +230,6 @@ export function SettingsSheet({
                 </Link>
               ))}
             </nav>
-            <Button onClick={() => startSignOut(() => signOutAction())} disabled={signingOut} className="pl-2.5">
-              <SignOutIcon size={14} />
-              Sign out
-            </Button>
           </div>
         </>
       ) : page === "account" ? (

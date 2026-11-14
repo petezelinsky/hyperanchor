@@ -37,6 +37,7 @@ export function DayView({
   onMoveToToday,
   carried,
   onSpeak,
+  tools,
   welcome,
 }: {
   selected: string;
@@ -51,6 +52,8 @@ export function DayView({
   carried: Task[];
   /** Opens the voice screen; absent where the server can't sort speech into tasks. */
   onSpeak?: () => void;
+  /** Quiet controls of the list (the order of tasks), at the end of the "New task" line. */
+  tools?: React.ReactNode;
   welcome: Welcome;
 }) {
   const { todayKey } = state;
@@ -80,6 +83,7 @@ export function DayView({
           actions={actions}
           placeholderRow
           onSpeak={onSpeak}
+          tools={tools}
           completedOpen={completedOpen}
           onCompletedOpen={onCompletedOpen}
           between={isToday && carried.length > 0 && <Carried tasks={carried} todayKey={todayKey} actions={actions} onMoveAll={() => onMoveToToday(carried)} />}

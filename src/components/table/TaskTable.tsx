@@ -89,7 +89,18 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
 }
 
 /** The first row of the list: a new task starts here, at the top; speaking them is the small button at its other end. */
-export function NewTaskRow({ onClick, onSpeak, className = "pr-6 pl-6 md:pr-3 md:pl-3" }: { onClick: () => void; onSpeak?: () => void; className?: string }) {
+export function NewTaskRow({
+  onClick,
+  onSpeak,
+  tools,
+  className = "pr-6 pl-6 md:pr-3 md:pl-3",
+}: {
+  onClick: () => void;
+  onSpeak?: () => void;
+  /** Quiet controls of the list at the end of the line, before Speak (the order of tasks). */
+  tools?: React.ReactNode;
+  className?: string;
+}) {
   return (
     <div className={`relative flex h-[50px] items-center md:h-12 ${className}`}>
       <button
@@ -105,7 +116,12 @@ export function NewTaskRow({ onClick, onSpeak, className = "pr-6 pl-6 md:pr-3 md
         </span>
         <span className="text-[16px] leading-[22px] md:text-callout">New task</span>
       </button>
-      {onSpeak && <SpeakChip onClick={onSpeak} />}
+      {(tools || onSpeak) && (
+        <span className="flex flex-none items-center gap-1.5">
+          {tools}
+          {onSpeak && <SpeakChip onClick={onSpeak} />}
+        </span>
+      )}
     </div>
   );
 }
@@ -136,6 +152,7 @@ export function TaskTable({
   cleared,
   between,
   onSpeak,
+  tools,
 }: {
   sections: Section[];
   state: TableState;
@@ -153,6 +170,8 @@ export function TaskTable({
   between?: React.ReactNode;
   /** Day view: opens the voice screen (the small Speak button beside "New task"). */
   onSpeak?: () => void;
+  /** Day view: quiet controls at the end of the "New task" line (the order of tasks). */
+  tools?: React.ReactNode;
 }) {
   const [menu, setMenu] = useState<MenuState>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -231,7 +250,7 @@ export function TaskTable({
                   <ComposerRow composer={state.composer!} actions={actions} />
                 </div>
               ) : placeholderRow ? (
-                <NewTaskRow onClick={() => actions.openComposer(s.date)} onSpeak={onSpeak} />
+                <NewTaskRow onClick={() => actions.openComposer(s.date)} onSpeak={onSpeak} tools={s.tasks.length + (s.completed?.length ?? 0) > 1 ? tools : undefined} />
               ) : null}
               <div data-list="open" className={`flex flex-col gap-1.5 px-3 md:px-0 ${grouped ? (s.tasks.length ? "pt-1 pb-2" : "") : s.tasks.length ? "pt-1" : ""}`}>
                 {s.tasks.map((t) => row(t, "open"))}

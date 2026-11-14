@@ -16,6 +16,7 @@ import { readSort, readWeekStart, saveSort, saveWeekStart } from "./prefs";
 import { SearchPalette } from "./SearchPalette";
 import { SettingsSheet, type SettingsTab } from "./SettingsSheet";
 import { SortButton } from "./SortButton";
+import { UsageSheet } from "./UsageSheet";
 import { AccountPanel, AppBar, DayCount, isPlanner, MiniMonth, Sidebar, type Head, type Nav, type Page, type View } from "./Sidebar";
 import type { Composer, Editing, Section, TableActions } from "./table/types";
 import { Button, Modal, Popover, SegmentedControl } from "./ui";
@@ -95,6 +96,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
     }
   });
   const [sheet, setSheet] = useState<SettingsTab | null>(null);
+  const [usageOpen, setUsageOpen] = useState(false);
   // The first day of the week lives in lib/dates (every date helper reads it); this state re-renders on a change.
   const [weekStart, setWeekStartState] = useState<WeekStart>(() => {
     const w = readWeekStart();
@@ -651,8 +653,17 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
     (dragged: Task, target: DropTarget) => {
       const task = latest.current.tasks[dragged.id] ?? dragged;
       const list = openOf(target.date, task.id);
-      const position =
-        target.index != null ? positionAt(list, target.index) : target.date !== task.date ? placeBetween(list.at(-1), undefined) : task.position;
+      let position: number | null;
+      if (target.index != null && latest.current.sort.key !== "manual") {
+        // The list was sorted for show. Dropping a task into it makes what's on screen the day's own order, with the
+        // task where it was dropped, and the order is the person's again.
+        const base = Date.now();
+        const at = target.index;
+        list.forEach((t, i) => edit(t.id, { position: base + (i < at ? i : i + 1) * 1024 }));
+        position = base + at * 1024;
+        setSort(DEFAULT_SORT);
+        if (target.date === task.date) notify("Switched to My order");
+      } else position = target.index != null ? positionAt(list, target.index) : target.date !== task.date ? placeBetween(list.at(-1), undefined) : task.position;
       if (target.date === task.date && position === task.position) return;
       const back = placeBack(task);
       prepareFlip(task.id);
@@ -662,7 +673,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
       const u = remember(back, `Moved back to ${dayLabel(task.date)}`);
       notify(`Moved to ${dayLabel(target.date)}`, { label: "Undo", run: () => undoThis(u) });
     },
-    [openOf, edit, notify, positionAt, remember, undoThis, dayLabel, placeBack],
+    [openOf, edit, notify, positionAt, remember, undoThis, dayLabel, placeBack, setSort],
   );
 
   // ── First visit ─────────────────────────────────────────────────────────────
@@ -966,7 +977,6 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
   // The page's own actions, on the right: how much of the day is done, beside Focus.
   const barActions = isPlanner(view) ? (
     <>
-      {(view === "day" || view === "week") && <SortButton sort={sort} onSort={setSort} />}
       {view === "day" && <DayCount done={dayTasks.filter((t) => t.done).length} total={dayTasks.length} />}
       <Button onClick={startFocus} disabled={!hasOpen} aria-label="Focus" data-tip="Focus on one task at a time (F)" className="max-sm:w-8 max-sm:px-0 sm:pr-3 sm:pl-2.5">
         <FocusIcon size={15} />
@@ -992,7 +1002,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
   );
 
   return (
-    <DragProvider ordered={sort.key === "manual"} scroller={scroller} onDrop={dropTask}>
+    <DragProvider scroller={scroller} onDrop={dropTask}>
       {/* Edge to edge: the sidebar on the left (computers, unless hidden), the work area beside it with its bar on top. */}
       {/* While the voice screen or focus is up, the app behind it is out of reach of the keyboard and of assistive tech. */}
       <div inert={speaking || !!focus} className="min-h-dvh bg-surface md:flex md:h-dvh md:min-h-0">
@@ -1039,6 +1049,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
                 onMoveToToday={moveAllToToday}
                 carried={carried}
                 onSpeak={speak}
+                tools={<SortButton sort={sort} onSort={setSort} />}
                 welcome={welcome}
               />
             )}
@@ -1116,6 +1127,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
           usage={voice ? usage : undefined}
           onPage={goPage}
           onSettings={() => setSheet("general")}
+          onUsage={() => setUsageOpen(true)}
           onSearch={() => setSearching(true)}
           onClose={() => setAccountMenu(null)}
         />
@@ -1132,6 +1144,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
           onClose={() => setSheet(null)}
         />
       )}
+      {usageOpen && <UsageSheet onClose={() => setUsageOpen(false)} />}
       {searching && <SearchPalette todayKey={todayKey} onOpen={openFound} onClose={() => setSearching(false)} />}
       {speaking && <VoiceScreen todayKey={todayKey} weekStart={weekStart} server={transcribe} sample={sample} onAdd={addDrafts} onClose={() => setSpeaking(false)} />}
 

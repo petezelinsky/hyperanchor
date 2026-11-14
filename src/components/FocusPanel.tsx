@@ -130,7 +130,7 @@ export function FocusPanel({
 
       {/* A thought that comes up on the way: one quiet line at the foot (N), kept for later without leaving focus. */}
       <form
-        className="mx-auto mb-[max(1rem,env(safe-area-inset-bottom))] flex h-10 w-[calc(100%-24px)] max-w-[400px] flex-none items-center gap-2.5 rounded-sm pr-2 pl-3 text-ink-3 transition-[background-color,box-shadow,color] duration-(--duration-fast) focus-within:bg-surface focus-within:text-ink-2 focus-within:shadow-ring-line-2 hover:text-ink-2 md:mb-8"
+        className="mx-auto mb-[max(1rem,env(safe-area-inset-bottom))] flex h-10 w-[calc(100%-24px)] max-w-[400px] flex-none items-center gap-2.5 rounded-sm pr-2 pl-3 text-ink-3 opacity-45 transition-[background-color,box-shadow,color,opacity] duration-(--duration-base) focus-within:bg-surface focus-within:text-ink-2 focus-within:opacity-100 focus-within:shadow-ring-line-2 hover:text-ink-2 hover:opacity-100 md:mb-8"
         onSubmit={(e) => {
           e.preventDefault();
           const input = e.currentTarget.elements.namedItem("thought") as HTMLInputElement;

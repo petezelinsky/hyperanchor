@@ -9,7 +9,7 @@ import { flyIntoDay } from "./motion";
 export type DropTarget = { date: string; index: number | null; zone: string };
 
 type DragApi = {
-  /** onPointerDown of a draggable task (mouse and pen; touch has swipes instead). */
+  /** onPointerDown of a draggable task: a mouse or pen drags at once, a finger after resting on the task for a moment. */
   start: (e: React.PointerEvent<HTMLElement>, task: Task) => void;
   dragging: Task | null;
   target: DropTarget | null;
@@ -20,43 +20,50 @@ export const useDrag = () => useContext(Ctx);
 
 const THRESHOLD = 5; // px of movement before a press becomes a drag
 const EDGE = 56; // px from the scroller's edge where dragging scrolls it
+const HOLD = 320; // ms a finger rests on a task before it lifts (a finger that moves sooner is scrolling or swiping)
+const SLOP = 8; // px a resting finger may wander
 
 /**
  * Drag and drop for tasks. Drop zones are plain markup: `data-drop-date` on anything that takes a task
  * (a list, a calendar day, a week column), and `data-drop-zone` naming its kind so only the zone under the pointer
  * lights up; with `data-drop-list` its `[data-task-row]` children set the order and a line shows where the task would
- * go. The task follows the pointer as a lifted card; Esc cancels.
+ * go. The task follows the pointer as a lifted card; Esc cancels. On touch screens a task lifts after the finger has
+ * rested on it for a moment (with a short buzz); from then on the page holds still under it.
  */
 export function DragProvider({
-  ordered,
   scroller,
   onDrop,
   children,
 }: {
-  /** Whether lists are in manual order (otherwise a drop only changes the day). */
-  ordered: boolean;
   scroller: React.RefObject<HTMLElement | null>;
   onDrop: (task: Task, target: DropTarget) => void;
   children: React.ReactNode;
 }) {
   const [dragging, setDragging] = useState<Task | null>(null);
   const [target, setTarget] = useState<DropTarget | null>(null);
-  const press = useRef<{ task: Task; x: number; y: number; dx: number; dy: number; width: number } | null>(null);
+  const press = useRef<{ task: Task; x: number; y: number; dx: number; dy: number; width: number; touch: boolean } | null>(null);
+  const hold = useRef(0);
+  const lift = useRef<() => void>(() => {});
   const active = useRef(false);
   const point = useRef({ x: 0, y: 0 });
   const targetRef = useRef<DropTarget | null>(null);
   const ghost = useRef<HTMLDivElement>(null);
   const line = useRef<HTMLDivElement>(null);
   const frame = useRef(0);
-  const latest = useRef({ ordered, onDrop });
-  latest.current = { ordered, onDrop };
+  const latest = useRef({ onDrop });
+  latest.current = { onDrop };
 
   const start = useCallback((e: React.PointerEvent<HTMLElement>, task: Task) => {
-    if (e.pointerType === "touch" || e.button !== 0 || e.altKey || e.metaKey || e.ctrlKey) return;
+    if (e.button !== 0 || e.altKey || e.metaKey || e.ctrlKey || !e.isPrimary) return;
     const blocker = (e.target as HTMLElement).closest("button, input, textarea, a, [data-no-drag]");
     if (blocker && e.currentTarget.contains(blocker)) return;
     const box = e.currentTarget.getBoundingClientRect();
-    press.current = { task, x: e.clientX, y: e.clientY, dx: e.clientX - box.left, dy: e.clientY - box.top, width: box.width };
+    const touch = e.pointerType === "touch";
+    press.current = { task, x: e.clientX, y: e.clientY, dx: e.clientX - box.left, dy: e.clientY - box.top, width: box.width, touch };
+    point.current = { x: e.clientX, y: e.clientY };
+    clearTimeout(hold.current);
+    // A finger lifts the task by resting on it; a mouse by moving (below).
+    if (touch) hold.current = window.setTimeout(() => press.current?.touch && lift.current(), HOLD);
   }, []);
 
   useEffect(() => {
@@ -77,7 +84,7 @@ export function DragProvider({
       if (zone) {
         const date = zone.dataset.dropDate!;
         let index: number | null = null;
-        if (latest.current.ordered && zone.hasAttribute("data-drop-list")) {
+        if (zone.hasAttribute("data-drop-list")) {
           const rows = [...zone.querySelectorAll<HTMLElement>("[data-task-row]")].filter(
             (r) => r.dataset.taskRow !== p.task.id && r.dataset.done !== "true" && r.closest("[data-drop-date]") === zone,
           );
@@ -124,6 +131,7 @@ export function DragProvider({
     const end = (drop: boolean) => {
       const p = press.current;
       press.current = null;
+      clearTimeout(hold.current);
       if (!active.current) return;
       active.current = false;
       cancelAnimationFrame(frame.current);
@@ -145,20 +153,41 @@ export function DragProvider({
       window.addEventListener("click", swallow, true);
       setTimeout(() => window.removeEventListener("click", swallow, true), 0);
     };
+    // The press becomes a drag: the task lifts.
+    lift.current = () => {
+      const p = press.current;
+      if (!p || active.current) return;
+      active.current = true;
+      document.documentElement.dataset.dragging = "";
+      window.getSelection()?.removeAllRanges();
+      if (p.touch) navigator.vibrate?.(8);
+      setDragging(p.task);
+      hitTest();
+    };
     const onMove = (e: PointerEvent) => {
       const p = press.current;
       if (!p) return;
-      point.current = { x: e.clientX, y: e.clientY };
       if (!active.current) {
+        if (p.touch) {
+          // A finger that moves before the task has lifted is scrolling the page or swiping the row.
+          if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > SLOP) {
+            clearTimeout(hold.current);
+            press.current = null;
+          }
+          return;
+        }
         if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < THRESHOLD) return;
-        active.current = true;
-        document.documentElement.dataset.dragging = "";
-        window.getSelection()?.removeAllRanges();
-        setDragging(p.task);
+        point.current = { x: e.clientX, y: e.clientY };
+        lift.current();
       }
+      point.current = { x: e.clientX, y: e.clientY };
       placeGhost();
       hitTest();
       if (!frame.current) frame.current = requestAnimationFrame(autoScroll);
+    };
+    // While a finger carries a task, the page under it doesn't scroll.
+    const onTouchMove = (e: TouchEvent) => {
+      if (active.current && e.cancelable) e.preventDefault();
     };
     const onUp = () => end(true);
     const onKey = (e: KeyboardEvent) => {
@@ -170,13 +199,16 @@ export function DragProvider({
     };
     const onBlur = () => end(false);
     window.addEventListener("pointermove", onMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onBlur);
     window.addEventListener("keydown", onKey, true);
     window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("pointerup", onUp);
+      clearTimeout(hold.current);
       window.removeEventListener("pointercancel", onBlur);
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("blur", onBlur);

@@ -24,4 +24,9 @@ export type AppUser = {
  * says what this server offers (the iOS app reads it; the web gets the same from the page): sorting speech or text into
  * tasks and the Analytics summary need the Anthropic key, hearing speech on the server the OpenAI key too.
  */
-export type Usage = { today: { used: number; left: number; limit: number }; features?: { voice: boolean; transcribe: boolean; summary: boolean } };
+export type Usage = {
+  today: { used: number; left: number; limit: number };
+  features?: { voice: boolean; transcribe: boolean; summary: boolean };
+  /** With `?history=N`: each of the last N days (UTC, oldest first, today last). */
+  history?: { day: string; tokens: number; requests: number }[];
+};

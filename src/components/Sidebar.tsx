@@ -8,8 +8,8 @@ import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
 import { useDrag } from "./drag";
 import { createPortal } from "react-dom";
-import { AgentIcon, ChartIcon, ChevronLeft, ChevronRight, EllipsisVerticalIcon, GoalIcon, SearchIcon, SidebarIcon, SignOutIcon, SlidersIcon, TasksIcon, TimelineIcon } from "./icons";
-import { SOON, SoonCard, SoonTag, type Soon } from "./Soon";
+import { AgentIcon, ChartIcon, ChevronLeft, ChevronRight, EllipsisVerticalIcon, GoalIcon, SearchIcon, SidebarIcon, SignOutIcon, SlidersIcon, TasksIcon, TimelineIcon, UsageIcon } from "./icons";
+import { SOON, SoonCard, type Soon } from "./Soon";
 import { SyncStatus, type Sync } from "./SyncStatus";
 import { ReturnButton, Stepper } from "./Toolbar";
 import { Burst, IconButton, Popover, ProgressRing } from "./ui";
@@ -118,7 +118,8 @@ export function Sidebar({
         {PAGES.map((p) => (
           <SideRow key={p.page} icon={p.icon} label={p.label} on={page === p.page} onClick={() => onPage(p.page)} />
         ))}
-        <div aria-hidden="true" className="mx-2.5 my-2.5 h-px bg-line-2" />
+        {/* What's coming: set apart by a little air and one quiet word, not by a line and a tag on every row. */}
+        <div className="px-2.5 pt-5 pb-1 text-caption-2 font-medium text-ink-3">Soon</div>
         {SOONS.map((s) => (
           <SoonRow key={s.soon} soon={s.soon} icon={s.icon} />
         ))}
@@ -216,15 +217,14 @@ function SoonRow({ soon, icon }: { soon: Soon; icon: React.ReactNode }) {
       >
         <span className="text-ink-4">{icon}</span>
         <span className="flex-1 text-left">{SOON[soon].title}</span>
-        <SoonTag />
       </button>
       {card &&
         createPortal(
           <div
             id={id}
             role="tooltip"
-            style={{ left: card.right + 12, top: Math.max(8, Math.min(window.innerHeight - 160, card.top + card.height / 2 - 70)) }}
-            className="pointer-events-none fixed z-[110] w-[248px] animate-[soon-in_var(--duration-fast)_var(--ease-out)_both] rounded-lg bg-elevated px-5 pt-5 pb-4 shadow-float"
+            style={{ left: card.right + 12, top: Math.max(8, Math.min(window.innerHeight - 286, card.top + card.height / 2 - 120)) }}
+            className="pointer-events-none fixed z-[110] w-[332px] animate-[soon-in_var(--duration-base)_var(--ease-out)_both] rounded-[16px] bg-elevated p-3 pb-4 shadow-float"
           >
             <SoonCard soon={soon} />
           </div>,
@@ -531,6 +531,7 @@ export function AccountPanel({
   onPage,
   onSearch,
   onSettings,
+  onUsage,
   onClose,
 }: {
   user: AppUser;
@@ -542,6 +543,8 @@ export function AccountPanel({
   onPage: (p: Page) => void;
   onSearch: () => void;
   onSettings: () => void;
+  /** Opens the Usage window. */
+  onUsage: () => void;
   onClose: () => void;
 }) {
   const [, startSignOut] = useTransition();
@@ -562,28 +565,6 @@ export function AccountPanel({
         </div>
       </div>
 
-      {usage !== undefined && (
-        <>
-          <Rule />
-          <div className="px-2.5 pt-2 pb-2.5" aria-busy={usage === null}>
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-footnote font-medium text-ink">Tokens left today</span>
-              <span className="tabular text-footnote font-medium text-ink">{usage ? count.format(usage.today.left) : "–"}</span>
-            </div>
-            <div
-              role="img"
-              aria-label={usage ? `${count.format(usage.today.left)} of ${count.format(usage.today.limit)} tokens left today` : "Loading"}
-              className="mt-2 h-[3px] overflow-hidden rounded-full bg-line-2"
-            >
-              <div
-                className="h-full origin-left rounded-full bg-ink transition-transform duration-(--duration-data) ease-out"
-                style={{ transform: `scaleX(${usage ? Math.max(0, Math.min(1, usage.today.left / usage.today.limit)) : 0})` }}
-              />
-            </div>
-          </div>
-        </>
-      )}
-
       <Rule />
       {phone && (
         <>
@@ -591,15 +572,24 @@ export function AccountPanel({
             <PanelRow key={p.page} icon={p.icon} label={p.label} current={page === p.page} onClick={go(() => onPage(p.page))} />
           ))}
           <PanelRow icon={<SearchIcon size={16} />} label="Search" onClick={go(onSearch)} />
-          <Rule />
+          <div className="px-2.5 pt-3 pb-1 text-caption-2 font-medium text-ink-3">Soon</div>
           {SOONS.map((s) => (
             <div key={s.soon}>
               <PanelRow icon={s.icon} label={SOON[s.soon].title} soon expanded={soonOpen === s.soon} onClick={() => setSoonOpen((o) => (o === s.soon ? null : s.soon))} />
-              {soonOpen === s.soon && <SoonCard soon={s.soon} className="animate-rise px-4 pt-3 pb-4" />}
+              {soonOpen === s.soon && <SoonCard soon={s.soon} className="animate-rise px-2 pt-1.5 pb-3" />}
             </div>
           ))}
           <Rule />
         </>
+      )}
+      {usage !== undefined && (
+        // What the AI has used, in a window of its own; the row itself says how much of today is left.
+        <PanelRow
+          icon={<UsageIcon size={16} />}
+          label="Usage"
+          note={usage ? `${count.format(usage.today.left)} left today` : undefined}
+          onClick={go(onUsage)}
+        />
       )}
       <PanelRow icon={<SlidersIcon size={16} />} label="Settings" onClick={go(onSettings)} />
       <Rule />
@@ -613,6 +603,7 @@ const Rule = () => <div aria-hidden="true" className="-mx-1.5 my-1.5 h-px bg-lin
 function PanelRow({
   icon,
   label,
+  note,
   soon = false,
   expanded,
   current = false,
@@ -620,6 +611,8 @@ function PanelRow({
 }: {
   icon: React.ReactNode;
   label: string;
+  /** A quiet word at the end of the row. */
+  note?: string;
   /** Not open yet: quiet, and it shows what it will be instead of going anywhere. */
   soon?: boolean;
   expanded?: boolean;
@@ -638,7 +631,7 @@ function PanelRow({
     >
       <span className={`flex size-4 flex-none items-center justify-center ${soon ? "text-ink-4" : "text-ink-2"}`}>{icon}</span>
       <span className="flex-1">{label}</span>
-      {soon && <SoonTag />}
+      {note && <span className="tabular text-caption font-normal text-ink-3">{note}</span>}
       {current && <span aria-hidden="true" className="size-1.5 rounded-full bg-ink" />}
     </button>
   );

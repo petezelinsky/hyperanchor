@@ -538,6 +538,16 @@ svg[data-icon] * {
   animation: summary-in 620ms var(--ease-out) both;
 }
 
+/* Touch: a finger resting on a task lifts it (drag.tsx), so the system's own long-press (selecting text, the callout)
+   stays out of the way; a task being edited keeps its text field as it is. */
+@media (pointer: coarse) {
+  [data-task-row][data-editing="false"] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
 /* A sheet coming up from the bottom of the screen (the voice's tasks). */
 @keyframes sheet-up {
   from {
