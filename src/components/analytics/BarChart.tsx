@@ -1,8 +1,10 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
-import { fmt1, niceMax, pct } from "@/lib/stats";
+import { niceMax } from "@/lib/stats";
 import type { Task } from "@/lib/types";
+import { tr } from "@/lib/i18n";
+import { fmt1, pct } from "./format";
 
 export type Bar = {
   key: string;
@@ -71,7 +73,7 @@ export function BarChart({ bars, avg, avgLabel, onPick }: { bars: Bar[]; avg: nu
                   onFocus={(e) => e.currentTarget.matches(":focus-visible") && setHover(i)}
                   onBlur={() => setHover(null)}
                   onClick={(e) => onPick?.(b, e.currentTarget.querySelector<HTMLElement>("[data-bar]") ?? e.currentTarget)}
-                  aria-label={`${b.title}: ${b.done} of ${b.total} done`}
+                  aria-label={`${b.title}: ${tr("{done} of {total} done", { done: b.done, total: b.total })}`}
                   aria-haspopup="dialog"
                   // The lane behind a column under the pointer: a soft rounded band, the column itself untouched.
                   className={`relative flex h-full min-w-0 flex-col items-center justify-end rounded-[6px] transition-colors duration-(--duration-fast) ${on ? "bg-surface-2" : ""} ${
@@ -153,7 +155,7 @@ function Tip({ bar, index, n, top }: { bar: Bar; index: number; n: number; top: 
         <>
           <div className="tabular mt-0.5 flex items-baseline justify-between gap-3 text-footnote">
             <span className="font-semibold text-ink">
-              {bar.done} <span className="font-normal text-ink-2">of {bar.total} done</span>
+              {bar.done} <span className="font-normal text-ink-2">{tr("of {n} done", { n: bar.total })}</span>
             </span>
             <span className="text-caption text-ink-3">{pct(rate)}</span>
           </div>
@@ -162,7 +164,7 @@ function Tip({ bar, index, n, top }: { bar: Bar; index: number; n: number; top: 
           </div>
         </>
       ) : (
-        <div className="mt-0.5 text-footnote text-ink-2">Nothing planned</div>
+        <div className="mt-0.5 text-footnote text-ink-2">{tr("Nothing planned")}</div>
       )}
     </div>
   );

@@ -1,9 +1,11 @@
 import { addDays, dowIndex, parseYmd, ymd } from "./dates";
+import { m as mark } from "./i18n";
 import type { DayStat, Period } from "./stats";
 import type { Task } from "./types";
 
 /**
- * Detailed analytics: a little mathematics behind the charts, each result put the way a person would say it. Everything
+ * Detailed analytics: a little mathematics behind the charts, each result put the way a person would say it (in English
+ * here; the page translates the words it shows). Everything
  * here reads finished days only (a day still running isn't a result yet) from a window of recent days that suits the
  * period: the four weeks before a day; the four weeks up to the end of a week; the month itself, or the year itself.
  */
@@ -70,7 +72,7 @@ export type Insights = {
   /** A day: how it compares with the days before it (the share of them it beat). */
   rank: { beat: number; of: number; typical: number } | null;
   /** The window's counts (a year: week by week), their moving average, and the straight line through them. */
-  momentum: { points: Point[]; average: number[]; from: number; to: number; unit: "day" | "week"; change: number; label: "Rising" | "Steady" | "Slowing" } | null;
+  momentum: { points: Point[]; average: number[]; from: number; to: number; unit: "day" | "week"; change: number; label: string } | null;
   /** How many days ended with 0, 1, 2… done; the middle half of them; and how alike they are: 1 / (1 + σ/μ). */
   spread: { bins: number[]; median: number; mean: number; low: number; high: number; score: number; label: string } | null;
   /** Each weekday (in week order): what's done on a day like it on average, and the share of what's planned. */
@@ -114,7 +116,17 @@ export function insights(
   const running = period !== "day" && first.date <= today && last.date >= today;
 
   const label =
-    period === "day" ? "the 4 weeks before" : period === "week" ? "the last 4 weeks" : period === "month" ? (running ? "this month so far" : "the month") : running ? "this year so far" : "the year";
+    period === "day"
+      ? mark("the 4 weeks before")
+      : period === "week"
+        ? mark("the last 4 weeks")
+        : period === "month"
+          ? running
+            ? mark("this month so far")
+            : mark("the month")
+          : running
+            ? mark("this year so far")
+            : mark("the year");
 
   // The period adding up, and where it is heading: done so far + the recent daily average × the days left (today counts
   // for what's still missing of an average day).
@@ -173,7 +185,7 @@ export function insights(
       to: round1(b),
       unit: period === "year" ? "week" : "day",
       change,
-      label: change > 0.15 ? "Rising" : change < -0.15 ? "Slowing" : "Steady",
+      label: change > 0.15 ? mark("Rising") : change < -0.15 ? mark("Slowing") : mark("Steady"),
     };
   }
 
@@ -192,7 +204,7 @@ export function insights(
       low: Math.round(quantile(counts, 0.25)),
       high: Math.round(quantile(counts, 0.75)),
       score,
-      label: score >= 0.75 ? "Very steady" : score >= 0.6 ? "Steady" : score >= 0.45 ? "Uneven" : "Up and down",
+      label: score >= 0.75 ? mark("Very steady") : score >= 0.6 ? mark("Steady") : score >= 0.45 ? mark("Uneven") : mark("Up and down"),
     };
   }
 

@@ -1,19 +1,11 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
-import { formatShort, MONTHS_SHORT } from "@/lib/dates";
 import { TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
 import { WeekBoard } from "./table/WeekBoard";
 
 const BOARD_MIN = 1000; // px of work area below which seven lanes get too narrow and the week becomes a list of days
-
-/** "Nov 9 – 15", "Nov 30 – Dec 6" (and the year when it isn't this one). */
-export function shortRange(start: Date, end: Date, thisYear: number) {
-  const span =
-    start.getMonth() === end.getMonth() ? `${MONTHS_SHORT[start.getMonth()]} ${start.getDate()} – ${end.getDate()}` : `${formatShort(start)} – ${formatShort(end)}`;
-  return end.getFullYear() !== thisYear ? `${span}, ${end.getFullYear()}` : span;
-}
 
 /**
  * The week, from edge to edge of the work area: seven lanes side by side where they fit, a list of days on smaller

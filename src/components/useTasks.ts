@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 type Fields = Pick<Task, "title" | "description" | "date" | "done" | "position">;
 type Notify = (message: string, action?: { label: string; run: () => void }) => void;
@@ -131,7 +132,7 @@ export function useTasks(account: string, notify: Notify) {
         resume();
       }, retryDelay);
     };
-    const offline = () => fail("offline", "You’re offline. Your changes will save when you’re back.");
+    const offline = () => fail("offline", tr("You’re offline. Your changes will save when you’re back."));
 
     function resume() {
       clearTimeout(retryTimer);
@@ -167,11 +168,11 @@ export function useTasks(account: string, notify: Notify) {
         return true;
       }
       if (e.status >= 500 || e.status === 408 || e.status === 429) {
-        fail("error", `Couldn’t save “${op.title}”.`, { label: "Try again", run: resume });
+        fail("error", tr("Couldn’t save “{title}”.", { title: op.title }), { label: tr("Try again"), run: resume });
         return false;
       }
       // The server won't take this change: let it go and show what the server has.
-      notifyRef.current(`Couldn’t save “${op.title}”.`);
+      notifyRef.current(tr("Couldn’t save “{title}”.", { title: op.title }));
       for (const [from, to] of [...ranges.values()]) void load(from, to);
       return true;
     };
@@ -270,7 +271,7 @@ export function useTasks(account: string, notify: Notify) {
 
     const failedLoad = (e: unknown, retry: () => void) => {
       if (!(e instanceof HttpError)) offline();
-      else if (e.status !== 401) notifyRef.current("Couldn’t load your tasks.", { label: "Try again", run: retry });
+      else if (e.status !== 401) notifyRef.current(tr("Couldn’t load your tasks."), { label: tr("Try again"), run: retry });
     };
 
     /**

@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { SavedSummary, SummaryPeriod } from "@/lib/summaries";
+import { m, tr, trn } from "@/lib/i18n";
 import { ChevronDown, TrashIcon, XIcon } from "../icons";
 import { motion, reducedMotion } from "../motion";
 import { IconButton, Modal } from "../ui";
 import { SummaryBody, writtenAt } from "./SummaryBody";
 
-const NAMES: Record<SummaryPeriod, string> = { day: "Day", week: "Week", month: "Month", year: "Year" };
+const NAMES: Record<SummaryPeriod, string> = { day: m("Day"), week: m("Week"), month: m("Month"), year: m("Year") };
 const FILTERS: ("all" | SummaryPeriod)[] = ["all", "day", "week", "month", "year"];
 
 /**
@@ -61,19 +62,19 @@ export function SummaryHistory({ onClose, onDeleted }: { onClose: () => void; on
   const shown = (items ?? []).filter((s) => filter === "all" || s.period === filter);
 
   return (
-    <Modal label="Summary history" onClose={onClose} sheet top className="flex max-h-[min(720px,88dvh)] max-w-[640px] flex-col overflow-hidden">
+    <Modal label={tr("Summary history")} onClose={onClose} sheet top className="flex max-h-[min(720px,88dvh)] max-w-[640px] flex-col overflow-hidden">
       <div className="flex flex-none items-center justify-between gap-3 border-b border-line py-3 pr-3 pl-5">
         <div className="min-w-0">
-          <h2 className="text-body font-semibold text-ink">Summary history</h2>
-          <p className="text-caption text-ink-3">{items ? `${items.length} ${items.length === 1 ? "summary" : "summaries"}, newest first` : " "}</p>
+          <h2 className="text-body font-semibold text-ink">{tr("Summary history")}</h2>
+          <p className="text-caption text-ink-3">{items ? trn(items.length, "{n} summary, newest first", "{n} summaries, newest first") : " "}</p>
         </div>
-        <IconButton label="Close" onClick={onClose}>
+        <IconButton label={tr("Close")} onClick={onClose}>
           <XIcon size={15} />
         </IconButton>
       </div>
 
       {items && items.length > 1 && present.size > 1 && (
-        <div role="radiogroup" aria-label="Show" className="flex flex-none gap-1 border-b border-line px-4 py-2.5">
+        <div role="radiogroup" aria-label={tr("Show")} className="flex flex-none gap-1 border-b border-line px-4 py-2.5">
           {FILTERS.filter((f) => f === "all" || present.has(f)).map((f) => (
             <button
               key={f}
@@ -85,7 +86,7 @@ export function SummaryHistory({ onClose, onDeleted }: { onClose: () => void; on
                 filter === f ? "bg-primary text-on-primary" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
               }`}
             >
-              {f === "all" ? "All" : NAMES[f]}
+              {f === "all" ? tr("All") : tr(NAMES[f])}
             </button>
           ))}
         </div>
@@ -93,7 +94,7 @@ export function SummaryHistory({ onClose, onDeleted }: { onClose: () => void; on
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {failed ? (
-          <p className="px-5 py-10 text-center text-footnote text-ink-2">The history didn’t load. Check your connection and try again.</p>
+          <p className="px-5 py-10 text-center text-footnote text-ink-2">{tr("The history didn’t load. Check your connection and try again.")}</p>
         ) : !items ? (
           <div aria-hidden="true" className="space-y-5 px-5 py-5">
             {[0, 1, 2].map((i) => (
@@ -104,7 +105,7 @@ export function SummaryHistory({ onClose, onDeleted }: { onClose: () => void; on
             ))}
           </div>
         ) : !shown.length ? (
-          <p className="px-5 py-10 text-center text-footnote text-ink-2">No summaries yet.</p>
+          <p className="px-5 py-10 text-center text-footnote text-ink-2">{tr("No summaries yet.")}</p>
         ) : (
           <ul ref={list}>
             {shown.map((s) => {
@@ -118,7 +119,7 @@ export function SummaryHistory({ onClose, onDeleted }: { onClose: () => void; on
                         <span className="rounded-[5px] px-1.5 leading-[18px] font-medium text-ink-2 shadow-[inset_0_0_0_1px_var(--line-2)]">{NAMES[s.period]}</span>
                         <span className="text-ink-2">{s.label}</span>
                         <span aria-hidden="true">·</span>
-                        <span>Written {writtenAt(s.createdAt)}</span>
+                        <span>{tr("Written {when}", { when: writtenAt(s.createdAt) })}</span>
                       </span>
                       <span className="mt-1.5 flex items-start gap-2">
                         <span className={`min-w-0 flex-1 text-callout font-medium text-pretty text-ink ${expanded ? "" : "line-clamp-2"}`}>{s.summary.headline}</span>
@@ -131,17 +132,17 @@ export function SummaryHistory({ onClose, onDeleted }: { onClose: () => void; on
                         onClick={() => void remove(s)}
                         className="h-8 flex-none animate-[fade_var(--duration-fast)_var(--ease-out)_both] rounded-sm bg-red-soft px-2.5 text-footnote font-medium text-red-ink"
                       >
-                        Delete
+                        {tr("Delete")}
                       </button>
                     ) : (
-                      <IconButton label={`Delete the summary of ${s.label}`} tip="Delete" size="sm" onClick={() => setAsking(s.id)} className="flex-none hover:text-red-ink!">
+                      <IconButton label={tr("Delete the summary of {label}", { label: s.label })} tip={tr("Delete")} size="sm" onClick={() => setAsking(s.id)} className="flex-none hover:text-red-ink!">
                         <TrashIcon size={14} />
                       </IconButton>
                     )}
                   </div>
                   {expanded && (
                     <div className="animate-[fade_var(--duration-base)_var(--ease-out)_both] px-5 pb-5">
-                      <SummaryBody s={s} noun={NAMES[s.period].toLowerCase()} headline={false} />
+                      <SummaryBody s={s} noun={s.period} headline={false} />
                     </div>
                   )}
                 </li>

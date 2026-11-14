@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
 import { addDays, formatLong, monthGrid, MONTHS, weekdayNames, ymd } from "@/lib/dates";
 import type { AppUser, Task, Usage } from "@/lib/types";
+import { m, num, tr } from "@/lib/i18n";
 import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
 import { useDrag } from "./drag";
@@ -24,8 +25,8 @@ export type Page = "tasks" | "analytics";
 export const pageOf = (v: View): Page => (isPlanner(v) ? "tasks" : "analytics");
 
 const PAGES: { page: Page; label: string; icon: React.ReactNode }[] = [
-  { page: "tasks", label: "Tasks", icon: <TasksIcon size={16} /> },
-  { page: "analytics", label: "Analytics", icon: <ChartIcon size={16} /> },
+  { page: "tasks", label: m("Tasks"), icon: <TasksIcon size={16} /> },
+  { page: "analytics", label: m("Analytics"), icon: <ChartIcon size={16} /> },
 ];
 /** What isn't open yet: listed after a line, quiet, with no page behind it. */
 const SOONS: { soon: Soon; icon: React.ReactNode }[] = [
@@ -107,19 +108,19 @@ export function Sidebar({
     handle.addEventListener("pointercancel", done);
   };
   return (
-    <aside ref={aside} aria-label="Sidebar" style={{ width }} className="relative hidden flex-none flex-col border-r border-line bg-canvas md:flex">
+    <aside ref={aside} aria-label={tr("Sidebar")} style={{ width }} className="relative hidden flex-none flex-col border-r border-line bg-canvas md:flex">
       <div className="flex h-14 flex-none items-center justify-between border-b border-line pr-3 pl-5">
         <Wordmark size={18} />
-        <IconButton label="Hide sidebar" tip="Hide sidebar ([)" size="sm" onClick={onHide} className="text-ink-3 hover:bg-line!">
+        <IconButton label={tr("Hide sidebar")} tip={tr("Hide sidebar ([)")} size="sm" onClick={onHide} className="text-ink-3 hover:bg-line!">
           <SidebarIcon size={16} />
         </IconButton>
       </div>
-      <nav aria-label="Pages" className="flex flex-none flex-col gap-0.5 px-2.5 py-3">
+      <nav aria-label={tr("Pages")} className="flex flex-none flex-col gap-0.5 px-2.5 py-3">
         {PAGES.map((p) => (
-          <SideRow key={p.page} icon={p.icon} label={p.label} on={page === p.page} onClick={() => onPage(p.page)} />
+          <SideRow key={p.page} icon={p.icon} label={tr(p.label)} on={page === p.page} onClick={() => onPage(p.page)} />
         ))}
         {/* What's coming: set apart by a little air and one quiet word, not by a line and a tag on every row. */}
-        <div className="px-2.5 pt-5 pb-1 text-caption-2 font-medium text-ink-3">Soon</div>
+        <div className="px-2.5 pt-5 pb-1 text-caption-2 font-medium text-ink-3">{tr("Soon")}</div>
         {SOONS.map((s) => (
           <SoonRow key={s.soon} soon={s.soon} icon={s.icon} />
         ))}
@@ -131,7 +132,7 @@ export function Sidebar({
           type="button"
           aria-haspopup="dialog"
           aria-expanded={accountOpen}
-          aria-label={`${user.name}: account`}
+          aria-label={tr("{name}: account", { name: user.name })}
           onClick={(e) => onAccount(e.currentTarget)}
           className={`group flex h-12 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-left transition-[background-color,box-shadow] duration-(--duration-fast) ${
             accountOpen ? "bg-surface shadow-lift" : "hover:bg-line"
@@ -149,7 +150,7 @@ export function Sidebar({
       <div
         role="separator"
         aria-orientation="vertical"
-        aria-label="Sidebar width"
+        aria-label={tr("Sidebar width")}
         aria-valuemin={WIDTH.min}
         aria-valuemax={WIDTH.max}
         aria-valuenow={width}
@@ -216,7 +217,7 @@ function SoonRow({ soon, icon }: { soon: Soon; icon: React.ReactNode }) {
         className="flex h-9 w-full cursor-default items-center gap-2.5 rounded-sm px-2.5 text-footnote font-medium text-ink-3 outline-offset-[-2px]"
       >
         <span className="text-ink-4">{icon}</span>
-        <span className="flex-1 text-left">{SOON[soon].title}</span>
+        <span className="flex-1 text-left">{tr(SOON[soon].title)}</span>
       </button>
       {card &&
         createPortal(
@@ -283,10 +284,10 @@ export function MiniMonth({
           {MONTHS[month]} <span className="font-normal text-ink-3">{year}</span>
         </span>
         <span className="flex h-8 items-center rounded-sm bg-surface shadow-[inset_0_0_0_1px_var(--line-2)]">
-          <IconButton label="Previous month" onClick={() => onShift(-1)} className="rounded-r-none!">
+          <IconButton label={tr("Previous month")} onClick={() => onShift(-1)} className="rounded-r-none!">
             <ChevronLeft size={14} />
           </IconButton>
-          <IconButton label="Next month" onClick={() => onShift(1)} className="rounded-l-none! border-l border-line-2">
+          <IconButton label={tr("Next month")} onClick={() => onShift(1)} className="rounded-l-none! border-l border-line-2">
             <ChevronRight size={14} />
           </IconButton>
         </span>
@@ -450,7 +451,7 @@ export function AppBar({
       onClick={(e) => head.onTitle?.(e.currentTarget)}
       aria-haspopup="dialog"
       aria-expanded={!!head.titleOpen}
-      data-tip="Pick a day"
+      data-tip={tr("Pick a day")}
       className={`tap relative flex h-8 min-w-0 items-center rounded-sm px-2 text-left transition-colors duration-(--duration-fast) ${
         head.titleOpen ? "bg-surface-3" : "hover:bg-surface-3"
       }`}
@@ -475,7 +476,7 @@ export function AppBar({
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 @min-[560px]/appbar:h-14 @min-[560px]/appbar:grid-cols-[minmax(0,1fr)_auto_auto] @min-[860px]/appbar:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] @min-[860px]/appbar:gap-x-4">
           <div className="flex h-12 min-w-0 items-center gap-2 @min-[560px]/appbar:h-auto">
             {!sidebar && (
-              <IconButton label="Show sidebar" tip="Show sidebar ([)" onClick={onShowSidebar} className="-ml-1 flex-none text-ink-2">
+              <IconButton label={tr("Show sidebar")} tip={tr("Show sidebar ([)")} onClick={onShowSidebar} className="-ml-1 flex-none text-ink-2">
                 <SidebarIcon size={16} />
               </IconButton>
             )}
@@ -512,7 +513,7 @@ export function AppBar({
           type="button"
           aria-haspopup="dialog"
           aria-expanded={accountOpen}
-          aria-label={`${user.name}: account`}
+          aria-label={tr("{name}: account", { name: user.name })}
           onClick={(e) => onAccount(e.currentTarget)}
           className={`relative flex-none rounded-full transition-shadow duration-(--duration-fast) before:absolute before:-inset-[6px] ${
             accountOpen ? "shadow-[0_0_0_2px_var(--surface),0_0_0_3.5px_var(--ink)]" : ""
@@ -540,7 +541,7 @@ export function DayCount({ done, total }: { done: number; total: number }) {
   if (!total) return null;
   const allDone = done === total;
   return (
-    <span aria-label={`${done} of ${total} done`} data-tip={allDone ? "All done" : `${done} of ${total} done`} className="flex flex-none items-center gap-1.5 text-footnote text-ink-3">
+    <span aria-label={tr("{done} of {total} done", { done, total })} data-tip={allDone ? tr("All done") : tr("{done} of {total} done", { done, total })} className="flex flex-none items-center gap-1.5 text-footnote text-ink-3">
       <Burst active={allDone}>
         <ProgressRing value={done / total} size={14} stroke={1.75} />
       </Burst>
@@ -550,8 +551,6 @@ export function DayCount({ done, total }: { done: number; total: number }) {
     </span>
   );
 }
-
-const count = new Intl.NumberFormat("en-US");
 
 /**
  * The account's panel: who is signed in; how many tokens of the day's allowance are left for the AI (speaking tasks, the
@@ -592,7 +591,7 @@ export function AccountPanel({
   };
   const page = pageOf(view);
   return (
-    <Popover anchor={rect} trigger={anchor} align={phone ? "end" : "start"} label="Account" onClose={onClose} className="w-[300px] max-w-[calc(100vw-16px)] p-1.5">
+    <Popover anchor={rect} trigger={anchor} align={phone ? "end" : "start"} label={tr("Account")} onClose={onClose} className="w-[300px] max-w-[calc(100vw-16px)] p-1.5">
       <div className="flex items-center gap-3 px-2.5 pt-2 pb-2.5">
         <Avatar name={user.name} image={user.image} size={36} />
         <div className="min-w-0 flex-1">
@@ -605,13 +604,13 @@ export function AccountPanel({
       {phone && (
         <>
           {PAGES.map((p) => (
-            <PanelRow key={p.page} icon={p.icon} label={p.label} current={page === p.page} onClick={go(() => onPage(p.page))} />
+            <PanelRow key={p.page} icon={p.icon} label={tr(p.label)} current={page === p.page} onClick={go(() => onPage(p.page))} />
           ))}
-          <PanelRow icon={<SearchIcon size={16} />} label="Search" onClick={go(onSearch)} />
-          <div className="px-2.5 pt-3 pb-1 text-caption-2 font-medium text-ink-3">Soon</div>
+          <PanelRow icon={<SearchIcon size={16} />} label={tr("Search")} onClick={go(onSearch)} />
+          <div className="px-2.5 pt-3 pb-1 text-caption-2 font-medium text-ink-3">{tr("Soon")}</div>
           {SOONS.map((s) => (
             <div key={s.soon}>
-              <PanelRow icon={s.icon} label={SOON[s.soon].title} soon expanded={soonOpen === s.soon} onClick={() => setSoonOpen((o) => (o === s.soon ? null : s.soon))} />
+              <PanelRow icon={s.icon} label={tr(SOON[s.soon].title)} soon expanded={soonOpen === s.soon} onClick={() => setSoonOpen((o) => (o === s.soon ? null : s.soon))} />
               {soonOpen === s.soon && <SoonCard soon={s.soon} className="animate-rise px-2 pt-1.5 pb-3" />}
             </div>
           ))}
@@ -622,14 +621,14 @@ export function AccountPanel({
         // What the AI has used, in a window of its own; the row itself says how much of today is left.
         <PanelRow
           icon={<UsageIcon size={16} />}
-          label="Usage"
-          note={usage ? `${count.format(usage.today.left)} left today` : undefined}
+          label={tr("Usage")}
+          note={usage ? tr("{n} left today", { n: num(usage.today.left) }) : undefined}
           onClick={go(onUsage)}
         />
       )}
-      <PanelRow icon={<SlidersIcon size={16} />} label="Settings" onClick={go(onSettings)} />
+      <PanelRow icon={<SlidersIcon size={16} />} label={tr("Settings")} onClick={go(onSettings)} />
       <Rule />
-      <PanelRow icon={<SignOutIcon size={16} />} label="Sign out" onClick={() => startSignOut(() => signOutAction())} />
+      <PanelRow icon={<SignOutIcon size={16} />} label={tr("Sign out")} onClick={() => startSignOut(() => signOutAction())} />
     </Popover>
   );
 }

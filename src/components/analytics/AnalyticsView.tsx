@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { addDays, dayName, dayShort, formatLong, formatMedium, formatShort, MONTHS, MONTHS_SHORT, parseYmd, relativeDay, weekdayNames, ymd } from "@/lib/dates";
+import { addDays, dayName, dayShort, formatLong, formatMedium, formatShort, MONTHS, MONTHS_SHORT, parseYmd, relativeDay, shortRange, weekdayNames, ymd } from "@/lib/dates";
 import { insights as readInsights } from "@/lib/insights";
 import { dayStats, monthStats, periodBounds, summarize, weekdayStats, type DayStat, type Period } from "@/lib/stats";
 import { startOfWeek } from "@/lib/dates";
 import type { SummaryInput } from "@/lib/summary";
 import type { Task } from "@/lib/types";
-import { shortRange } from "../WeekView";
+import { m as mark, tr } from "@/lib/i18n";
 import { AiSummary, preloadSummaries } from "./AiSummary";
 import { BarChart, type Bar } from "./BarChart";
 import { OpenCard } from "./Breakdown";
@@ -18,8 +18,17 @@ import { Overview } from "./Overview";
 import { Card, PANEL } from "./parts";
 import { Peek, type Pick } from "./Peek";
 
-const NOW: Record<Period, string> = { day: "Today", week: "This week", month: "This month", year: "This year" };
-const LAST: Record<Period, string> = { day: "Yesterday", week: "Last week", month: "Last month", year: "Last year" };
+/** A period's names, as whole phrases (each language builds them its own way). */
+const SO_FAR: Record<Period, string> = { day: mark("Today so far"), week: mark("This week so far"), month: mark("This month so far"), year: mark("This year so far") };
+const LAST: Record<Period, string> = { day: mark("Yesterday"), week: mark("Last week"), month: mark("Last month"), year: mark("Last year") };
+const NONE_YET: Record<Period, string> = {
+  day: mark("Nothing planned today yet."),
+  week: mark("Nothing planned this week yet."),
+  month: mark("Nothing planned this month yet."),
+  year: mark("Nothing planned this year yet."),
+};
+const PLAN: Record<Period, string> = { day: mark("Plan your day"), week: mark("Plan your week"), month: mark("Plan your month"), year: mark("Plan your month") };
+const BACK: Record<Period, string> = { day: mark("Back to today"), week: mark("Back to this week"), month: mark("Back to this month"), year: mark("Back to this year") };
 
 /**
  * Analytics: the period on screen (a day, a week, a month, a year) in a few panels across the work area, simple first.
@@ -102,7 +111,7 @@ export function AnalyticsView({
           ? `${MONTHS[b.start.getMonth()]} ${year}`
           : String(year);
   const noun = period;
-  const eyebrow = offset === 0 ? (period === "day" ? "Today so far" : `${NOW[period]} so far`) : offset === -1 ? LAST[period] : label;
+  const eyebrow = offset === 0 ? tr(SO_FAR[period]) : offset === -1 ? tr(LAST[period]) : label;
 
   const months = period === "year" ? monthStats(days) : [];
   const monthOffset = (y: number, m: number) => (y - today.getFullYear()) * 12 + (m - today.getMonth());
@@ -178,7 +187,7 @@ export function AnalyticsView({
             done: m.done,
             planned: m.planned,
             rate: m.rate,
-            activeDays: `${m.activeDays} of ${m.elapsedDays}`,
+            activeDays: tr("{done} of {total}", { done: m.activeDays, total: m.elapsedDays }),
             onPick: (el) => pickMonth(m.month, el),
           }))
       : (period === "day" ? fromStart(dayStats({ start: addDays(b.start, -28), end: b.start, days: 29 }, todayKey, byDate)) : days)
@@ -201,7 +210,7 @@ export function AnalyticsView({
   // The last fortnight, up to today (or the period's end), for the streak.
   const fortnightEnd = b.end < today ? b.end : today;
   const fortnight = Array.from({ length: 14 }, (_, i) => byDate(ymd(addDays(fortnightEnd, i - 13))).some((t) => t.done));
-  const endsOn = period === "week" ? dayName(b.end) : period === "month" ? formatShort(b.end) : "Dec 31";
+  const endsOn = period === "week" ? dayName(b.end) : formatShort(b.end);
 
   const quiet = "tap relative font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-current";
   const empty = !sum.planned && !sum.upcoming && !prevDays.some((d) => d.total) && (period !== "day" || !history.length);
@@ -246,21 +255,21 @@ export function AnalyticsView({
 
   const chart = (
     <Card
-      title={period === "year" ? "Done per month" : period === "day" ? "The last two weeks" : "Done per day"}
+      title={period === "year" ? tr("Done per month") : period === "day" ? tr("The last two weeks") : tr("Done per day")}
       className="@4xl/analytics:col-span-8"
       aside={
         <span className="flex items-center gap-4 text-caption text-ink-2">
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-xs bg-accent" />
-            Done
+            {tr("Done")}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-xs bg-accent-track" />
-            Open
+            {tr("Open")}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3.5 border-t border-dashed border-ink-3" />
-            Average
+            {tr("Average")}
           </span>
         </span>
       }
@@ -268,7 +277,7 @@ export function AnalyticsView({
       <BarChart
         bars={bars}
         avg={avg}
-        avgLabel="avg"
+        avgLabel={tr("avg")}
         onPick={(bar, el) => {
           if (period === "year") return pickMonth(Number(bar.key.slice(1)), el);
           const d = barDays.get(bar.key);
@@ -289,9 +298,9 @@ export function AnalyticsView({
         ) : empty ? (
           // Nothing to measure yet: a sentence where the numbers go, instead of empty charts.
           <p className={`p-5 text-callout text-ink-2 md:p-6 ${PANEL}`}>
-            {current ? `Nothing planned ${period === "day" ? "today" : `this ${period}`} yet. ` : `Nothing was planned in ${label}. `}
+            {current ? tr(NONE_YET[period]) : tr("Nothing was planned in {period}.", { period: label })}{" "}
             <button type="button" onClick={current ? onPlan : () => onOffset(0)} className={quiet}>
-              {current ? `Plan your ${period === "year" ? "month" : period}` : `Back to ${NOW[period].toLowerCase()}`}
+              {current ? tr(PLAN[period]) : tr(BACK[period])}
             </button>
           </p>
         ) : (
@@ -323,12 +332,12 @@ export function AnalyticsView({
               todayKey={todayKey}
               onToggle={onToggle}
               onMove={onMove}
-              title={period === "day" && current ? "Still open" : "Left open"}
-              empty={period === "day" ? (current ? "Nothing left for today." : "Everything on this day got done.") : "Nothing from earlier days is waiting."}
+              title={period === "day" && current ? tr("Still open") : tr("Left open")}
+              empty={period === "day" ? (current ? tr("Nothing left for today.") : tr("Everything on this day got done.")) : tr("Nothing from earlier days is waiting.")}
               className="@4xl/analytics:col-span-4"
             />
             {period === "year" && (
-              <Card title="Activity" className="@4xl/analytics:col-span-12" aside={<span className="text-caption text-ink-3">Tasks done per day</span>}>
+              <Card title={tr("Activity")} className="@4xl/analytics:col-span-12" aside={<span className="text-caption text-ink-3">{tr("Tasks done per day")}</span>}>
                 <Heatmap days={days} todayKey={todayKey} onPick={(d, el) => pickDay(d, el)} />
               </Card>
             )}

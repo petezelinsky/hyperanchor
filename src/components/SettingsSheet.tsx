@@ -5,8 +5,10 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
 import type { WeekStart } from "@/lib/dates";
 import type { AppUser } from "@/lib/types";
+import { LANGS, setLang, tr } from "@/lib/i18n";
 import { Avatar } from "./Avatar";
 import { ArrowLeftIcon, ChevronDown, ChevronRight, DownloadIcon, XIcon } from "./icons";
+import { useLang } from "./lang";
 import { applyTheme, readSounds, readTheme, saveSounds, type Theme } from "./prefs";
 import { THEMES } from "./ThemeSwitch";
 import { Button, buttonClass, IconButton, Kbd, Menu, Modal, SegmentedControl, type MenuEntry } from "./ui";
@@ -23,40 +25,40 @@ function shortcuts(voice: boolean): { title: string; items: [string, string][] }
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   return [
     {
-      title: "Anywhere",
+      title: tr("Anywhere"),
       items: [
-        ["N", "New task"],
-        ...(voice ? ([["V", "Speak your tasks"]] as [string, string][]) : []),
-        ["F", "Focus: one task at a time"],
-        ["/", "Search all tasks"],
-        ["T", "Go to today"],
-        ["← →", "Previous / next"],
-        ["D W M", "Day, week, month"],
-        ["A", "Analytics"],
-        ["[", "Show or hide the sidebar"],
-        [`${mac ? "⌘" : "Ctrl"} Z`, "Undo the last action"],
-        ["?", "Keyboard shortcuts"],
-        [",", "Settings"],
+        ["N", tr("New task")],
+        ...(voice ? ([["V", tr("Speak your tasks")]] as [string, string][]) : []),
+        ["F", tr("Focus: one task at a time")],
+        ["/", tr("Search all tasks")],
+        ["T", tr("Go to today")],
+        ["← →", tr("Previous / next")],
+        ["D W M", tr("Day, week, month")],
+        ["A", tr("Analytics")],
+        ["[", tr("Show or hide the sidebar")],
+        [`${mac ? "⌘" : "Ctrl"} Z`, tr("Undo the last action")],
+        ["?", tr("Keyboard shortcuts")],
+        [",", tr("Settings")],
       ],
     },
     {
-      title: "In a list",
+      title: tr("In a list"),
       items: [
-        ["↑ ↓", "Select a task"],
-        [`${mac ? "⌥" : "Alt"} ↑ ↓`, "Move it up or down"],
-        ["Space", "Complete"],
-        ["↵", "Edit the title"],
-        ["⌫", "Delete"],
-        ["Esc", "Cancel or deselect"],
+        ["↑ ↓", tr("Select a task")],
+        [`${mac ? "⌥" : "Alt"} ↑ ↓`, tr("Move it up or down")],
+        [tr("Space"), tr("Complete")],
+        ["↵", tr("Edit the title")],
+        ["⌫", tr("Delete")],
+        ["Esc", tr("Cancel or deselect")],
       ],
     },
     {
-      title: "In focus",
+      title: tr("In focus"),
       items: [
-        ["Space", "Done"],
-        ["→", "Later"],
-        ["N", "Jot something down"],
-        ["Esc", "Leave focus"],
+        [tr("Space"), tr("Done")],
+        ["→", tr("Later")],
+        ["N", tr("Jot something down")],
+        ["Esc", tr("Leave focus")],
       ],
     },
   ];
@@ -94,21 +96,22 @@ export function SettingsSheet({
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [sounds, setSounds] = useState(readSounds);
   const [language, setLanguage] = useState(readLanguageChoice);
+  const lang = useLang();
   const guessed = languageName(guessLanguage(sample));
   // Opened straight on the shortcuts (?), Back closes; from Settings, it goes back to Settings.
   const back = tab === "shortcuts" && page === "shortcuts" ? null : () => setPage("settings");
-  const title = page === "shortcuts" ? "Keyboard shortcuts" : page === "account" ? "Account" : "Settings";
+  const title = page === "shortcuts" ? tr("Keyboard shortcuts") : page === "account" ? tr("Account") : tr("Settings");
 
   return (
     <Modal label={title} onClose={onClose} top sheet className="flex max-w-[560px] flex-col">
       <div className="flex h-[60px] flex-none items-center gap-2.5 border-b border-line px-4 md:px-6">
         {page !== "settings" && back && (
-          <IconButton label="Back" onClick={back} className="-ml-1.5 shadow-[inset_0_0_0_1px_var(--line-2)]">
+          <IconButton label={tr("Back")} onClick={back} className="-ml-1.5 shadow-[inset_0_0_0_1px_var(--line-2)]">
             <ArrowLeftIcon size={15} />
           </IconButton>
         )}
         <h2 className="min-w-0 flex-1 truncate text-headline font-semibold">{title}</h2>
-        <IconButton label="Close" onClick={onClose} className="-mr-1.5 shadow-[inset_0_0_0_1px_var(--line-2)]">
+        <IconButton label={tr("Close")} onClick={onClose} className="-mr-1.5 shadow-[inset_0_0_0_1px_var(--line-2)]">
           <XIcon size={14} />
         </IconButton>
       </div>
@@ -116,38 +119,45 @@ export function SettingsSheet({
       {page === "settings" ? (
         <>
           <div className="pb-2">
-            <Band>General</Band>
-            <Row title="Appearance">
+            <Band>{tr("General")}</Band>
+            <Row title={tr("Appearance")}>
               <SegmentedControl
-                label="Appearance"
+                label={tr("Appearance")}
                 value={theme}
-                options={THEMES}
+                options={THEMES.map((o) => ({ ...o, label: tr(o.label) }))}
                 onChange={(t) => {
                   applyTheme(t);
                   setTheme(t);
                 }}
-                className="w-[176px]"
+                className="min-w-[176px]"
               />
             </Row>
-            <Row title="Week starts on" hint="In Week, Month and Analytics.">
+            <Row title={tr("Language")} hint={tr("The app, its dates and new AI summaries.")}>
+              <Pick
+                label={tr("Language")}
+                value={LANGS.find((l) => l.code === lang)?.name ?? "English"}
+                entries={LANGS.map((l) => ({ label: l.name, checked: l.code === lang, onSelect: () => setLang(l.code) }))}
+              />
+            </Row>
+            <Row title={tr("Week starts on")} hint={tr("In Week, Month and Analytics.")}>
               <SegmentedControl
-                label="Week starts on"
+                label={tr("Week starts on")}
                 value={weekStart === 0 ? "sunday" : "monday"}
                 options={[
-                  { value: "monday", label: "Monday" },
-                  { value: "sunday", label: "Sunday" },
+                  { value: "monday", label: tr("Monday") },
+                  { value: "sunday", label: tr("Sunday") },
                 ]}
                 onChange={(v) => onWeekStart(v === "sunday" ? 0 : 1)}
-                className="w-[176px]"
+                className="min-w-[176px]"
               />
             </Row>
-            <Row title="Sounds" hint="A soft chime when the focus timer is up." last>
+            <Row title={tr("Sounds")} hint={tr("A soft chime when the focus timer is up.")} last>
               <SegmentedControl
-                label="Sounds"
+                label={tr("Sounds")}
                 value={sounds ? "on" : "off"}
                 options={[
-                  { value: "on", label: "On" },
-                  { value: "off", label: "Off" },
+                  { value: "on", label: tr("On") },
+                  { value: "off", label: tr("Off") },
                 ]}
                 onChange={(v) => {
                   saveSounds(v === "on");
@@ -158,28 +168,28 @@ export function SettingsSheet({
                     soundTimer();
                   }
                 }}
-                className="w-[176px]"
+                className="min-w-[176px]"
               />
             </Row>
             <div className="pointer-coarse:hidden">
-              <Go title="Keyboard shortcuts" onClick={() => setPage("shortcuts")} top />
+              <Go title={tr("Keyboard shortcuts")} onClick={() => setPage("shortcuts")} top />
             </div>
 
             {/* Heard on the server, the language needs no setting: the model hears it, and a mix of them. */}
             {voice && !(transcribe && canRecord()) && canListen() && (
               <>
-                <Band>Voice</Band>
+                <Band>{tr("Voice")}</Band>
                 <Row
-                  title="Spoken language"
-                  hint={language ? "Always listens in this language." : `Worked out from your tasks and your browser: ${guessed} right now.`}
+                  title={tr("Spoken language")}
+                  hint={language ? tr("Always listens in this language.") : tr("Worked out from your tasks and your browser: {language} right now.", { language: guessed })}
                   last
                 >
                   <Pick
-                    label="Spoken language"
-                    value={language ? languageName(language) : "Automatic"}
+                    label={tr("Spoken language")}
+                    value={language ? languageName(language) : tr("Automatic")}
                     entries={[
                       {
-                        label: "Automatic",
+                        label: tr("Automatic"),
                         checked: !language,
                         onSelect: () => {
                           saveLanguageChoice(null);
@@ -201,15 +211,15 @@ export function SettingsSheet({
               </>
             )}
 
-            <Band>Your data</Band>
-            <Row title="Export tasks" hint="Every task, as a CSV file." last>
+            <Band>{tr("Your data")}</Band>
+            <Row title={tr("Export tasks")} hint={tr("Every task, as a CSV file.")} last>
               <a href="/api/export" download className={`${buttonClass()} no-underline`}>
                 <DownloadIcon size={14} />
-                Download
+                {tr("Download")}
               </a>
             </Row>
 
-            <Band>Account</Band>
+            <Band>{tr("Account")}</Band>
             <Go
               title={user.name}
               hint={user.email}
@@ -219,11 +229,11 @@ export function SettingsSheet({
             />
           </div>
           <div className="flex flex-none items-center justify-between gap-3 border-t border-line px-4 py-3 md:px-6">
-            <nav aria-label="Help and legal" className="flex gap-3.5 text-caption">
+            <nav aria-label={tr("Help and legal")} className="flex gap-3.5 text-caption">
               {[
-                ["/privacy", "Privacy"],
-                ["/terms", "Terms"],
-                ["/support", "Support"],
+                ["/privacy", tr("Privacy")],
+                ["/terms", tr("Terms")],
+                ["/support", tr("Support")],
               ].map(([href, label]) => (
                 <Link key={href} href={href} className="tap relative text-ink-3 no-underline hover:text-ink">
                   {label}
@@ -235,14 +245,14 @@ export function SettingsSheet({
       ) : page === "account" ? (
         <div className="pb-2">
           <div className="h-1.5" />
-          <Row title="Name">
+          <Row title={tr("Name")}>
             <span className="min-w-0 truncate text-body text-ink-3">{user.name}</span>
           </Row>
-          <Row title="Email" last>
+          <Row title={tr("Email")} last>
             <span className="min-w-0 truncate text-body text-ink-3">{user.email}</span>
           </Row>
-          <p className="px-4 pt-1 pb-2 text-caption text-ink-3 md:px-6">Appearance and the first day of the week are saved on this device.</p>
-          <Band>Delete account</Band>
+          <p className="px-4 pt-1 pb-2 text-caption text-ink-3 md:px-6">{tr("Appearance and the first day of the week are saved on this device.")}</p>
+          <Band>{tr("Delete account")}</Band>
           <DeleteAccount />
         </div>
       ) : (
@@ -276,7 +286,7 @@ function Pick({ label, value, entries }: { label: string; value: string; entries
       <Button
         aria-haspopup="menu"
         aria-expanded={!!menu}
-        aria-label={`${label}: ${value}. Change`}
+        aria-label={tr("{label}: {value}. Change", { label, value })}
         onClick={(e) => {
           const trigger = e.currentTarget;
           setMenu((m) => (m ? null : { anchor: trigger.getBoundingClientRect(), trigger }));
@@ -360,33 +370,32 @@ function DeleteAccount() {
     return (
       <div className="flex flex-col items-start gap-3.5 px-4 pt-1 pb-5 md:px-6">
         <p className="max-w-[440px] text-body text-ink-2">
-          This erases every task and the account itself, for good. Nothing can bring them back, so export your tasks first if you might want them.
+          {tr("This erases every task and the account itself, for good. Nothing can bring them back, so export your tasks first if you might want them.")}
         </p>
         <Button variant="danger-quiet" onClick={() => setAsking(true)}>
-          Delete account…
+          {tr("Delete account…")}
         </Button>
       </div>
     );
   return (
     <div role="group" aria-labelledby="delete-title" className="mx-4 mt-1 mb-5 animate-[fade_var(--duration-fast)_var(--ease-out)_both] rounded-lg bg-red-soft p-4 md:mx-6">
       <div id="delete-title" className="text-body font-semibold text-red-ink">
-        Delete your account?
+        {tr("Delete your account?")}
       </div>
       <p className="mt-1 text-footnote text-ink-2">
-        Every task is erased right away, here and in the iPhone app, and you’re signed out. This can’t be undone, so export your tasks
-        first if you might want them.
+        {tr("Every task is erased right away, here and in the iPhone app, and you’re signed out. This can’t be undone, so export your tasks first if you might want them.")}
       </p>
       {failed && (
         <p role="alert" className="mt-2 text-footnote font-medium text-red-ink">
-          Couldn’t delete your account. Check your connection and try again.
+          {tr("Couldn’t delete your account. Check your connection and try again.")}
         </p>
       )}
       <div className="mt-3.5 flex justify-end gap-2">
         <Button ref={cancel} onClick={() => setAsking(false)} disabled={busy}>
-          Cancel
+          {tr("Cancel")}
         </Button>
         <Button variant="danger" onClick={erase} disabled={busy}>
-          {busy ? "Deleting…" : "Delete for good"}
+          {busy ? tr("Deleting…") : tr("Delete for good")}
         </Button>
       </div>
     </div>

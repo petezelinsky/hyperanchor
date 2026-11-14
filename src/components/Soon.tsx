@@ -1,5 +1,6 @@
 "use client";
 
+import { m, tr } from "@/lib/i18n";
 import { Orb } from "./voice/Orb";
 
 /** The parts of the app that aren't open yet. They have no pages: the sidebar shows them, quiet, and says what's coming. */
@@ -7,22 +8,22 @@ export type Soon = "timeline" | "goals" | "agent";
 
 export const SOON: Record<Soon, { title: string; line: string }> = {
   timeline: {
-    title: "Timeline",
-    line: "Your whole life on one line. Look back at everything you’ve done and ahead at what’s coming: days, months and years at a glance.",
+    title: m("Timeline"),
+    line: m("Your whole life on one line. Look back at everything you’ve done and ahead at what’s coming: days, months and years at a glance."),
   },
   goals: {
-    title: "Goals",
-    line: "Cards for what you want to reach. Set a goal, break it into steps, and each step becomes a task on its day.",
+    title: m("Goals"),
+    line: m("Cards for what you want to reach. Set a goal, break it into steps, and each step becomes a task on its day."),
   },
   agent: {
-    title: "Agent",
-    line: "An AI agent that makes your days better: it plans with you, keeps things moving and does tasks for you.",
+    title: m("Agent"),
+    line: m("An AI agent that makes your days better: it plans with you, keeps things moving and does tasks for you."),
   },
 };
 
 /** "Soon": something that isn't open yet. */
 export const SoonTag = () => (
-  <span className="inline-flex h-[18px] flex-none items-center rounded-[5px] px-1.5 text-caption-2 font-medium text-ink-3 shadow-[inset_0_0_0_1px_var(--line-2)]">Soon</span>
+  <span className="inline-flex h-[18px] flex-none items-center rounded-[5px] px-1.5 text-caption-2 font-medium text-ink-3 shadow-[inset_0_0_0_1px_var(--line-2)]">{tr("Soon")}</span>
 );
 
 /**
@@ -37,10 +38,10 @@ export function SoonCard({ soon, className = "" }: { soon: Soon; className?: str
         {soon === "timeline" ? <LineOfLife /> : soon === "goals" ? <GoalCards /> : <AgentAtWork />}
       </div>
       <div className="mt-3.5 flex items-center gap-2 px-0.5">
-        <span className="text-callout font-semibold text-ink">{s.title}</span>
+        <span className="text-callout font-semibold text-ink">{tr(s.title)}</span>
         <SoonTag />
       </div>
-      <p className="mt-1 px-0.5 text-footnote text-pretty text-ink-2">{s.line}</p>
+      <p className="mt-1 px-0.5 text-footnote text-pretty text-ink-2">{tr(s.line)}</p>
     </div>
   );
 }
@@ -93,7 +94,7 @@ function LineOfLife() {
       <circle cx="196" cy="94" r="4" fill="var(--ink)" stroke="var(--surface-2)" strokeWidth="2" />
       <rect x="177" y="10" width="38" height="16" rx="8" fill="var(--ink)" />
       <text x="196" y="21.2" fontSize="8.5" fontWeight="600" fill="var(--surface)" textAnchor="middle" fontFamily="inherit">
-        Today
+        {tr("Today")}
       </text>
     </svg>
   );
@@ -111,7 +112,7 @@ function GoalCards() {
       <path d="M82 31.5 87 36.500 82 41.500 77 36.500Z" stroke="var(--ink)" strokeWidth="1.2" strokeLinejoin="round" />
       <rect x="95" y="33" width="74" height="7" rx="3.5" fill="var(--ink)" />
       <text x="208" y="40" fontSize="8.5" fill="var(--ink-3)" textAnchor="end" fontFamily="inherit">
-        2 of 3
+        {tr("2 of 3")}
       </text>
       <rect x="78" y="50" width="131" height="4" rx="2" fill="var(--line)" />
       <rect x="78" y="50" width="87" height="4" rx="2" fill="var(--ink)" />

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Sort } from "@/lib/tasks";
+import { tr } from "@/lib/i18n";
 import { SortIcon } from "./icons";
 import { SORTS } from "./table/TaskTable";
 import { Menu } from "./ui";
@@ -20,8 +21,8 @@ export function SortButton({ sort, onSort }: { sort: Sort; onSort: (s: Sort) => 
         type="button"
         aria-haspopup="menu"
         aria-expanded={!!menu}
-        aria-label={`Task order: ${current.label}`}
-        data-tip={menu ? undefined : "Task order"}
+        aria-label={tr("Task order: {order}", { order: tr(current.label) })}
+        data-tip={menu ? undefined : tr("Task order")}
         onClick={(e) => {
           const el = e.currentTarget;
           setMenu((m) => (m ? null : el));
@@ -38,13 +39,13 @@ export function SortButton({ sort, onSort }: { sort: Sort; onSort: (s: Sort) => 
           anchor={menu.getBoundingClientRect()}
           trigger={menu}
           align="end"
-          label="Task order"
+          label={tr("Task order")}
           className="min-w-[232px]"
           entries={[
-            { heading: "Task order" },
-            ...SORTS.map((o) => ({ label: o.label, checked: o === current, onSelect: () => onSort(o.sort) })),
+            { heading: tr("Task order") },
+            ...SORTS.map((o) => ({ label: tr(o.label), checked: o === current, onSelect: () => onSort(o.sort) })),
             { separator: true },
-            { heading: mine ? "Drag tasks to arrange them." : "Dragging is off while tasks are sorted." },
+            { heading: mine ? tr("Drag tasks to arrange them.") : tr("Dragging is off while tasks are sorted.") },
           ]}
           onClose={() => setMenu(null)}
         />

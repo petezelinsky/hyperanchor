@@ -1,14 +1,19 @@
 "use client";
 
 import type { SavedSummary } from "@/lib/summaries";
+import { formatShort, formatTime, yearAfter } from "@/lib/dates";
+import { m, tr } from "@/lib/i18n";
 import { ArrowRightIcon } from "../icons";
+
+/** What the one thing to try is for. */
+const NEXT: Record<string, string> = { day: m("Next day:"), week: m("Next week:"), month: m("Next month:"), year: m("Next year:") };
 
 /** "today at 10:42", "Nov 3, 9:05 PM", "Dec 30, 2025, 6:12 PM". */
 export function writtenAt(iso: string) {
   const d = new Date(iso);
-  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  if (new Date().toDateString() === d.toDateString()) return `today at ${time}`;
-  return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined })}, ${time}`;
+  const time = formatTime(d);
+  if (new Date().toDateString() === d.toDateString()) return tr("today at {time}", { time });
+  return `${formatShort(d)}${d.getFullYear() !== new Date().getFullYear() ? yearAfter(d.getFullYear()) : ""}, ${time}`;
 }
 
 /**
@@ -23,6 +28,7 @@ export function SummaryBody({
   className = "",
 }: {
   s: SavedSummary;
+  /** The period it is about: "day", "week", "month" or "year". */
   noun: string;
   fresh?: boolean;
   /** Off where the headline is already on show (the history's list). */
@@ -56,7 +62,7 @@ export function SummaryBody({
         <div style={at(200 + n * 90)} className={`mt-2.5 flex items-start gap-3 rounded-[12px] bg-primary px-4 py-3.5 text-on-primary ${enter}`}>
           <ArrowRightIcon size={14} className="mt-[3px] flex-none opacity-70" />
           <p className="text-body text-pretty">
-            <span className="font-semibold">Next {noun}: </span>
+            <span className="font-semibold">{tr(NEXT[noun] ?? NEXT.week)}{" "}</span>
             <span className="opacity-85">{s.summary.next}</span>
           </p>
         </div>

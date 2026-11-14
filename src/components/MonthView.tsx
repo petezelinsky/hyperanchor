@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { addDays, formatLong, monthGrid, MONTHS, parseYmd, plural, weekdayNames, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
+import { tr, trn } from "@/lib/i18n";
 import { useDrag } from "./drag";
 import { ArrowRightIcon, PlusIcon, XIcon } from "./icons";
 import { MiniMonth } from "./Sidebar";
@@ -100,7 +101,7 @@ export function MonthView({
                   setPop({ key, rect: e.currentTarget.getBoundingClientRect() });
                 }}
                 onDoubleClick={() => onOpenDay(key)}
-                aria-label={`${formatLong(d)}${tasks.length ? `, ${plural(tasks.length, "task")}` : ""}`}
+                aria-label={`${formatLong(d)}${tasks.length ? `, ${trn(tasks.length, "{n} task", "{n} tasks")}` : ""}`}
                 className={`flex min-w-0 flex-col gap-[3px] overflow-hidden border-line px-3 py-2 text-left transition-[background-color,box-shadow] duration-(--duration-fast) @max-[640px]/month:px-1.5 ${i % 7 ? "border-l" : ""} ${
                   i >= 7 ? "border-t" : ""
                 } ${
@@ -133,7 +134,7 @@ export function MonthView({
                     {t.title}
                   </span>
                 ))}
-                {ordered.length > shown(ordered.length) && <span className="flex-none text-caption text-ink-3">+{ordered.length - shown(ordered.length)} more</span>}
+                {ordered.length > shown(ordered.length) && <span className="flex-none text-caption text-ink-3">{tr("+{n} more", { n: ordered.length - shown(ordered.length) })}</span>}
               </button>
             );
           })}
@@ -178,7 +179,7 @@ function NewTaskLine({ label, onCreate, autoFocus = false, className = "" }: { l
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="New task"
+        placeholder={tr("New task")}
         aria-label={label}
         maxLength={500}
         enterKeyHint="done"
@@ -195,7 +196,7 @@ function DayTasks({ tasks, onToggle, pad }: { tasks: Task[]; onToggle: (t: Task)
     <ul>
       {tasks.map((t) => (
         <li key={t.id} className={`relative flex items-start gap-3 py-[9px] ${pad}`}>
-          <Checkbox size={18} checked={t.done} onToggle={() => onToggle(t)} label={t.done ? `Mark “${t.title}” as open` : `Mark “${t.title}” as done`} className="mt-px" />
+          <Checkbox size={18} checked={t.done} onToggle={() => onToggle(t)} label={t.done ? tr("Mark “{title}” as open", { title: t.title }) : tr("Mark “{title}” as done", { title: t.title })} className="mt-px" />
           <span className={`min-w-0 flex-1 text-[16px] leading-5 break-words transition-colors duration-(--duration-base) md:text-body ${t.done ? "text-ink-3" : "text-ink"}`}>{t.title}</span>
         </li>
       ))}
@@ -226,11 +227,11 @@ function DayList({
           {formatLong(d)}
           <ArrowRightIcon size={12} className="text-ink-3" />
         </button>
-        <span className="tabular text-caption text-ink-3">{tasks.length ? `${done} of ${tasks.length}` : ""}</span>
+        <span className="tabular text-caption text-ink-3">{tasks.length ? tr("{done} of {total}", { done, total: tasks.length }) : ""}</span>
       </div>
-      <NewTaskLine label={`New task on ${formatLong(d)}`} onCreate={onCreate} className="h-[50px] border-b border-line px-4" />
+      <NewTaskLine label={tr("New task on {day}", { day: formatLong(d) })} onCreate={onCreate} className="h-[50px] border-b border-line px-4" />
       <DayTasks tasks={tasks} onToggle={onToggle} pad="px-4" />
-      {!tasks.length && <p className="px-4 pt-3 pl-[46px] text-body text-ink-3">Nothing planned.</p>}
+      {!tasks.length && <p className="px-4 pt-3 pl-[46px] text-body text-ink-3">{tr("Nothing planned.")}</p>}
     </div>
   );
 }
@@ -262,18 +263,18 @@ function DayPopover({
     <Popover anchor={rect} onClose={onClose} label={formatLong(d)} className="flex max-h-[min(80vh,520px)] w-[340px] max-w-[calc(100vw-16px)] flex-col overflow-hidden">
       <div className="flex h-12 flex-none items-center justify-between gap-3 pr-2 pl-4">
         <h2 className="min-w-0 truncate text-callout font-semibold">{formatLong(d)}</h2>
-        <IconButton label="Close" size="sm" onClick={onClose}>
+        <IconButton label={tr("Close")} size="sm" onClick={onClose}>
           <XIcon size={14} />
         </IconButton>
       </div>
-      <NewTaskLine label={`New task on ${formatLong(d)}`} onCreate={onCreate} autoFocus={tasks.length === 0} className="h-11 flex-none border-y border-line px-4" />
+      <NewTaskLine label={tr("New task on {day}", { day: formatLong(d) })} onCreate={onCreate} autoFocus={tasks.length === 0} className="h-11 flex-none border-y border-line px-4" />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">
-        {tasks.length ? <DayTasks tasks={tasks} onToggle={onToggle} pad="px-4" /> : <p className="px-4 py-3 text-body text-ink-3">Nothing planned.</p>}
+        {tasks.length ? <DayTasks tasks={tasks} onToggle={onToggle} pad="px-4" /> : <p className="px-4 py-3 text-body text-ink-3">{tr("Nothing planned.")}</p>}
       </div>
       <div className="flex h-12 flex-none items-center justify-between gap-3 border-t border-line pr-2.5 pl-4">
-        <span className="tabular text-caption text-ink-3">{tasks.length ? `${done} of ${tasks.length} done` : "No tasks"}</span>
+        <span className="tabular text-caption text-ink-3">{tasks.length ? tr("{done} of {total} done", { done, total: tasks.length }) : tr("No tasks")}</span>
         <Button size="sm" onClick={onOpenDay} className="gap-1.5 pr-2">
-          Open day
+          {tr("Open day")}
           <ArrowRightIcon size={12} className="text-ink-3" />
         </Button>
       </div>

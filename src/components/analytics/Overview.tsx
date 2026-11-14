@@ -1,13 +1,34 @@
 "use client";
 
 import type { Insights } from "@/lib/insights";
-import { fmt1, pct, type Period, type Summary } from "@/lib/stats";
+import type { Period, Summary } from "@/lib/stats";
+import { m, rich, tr, trn } from "@/lib/i18n";
+import { fmt1, pct } from "./format";
 import { PANEL } from "./parts";
 
+/** How a period stands against the one before it, as whole sentences (each language declines "last week" its own way). */
+const VS = {
+  level: { day: m("Level with the day before"), week: m("Level with last week"), month: m("Level with last month"), year: m("Level with last year") },
+  better: { day: m("better than the day before"), week: m("better than last week"), month: m("better than last month"), year: m("better than last year") },
+  below: { day: m("below the day before"), week: m("below last week"), month: m("below last month"), year: m("below last year") },
+  none: {
+    day: m("Nothing from the day before to compare with"),
+    week: m("Nothing from last week to compare with"),
+    month: m("Nothing from last month to compare with"),
+    year: m("Nothing from last year to compare with"),
+  },
+  tip: {
+    day: m("Days that have finished, against the same days of the day before"),
+    week: m("Days that have finished, against the same days of last week"),
+    month: m("Days that have finished, against the same days of last month"),
+    year: m("Days that have finished, against the same days of last year"),
+  },
+} as const;
+
 /** A change against the period before, in words: green only for a rise, red only for a drop. */
-function Change({ value, digits, unit, vs }: { value: number; digits: number; unit: string; vs: string }) {
+function Change({ value, digits, unit, period }: { value: number; digits: number; unit: string; period: Period }) {
   const r = Number(value.toFixed(digits));
-  if (r === 0) return <span className="text-ink-2">Level with {vs}</span>;
+  if (r === 0) return <span className="text-ink-2">{tr(VS.level[period])}</span>;
   const up = r > 0;
   return (
     <span className="inline-flex flex-wrap items-center justify-end gap-x-1.5">
@@ -19,7 +40,7 @@ function Change({ value, digits, unit, vs }: { value: number; digits: number; un
         {unit}
       </span>
       <span className="text-ink-2">
-        {up ? "better than" : "below"} {vs}
+        {tr(up ? VS.better[period] : VS.below[period])}
       </span>
     </span>
   );
@@ -147,7 +168,7 @@ export function Overview({
   fortnight: boolean[];
   insights: Insights;
 }) {
-  const vs = period === "day" ? "the day before" : `last ${period}`;
+
   const comparable = settled.rate != null && prevSettled.rate != null && prevSettled.planned > 0;
   const day = period === "day";
   const typical = insights.rank?.typical ?? 0;
@@ -161,38 +182,38 @@ export function Overview({
 
   const compare = day ? (
     !(insights.rank && insights.rank.of > 0) ? (
-      <span className="text-ink-3">Nothing before it to compare with yet</span>
+      <span className="text-ink-3">{tr("Nothing before it to compare with yet")}</span>
     ) : running ? (
       gap > 0 ? (
         <span className="text-ink-2">
-          <span className="tabular font-semibold text-ink">{fmt1(gap)}</span> more and it’s a typical day for you
+          {rich("{n} more and it’s a typical day for you", { n: <span className="tabular font-semibold text-ink">{fmt1(gap)}</span> })}
         </span>
       ) : (
-        <span className="text-ink-2">Already a typical day’s worth, and more</span>
+        <span className="text-ink-2">{tr("Already a typical day’s worth, and more")}</span>
       )
     ) : (
       <span className="text-ink-2">
-        More than on <span className="tabular font-semibold text-ink">{pct(insights.rank.beat / insights.rank.of)}</span> of the 4 weeks before
+        {rich("More than on {share} of the 4 weeks before", { share: <span className="tabular font-semibold text-ink">{pct(insights.rank.beat / insights.rank.of)}</span> })}
       </span>
     )
   ) : throughYesterday && !settled.elapsedDays ? (
-    <span className="text-ink-3">Compared from tomorrow, once a day has finished</span>
+    <span className="text-ink-3">{tr("Compared from tomorrow, once a day has finished")}</span>
   ) : comparable ? (
-    <span data-tip={throughYesterday ? `Days that have finished, against the same days of ${vs}` : undefined}>
-      <Change value={(settled.rate! - prevSettled.rate!) * 100} digits={0} unit=" pts" vs={vs} />
+    <span data-tip={throughYesterday ? tr(VS.tip[period]) : undefined}>
+      <Change value={(settled.rate! - prevSettled.rate!) * 100} digits={0} unit={` ${tr("pts")}`} period={period} />
     </span>
   ) : (
-    <span className="text-ink-3">Nothing from {vs} to compare with</span>
+    <span className="text-ink-3">{tr(VS.none[period])}</span>
   );
 
   return (
-    <section aria-label="Overview" className={`p-5 md:p-6 ${PANEL}`}>
+    <section aria-label={tr("Overview")} className={`p-5 md:p-6 ${PANEL}`}>
       <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-2">
         <div className="min-w-0">
           <p className="text-caption font-medium text-ink-3">{eyebrow}</p>
           <p className="mt-1 flex items-baseline gap-2.5">
             <span className="tabular font-display text-[44px] leading-[46px] font-semibold tracking-[-0.035em] text-ink">{sum.completed}</span>
-            <span className="text-[17px] leading-6 text-ink-3">of {sum.planned} done</span>
+            <span className="text-[17px] leading-6 text-ink-3">{tr("of {n} done", { n: sum.planned })}</span>
           </p>
         </div>
         <div className="min-w-0 @xl/analytics:text-right">
@@ -205,14 +226,14 @@ export function Overview({
         <Track done={sum.completed} open={left} ahead={ahead} />
         <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-caption">
           <Mark kind="done" n={sum.completed}>
-            Done
+            {tr("Done")}
           </Mark>
           <Mark kind="open" n={left}>
-            {day && running ? "Still open" : "Left open"}
+            {day && running ? tr("Still open") : tr("Left open")}
           </Mark>
           {ahead > 0 && (
             <Mark kind="ahead" n={ahead}>
-              Still ahead
+              {tr("Still ahead")}
             </Mark>
           )}
         </div>
@@ -221,30 +242,30 @@ export function Overview({
       <dl className="mt-5 grid grid-cols-1 divide-line border-t border-line @max-xl/analytics:divide-y @xl/analytics:grid-cols-3 @xl/analytics:divide-x">
         {day ? (
           <>
-            <Stat label="A typical day" value={fmt1(typical)} foot="done, the 4 weeks before" tip="The median: half of the days before it ended with more done, half with less." />
+            <Stat label={tr("A typical day")} value={fmt1(typical)} foot={tr("done, the 4 weeks before")} tip={tr("The median: half of the days before it ended with more done, half with less.")} />
             {running && gap > 0 ? (
-              <Stat label="To get there" value={fmt1(gap)} foot="more to finish today" />
+              <Stat label={tr("To get there")} value={fmt1(gap)} foot={tr("more to finish today")} />
             ) : (
-              <Stat label="Against it" value={`${gap <= 0 ? "+" : "−"}${fmt1(Math.abs(gap))}`} foot={gap <= 0 ? "above typical" : "below typical"} />
+              <Stat label={tr("Against it")} value={`${gap <= 0 ? "+" : "−"}${fmt1(Math.abs(gap))}`} foot={gap <= 0 ? tr("above typical") : tr("below typical")} />
             )}
-            <Stat label="In a row" value={insights.streak.current} foot={insights.streak.current === 1 ? "day with something done" : "days with something done"}>
+            <Stat label={tr("In a row")} value={insights.streak.current} foot={trn(insights.streak.current, "day with something done", "days with something done")}>
               <Dots days={fortnight} />
             </Stat>
           </>
         ) : (
           <>
             <Stat
-              label="Per day"
+              label={tr("Per day")}
               value={settled.elapsedDays ? fmt1(settled.avg) : "—"}
-              foot={throughYesterday ? "through yesterday" : "on average"}
-              tip="Tasks done per finished day of the period."
+              foot={throughYesterday ? tr("through yesterday") : tr("on average")}
+              tip={tr("Tasks done per finished day of the period.")}
             >
               <Bars values={series} />
             </Stat>
-            <Stat label="Active days" value={sum.activeDays} foot={`of ${activeOf} with something done`}>
+            <Stat label={tr("Active days")} value={sum.activeDays} foot={tr("of {n} with something done", { n: activeOf })}>
               {period !== "year" && <Dots days={active} />}
             </Stat>
-            <Stat label="Left open" value={open} foot="on days gone by" />
+            <Stat label={tr("Left open")} value={open} foot={tr("on days gone by")} />
           </>
         )}
       </dl>

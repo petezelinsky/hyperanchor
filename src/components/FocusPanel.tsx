@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 import { disintegrate, shootCard, type CardShot } from "./dust";
 import { CheckIcon, ChevronDown, PlusIcon, XIcon } from "./icons";
 import { FOCUS_MINUTES, readFocusMinutes, saveFocusMinutes } from "./prefs";
@@ -74,7 +75,7 @@ export function FocusPanel({
       ref={root}
       role="dialog"
       aria-modal="true"
-      aria-label="Focus"
+      aria-label={tr("Focus")}
       tabIndex={-1}
       className="fixed inset-0 z-[80] flex animate-[fade_var(--duration-base)_var(--ease-out)_both] flex-col bg-canvas outline-none"
     >
@@ -82,12 +83,12 @@ export function FocusPanel({
       <header className="@container/bar flex-none">
         <div className="grid h-[52px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 md:h-14 md:px-4 @min-[640px]/bar:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
           <div className="flex">
-            <Button onClick={onExit} data-tip="Leave focus (Esc)" className="gap-2 pl-2.5">
+            <Button onClick={onExit} data-tip={tr("Leave focus (Esc)")} className="gap-2 pl-2.5">
               <XIcon size={14} />
-              <span className="sm:hidden">Leave</span>
-              <span className="max-sm:hidden">Leave focus</span>
+              <span className="sm:hidden">{tr("Leave")}</span>
+              <span className="max-sm:hidden">{tr("Leave focus")}</span>
               <span className="pointer-coarse:hidden">
-                <Kbd>Esc</Kbd>
+                <Kbd>{tr("Esc")}</Kbd>
               </span>
             </Button>
           </div>
@@ -112,14 +113,14 @@ export function FocusPanel({
             <div className="mt-12 flex items-center gap-1 text-ink-2">
               <Button variant="plain" onClick={() => onDone(task)} className="gap-2 pr-2 pl-2.5">
                 <CheckIcon size={11} />
-                Done
+                {tr("Done")}
                 <span className="pointer-coarse:hidden">
-                  <Kbd>Space</Kbd>
+                  <Kbd>{tr("Space")}</Kbd>
                 </span>
               </Button>
               {queue.length > 1 && (
                 <Button variant="plain" onClick={() => !task.done && onLater(task)} className="gap-2 pr-2 pl-2.5">
-                  Later
+                  {tr("Later")}
                   <span className="pointer-coarse:hidden">
                     <Kbd>→</Kbd>
                   </span>
@@ -130,7 +131,7 @@ export function FocusPanel({
         ) : total > 0 ? (
           <AllDone isToday={isToday} onExit={onExit} />
         ) : (
-          <p className="text-callout text-ink-2">Nothing is planned for this day.</p>
+          <p className="text-callout text-ink-2">{tr("Nothing is planned for this day.")}</p>
         )}
       </main>
 
@@ -151,8 +152,8 @@ export function FocusPanel({
         <input
           id="focus-capture"
           name="thought"
-          placeholder={kept ? "Added for later" : "Jot something down for later"}
-          aria-label="Add a task for later"
+          placeholder={kept ? tr("Added for later") : tr("Jot something down for later")}
+          aria-label={tr("Add a task for later")}
           maxLength={500}
           autoComplete="off"
           enterKeyHint="done"
@@ -164,7 +165,7 @@ export function FocusPanel({
           <Kbd>N</Kbd>
         </span>
         <span role="status" className="sr-only">
-          {kept ? "Added for later" : ""}
+          {kept ? tr("Added for later") : ""}
         </span>
       </form>
     </div>
@@ -222,7 +223,7 @@ function DeckCard({
       }`}
     >
       <span className={`flex flex-none pt-[1px] transition-opacity duration-(--duration-base) md:pt-[3px] ${top || leaving ? "delay-75" : "opacity-0"}`}>
-        <Checkbox size={26} checked={task.done} onToggle={() => onDone?.(task)} label={task.done ? `“${task.title}” is done` : `Mark “${task.title}” as done`} />
+        <Checkbox size={26} checked={task.done} onToggle={() => onDone?.(task)} label={task.done ? tr("“{title}” is done", { title: task.title }) : tr("Mark “{title}” as done", { title: task.title })} />
       </span>
       <h2
         className={`min-w-0 flex-1 text-[20px] leading-[28px] font-semibold tracking-[-0.018em] break-words transition-[color,opacity] duration-(--duration-base) md:text-[24px] md:leading-[34px] md:tracking-[-0.022em] ${
@@ -244,7 +245,7 @@ function Where({ done, total, finished }: { done: number; total: number; finishe
   return (
     <span
       role="img"
-      aria-label={finished ? `All ${total} done` : `Task ${at} of ${total}`}
+      aria-label={finished ? tr("All {total} done", { total }) : tr("Task {n} of {total}", { n: at, total })}
       className="flex min-w-0 items-center justify-center gap-2.5 justify-self-center text-footnote font-medium whitespace-nowrap text-ink-3"
     >
       {/* A dot per task while they fit (a dozen in a wide bar, five in a phone's); a plain bar beyond that. */}
@@ -266,7 +267,7 @@ function Where({ done, total, finished }: { done: number; total: number; finishe
         </span>
       )}
       <span aria-hidden="true" className="tabular">
-        {finished ? `${total} of ${total}` : `${at} of ${total}`}
+        {tr("{done} of {total}", { done: finished ? total : at, total })}
       </span>
     </span>
   );
@@ -364,27 +365,27 @@ function TimerControl({ timer }: { timer: Timer }) {
         <button
           type="button"
           onClick={timer.start}
-          aria-label={`${minutes} minutes are up. Start another round`}
-          data-tip={`Start another ${minutes} minutes`}
+          aria-label={`${tr("{n} minutes are up", { n: minutes })}. ${tr("Start another round")}`}
+          data-tip={tr("Start another {n} minutes", { n: minutes })}
           className={`${shell} ${cell} animate-pop-in gap-2 pr-3.5 pl-3 text-footnote font-medium whitespace-nowrap`}
         >
           <span aria-hidden="true" className="size-1.5 flex-none rounded-full bg-accent" />
-          <span className="@max-[420px]/bar:hidden">{minutes} minutes are up</span>
-          <span className="@min-[420px]/bar:hidden">Time’s up</span>
+          <span className="@max-[420px]/bar:hidden">{tr("{n} minutes are up", { n: minutes })}</span>
+          <span className="@min-[420px]/bar:hidden">{tr("Time’s up")}</span>
         </button>
         <span role="status" className="sr-only">
-          {minutes} minutes are up
+          {tr("{n} minutes are up", { n: minutes })}
         </span>
       </>
     );
 
   return (
-    <div role="group" aria-label="Timer" className={shell}>
+    <div role="group" aria-label={tr("Timer")} className={shell}>
       <button
         type="button"
         onClick={running ? timer.stop : timer.start}
-        aria-label={running ? `Stop the timer, ${Math.ceil(secs / 60)} minutes left` : `Start a ${minutes}-minute timer`}
-        data-tip={running ? "Stop the timer" : `Start a ${minutes}-minute timer`}
+        aria-label={running ? tr("Stop the timer, {n} minutes left", { n: Math.ceil(secs / 60) }) : tr("Start a {n}-minute timer", { n: minutes })}
+        data-tip={running ? tr("Stop the timer") : tr("Start a {n}-minute timer", { n: minutes })}
         className={`${cell} gap-2.5 pl-3 ${running ? "rounded-full pr-3.5" : "rounded-l-full pr-2.5"}`}
       >
         <Tape running={running} />
@@ -397,8 +398,8 @@ function TimerControl({ timer }: { timer: Timer }) {
           type="button"
           aria-haspopup="menu"
           aria-expanded={!!menu}
-          aria-label={`Timer length: ${minutes} minutes. Change`}
-          data-tip="Timer length"
+          aria-label={tr("Timer length: {n} minutes. Change", { n: minutes })}
+          data-tip={tr("Timer length")}
           onClick={(e) => {
             const trigger = e.currentTarget;
             setMenu((m) => (m ? null : { anchor: trigger.getBoundingClientRect(), trigger }));
@@ -413,10 +414,10 @@ function TimerControl({ timer }: { timer: Timer }) {
           anchor={menu.anchor}
           trigger={menu.trigger}
           align="end"
-          label="Timer length"
+          label={tr("Timer length")}
           className="min-w-[148px]"
           onClose={() => setMenu(null)}
-          entries={[{ heading: "Timer" }, ...FOCUS_MINUTES.map((m) => ({ label: `${m} min`, checked: m === minutes, onSelect: () => timer.pick(m) }))]}
+          entries={[{ heading: tr("Timer") }, ...FOCUS_MINUTES.map((m) => ({ label: tr("{n} min", { n: m }), checked: m === minutes, onSelect: () => timer.pick(m) }))]}
         />
       )}
     </div>
@@ -562,10 +563,10 @@ function AllDone({ isToday, onExit }: { isToday: boolean; onExit: () => void }) 
   // The dots above have all filled; this only says where things stand.
   return (
     <div className="flex flex-col items-center text-center">
-      <p className="text-title-2 font-semibold tracking-[-0.02em]">{isToday ? "That was the last one." : "Everything on this day is done."}</p>
-      <p className="mt-1 text-body text-ink-2">{isToday ? "Today’s list is finished." : "Nothing is left open here."}</p>
+      <p className="text-title-2 font-semibold tracking-[-0.02em]">{isToday ? tr("That was the last one.") : tr("Everything on this day is done.")}</p>
+      <p className="mt-1 text-body text-ink-2">{isToday ? tr("Today’s list is finished.") : tr("Nothing is left open here.")}</p>
       <Button onClick={onExit} className="mt-6">
-        Back to the list
+        {tr("Back to the list")}
       </Button>
     </div>
   );

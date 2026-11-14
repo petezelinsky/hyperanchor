@@ -2,7 +2,9 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Insights, Point } from "@/lib/insights";
-import { fmt1 } from "@/lib/stats";
+
+import { tr, trn } from "@/lib/i18n";
+import { fmt1 } from "./format";
 
 /** A round top for an axis whose middle line is round too: 4, 8, 10, 20, 40, 50, 80, 100, 200… */
 function niceMax(v: number) {
@@ -154,7 +156,7 @@ export function BurnChart({ burn, dayLabel, vs }: { burn: NonNullable<Insights["
             <div className="text-caption text-ink-3">{dayLabel(hover)}</div>
             <div className="tabular mt-0.5 text-footnote">
               <span className="font-semibold text-ink">{value(hover) ?? "–"}</span>
-              <span className="text-ink-2">{hover <= today ? " done by then" : " expected by then"}</span>
+              <span className="text-ink-2">{hover <= today ? ` ${tr("done by then")}` : ` ${tr("expected by then")}`}</span>
             </div>
             {burn.before && burn.before[hover] != null && (
               <div className="tabular text-caption text-ink-3">
@@ -237,9 +239,9 @@ export function TrendChart({ momentum, dayLabel }: { momentum: NonNullable<Insig
             <div className="text-caption text-ink-3">{dayLabel(pts[hover])}</div>
             <div className="tabular mt-0.5 text-footnote">
               <span className="font-semibold text-ink">{pts[hover].done}</span>
-              <span className="text-ink-2"> done</span>
+              <span className="text-ink-2"> {tr("done")}</span>
             </div>
-            <div className="tabular text-caption text-ink-3">average around it: {fmt1(momentum.average[hover])}</div>
+            <div className="tabular text-caption text-ink-3">{tr("average around it: {n}", { n: fmt1(momentum.average[hover]) })}</div>
           </Tip>
         )}
       </div>
@@ -307,9 +309,9 @@ export function SpreadChart({ spread }: { spread: NonNullable<Insights["spread"]
         <Tip x={x(at)} y={base - (bins[at] / top) * (base - 14)} width={w}>
           <div className="tabular text-footnote">
             <span className="font-semibold text-ink">
-              {bins[at]} {bins[at] === 1 ? "day" : "days"}
+              {trn(bins[at], "{n} day", "{n} days")}
             </span>
-            <span className="text-ink-2"> with {at} done</span>
+            <span className="text-ink-2"> {tr("with {n} done", { n: at })}</span>
           </div>
         </Tip>
       )}
@@ -377,10 +379,10 @@ export function PlanChart({ plan }: { plan: NonNullable<Insights["plan"]> }) {
             />
           ))}
           <text x={w - 4} y={top + h + 16} textAnchor="end" className="fill-ink-3 text-[11px]">
-            planned →
+            {tr("planned →")}
           </text>
           <text x={GUTTER + 4} y={top + 9} className="fill-ink-3 text-[11px]">
-            ↑ done
+            {tr("↑ done")}
           </text>
         </svg>
       )}
@@ -388,10 +390,10 @@ export function PlanChart({ plan }: { plan: NonNullable<Insights["plan"]> }) {
         <Tip x={x(dot.planned)} y={y(dot.done)} width={w}>
           <div className="tabular text-footnote">
             <span className="font-semibold text-ink">{dot.done}</span>
-            <span className="text-ink-2"> of {dot.planned} done</span>
+            <span className="text-ink-2"> {tr("of {n} done", { n: dot.planned })}</span>
           </div>
           <div className="tabular text-caption text-ink-3">
-            on {dot.days} {dot.days === 1 ? "day" : "days"}
+            {trn(dot.days, "on {n} day", "on {n} days")}
           </div>
         </Tip>
       )}

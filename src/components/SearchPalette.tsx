@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatMedium, parseYmd, relativeDay } from "@/lib/dates";
 import type { Task } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 import { CheckIcon, SearchIcon } from "./icons";
 import { Kbd, Modal } from "./ui";
 
@@ -101,7 +102,7 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
   let index = -1;
 
   return (
-    <Modal label="Search" onClose={onClose} top className="max-w-[640px]">
+    <Modal label={tr("Search")} onClose={onClose} top className="max-w-[640px]">
       <div className="flex items-center gap-3 border-b border-line px-4">
         <SearchIcon size={16} className="flex-none text-ink-3" />
         <input
@@ -117,8 +118,8 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
               open(flat[active]);
             }
           }}
-          placeholder="Search all tasks"
-          aria-label="Search all tasks"
+          placeholder={tr("Search all tasks")}
+          aria-label={tr("Search all tasks")}
           role="combobox"
           aria-expanded={flat.length > 0}
           aria-controls="search-results"
@@ -127,20 +128,20 @@ export function SearchPalette({ todayKey, onOpen, onClose }: { todayKey: string;
           className="h-14 min-w-0 flex-1 bg-transparent text-headline text-ink outline-none placeholder:text-ink-3"
         />
         {loading ? (
-          <span aria-label="Searching" className="size-4 flex-none animate-spin rounded-full border-2 border-line-2 border-t-accent" />
+          <span aria-label={tr("Searching")} className="size-4 flex-none animate-spin rounded-full border-2 border-line-2 border-t-accent" />
         ) : (
           <span className="pointer-coarse:hidden">
-            <Kbd>Esc</Kbd>
+            <Kbd>{tr("Esc")}</Kbd>
           </span>
         )}
       </div>
-      <div ref={list} id="search-results" role="listbox" aria-label="Results" className="max-h-[min(60vh,480px)] overflow-y-auto overscroll-contain p-2">
+      <div ref={list} id="search-results" role="listbox" aria-label={tr("Results")} className="max-h-[min(60vh,480px)] overflow-y-auto overscroll-contain p-2">
         {results === null ? (
-          <p className="px-3 py-6 text-center text-footnote text-ink-3">Find any task by its title or notes, on any day.</p>
+          <p className="px-3 py-6 text-center text-footnote text-ink-3">{tr("Find any task by its title or notes, on any day.")}</p>
         ) : !flat.length ? (
           !loading && (
             <p className="px-3 py-6 text-center text-footnote text-ink-3">
-              {failed ? (navigator.onLine ? "Couldn’t search just now. Try again in a moment." : "You’re offline. Search works when you’re back.") : `No tasks match “${query}”.`}
+              {failed ? (navigator.onLine ? tr("Couldn’t search just now. Try again in a moment.") : tr("You’re offline. Search works when you’re back.")) : tr("No tasks match “{query}”.", { query })}
             </p>
           )
         ) : (

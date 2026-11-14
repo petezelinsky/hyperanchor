@@ -2,6 +2,7 @@
 
 import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { tr } from "@/lib/i18n";
 import { exitCopy, motion as motionTokens, reducedMotion as reduced } from "./motion";
 
 // ── Buttons ──────────────────────────────────────────────────────────────────
@@ -425,7 +426,7 @@ export function Menu({
   entries,
   onClose,
   align = "start",
-  label = "Menu",
+  label = tr("Menu"),
   trigger,
   header,
   className = "min-w-[220px]",

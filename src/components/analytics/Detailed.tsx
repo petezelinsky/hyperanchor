@@ -1,15 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { dayShort, formatMedium, formatShort, weekdayNames } from "@/lib/dates";
+import { formatMedium, formatShort, weekdayNames } from "@/lib/dates";
 import type { Insights, Point } from "@/lib/insights";
-import { fmt1, pct, type DayStat, type Period } from "@/lib/stats";
+import type { DayStat, Period } from "@/lib/stats";
+import { m, tr, trn } from "@/lib/i18n";
 import { ChartIcon, ChevronDown } from "../icons";
 import { Accordion } from "../ui";
 import { BurnChart, PlanChart, SpreadChart, TrendChart, WeekdayChart } from "./charts";
+import { fmt1, pct } from "./format";
 import { PANEL } from "./parts";
 
 const KEY = "hyperanchor:detailed";
+
+/** What is said about a week, a month or a year, as whole sentences. */
+const WORDS = {
+  heading: {
+    week: m("Where this week is heading at your recent {n} a day."),
+    month: m("Where this month is heading at your recent {n} a day."),
+    year: m("Where this year is heading at your recent {n} a day."),
+  },
+  lastEnded: { week: m("Last week ended with {n}."), month: m("Last month ended with {n}."), year: m("Last year ended with {n}.") },
+  lastNothing: { week: m("Last week had nothing done."), month: m("Last month had nothing done."), year: m("Last year had nothing done.") },
+  beforeEnded: { week: m("The week before ended with {n}."), month: m("The month before ended with {n}."), year: m("The year before ended with {n}.") },
+  addedUp: { week: m("How the week added up, day by day."), month: m("How the month added up, day by day."), year: m("How the year added up, day by day.") },
+  thisOne: { week: m("This week"), month: m("This month"), year: m("This year") },
+  lastOne: { week: m("Last week"), month: m("Last month"), year: m("Last year") },
+  atThisPoint: { week: m("at this point last week"), month: m("at this point last month"), year: m("at this point last year") },
+} as const;
 
 /**
  * One finding with its chart: what it's about, the result in a word or a number, one plain sentence, the picture, and
@@ -124,12 +142,13 @@ export function Detailed({
   };
 
   const { burn, rank, momentum, spread, weekdays, plan, typical, streak, window } = insights;
-  const noun = period;
+  // Sentences about a period are kept whole, one per period: each language builds "this week" / "last week" its own way.
+  const p = period === "day" ? "week" : period;
   const names = weekdayNames("short");
   const full = weekdayNames("full");
   const bestDay = weekdays.reduce((b, d) => (d.avg > b.avg ? d : b), weekdays[0]);
-  const pointLabel = (p: Point) => (period === "year" ? `Week of ${formatShort(p.date)}` : formatMedium(p.date));
-  const need = "Needs a week of finished days to draw.";
+  const pointLabel = (p: Point) => (period === "year" ? tr("Week of {date}", { date: formatShort(p.date) }) : formatMedium(p.date));
+  const need = tr("Needs a week of finished days to draw.");
 
   return (
     <section aria-labelledby="detailed" className={`min-w-0 ${PANEL}`}>
@@ -139,9 +158,9 @@ export function Detailed({
         </span>
         <span className="min-w-0 flex-1">
           <span id="detailed" className="block text-body font-semibold text-ink">
-            Detailed analytics
+            {tr("Detailed analytics")}
           </span>
-          <span className="mt-0.5 block text-footnote text-ink-3">Pace, momentum, how your days spread, and the numbers behind the charts.</span>
+          <span className="mt-0.5 block text-footnote text-ink-3">{tr("Pace, momentum, how your days spread, and the numbers behind the charts.")}</span>
         </span>
         <span className="flex size-8 flex-none items-center justify-center rounded-full text-ink-2 transition-colors duration-(--duration-fast) group-hover:bg-surface-2 group-hover:text-ink">
           <ChevronDown size={16} className={`transition-transform duration-(--duration-base) ease-out ${open ? "rotate-180" : ""}`} />
@@ -153,40 +172,40 @@ export function Detailed({
           {burn ? (
             <Frame
               className="@4xl/analytics:col-span-7"
-              label="Pace"
+              label={tr("Pace")}
               value={burn.projected != null ? `≈ ${burn.projected}` : (burn.now[burn.now.length - 1] ?? 0)}
-              unit={burn.projected != null ? `by ${endsOn}` : "done in all"}
+              unit={burn.projected != null ? tr(period === "week" ? "by {date}|week" : "by {date}", { date: endsOn }) : tr("done in all")}
               line={
                 burn.projected != null ? (
                   <>
-                    Where this {noun} is heading at your recent {fmt1(burn.perDay)} a day.{" "}
-                    {burn.previous != null ? (burn.previous > 0 ? `Last ${noun} ended with ${burn.previous}.` : `Last ${noun} had nothing done.`) : ""}
+                    {tr(WORDS.heading[p], { n: fmt1(burn.perDay) })}{" "}
+                    {burn.previous != null ? (burn.previous > 0 ? tr(WORDS.lastEnded[p], { n: burn.previous }) : tr(WORDS.lastNothing[p])) : ""}
                   </>
                 ) : burn.previous != null ? (
-                  `The ${noun} before ended with ${burn.previous}.`
+                  tr(WORDS.beforeEnded[p], { n: burn.previous })
                 ) : (
-                  `How the ${noun} added up, day by day.`
+                  tr(WORDS.addedUp[p])
                 )
               }
               legend={
                 <>
-                  <Key kind="solid">This {noun}</Key>
-                  {burn.before && <Key kind="quiet">Last {noun}</Key>}
-                  {burn.ahead && <Key kind="dashed">At your pace</Key>}
+                  <Key kind="solid">{tr(WORDS.thisOne[p])}</Key>
+                  {burn.before && <Key kind="quiet">{tr(WORDS.lastOne[p])}</Key>}
+                  {burn.ahead && <Key kind="dashed">{tr("At your pace")}</Key>}
                 </>
               }
-              formula="done so far + your recent daily average × the days left; the cone is how far such a stretch usually strays (σ·√days)"
+              formula={tr("done so far + your recent daily average × the days left; the cone is how far such a stretch usually strays (σ·√days)")}
             >
-              <BurnChart burn={burn} dayLabel={(i) => (days[i] ? (period === "year" ? formatShort(days[i].date) : formatMedium(days[i].date)) : "")} vs={`at this point last ${noun}`} />
+              <BurnChart burn={burn} dayLabel={(i) => (days[i] ? (period === "year" ? formatShort(days[i].date) : formatMedium(days[i].date)) : "")} vs={tr(WORDS.atThisPoint[p])} />
             </Frame>
           ) : (
             <Frame
               className="@4xl/analytics:col-span-5 @4xl/analytics:order-2"
-              label="Among the days before"
+              label={tr("Among the days before")}
               value={rank && rank.of ? pct(rank.beat / rank.of) : "—"}
-              unit={rank && rank.of ? "of them beaten" : undefined}
-              line={rank && rank.of ? `More done than on ${rank.beat} of the ${rank.of} days before it. A typical one of them: ${fmt1(rank.typical)}.` : "No days before it to compare with yet."}
-              formula="the share of the 28 days before with fewer tasks done; below, how those days spread"
+              unit={rank && rank.of ? tr("of them beaten") : undefined}
+              line={rank && rank.of ? tr("More done than on {beat} of the {of} days before it. A typical one of them: {typical}.", { beat: rank.beat, of: rank.of, typical: fmt1(rank.typical) }) : tr("No days before it to compare with yet.")}
+              formula={tr("the share of the 28 days before with fewer tasks done; below, how those days spread")}
             >
               {spread && <SpreadChart spread={spread} />}
             </Frame>
@@ -194,18 +213,18 @@ export function Detailed({
 
           <Frame
             className={burn ? "@4xl/analytics:col-span-5" : "@4xl/analytics:col-span-7 @4xl/analytics:order-1"}
-            label="Momentum"
-            value={momentum ? momentum.label : "—"}
-            line={momentum ? `From about ${fmt1(momentum.from)} to ${fmt1(momentum.to)} a ${momentum.unit}, across ${window}.` : need}
+            label={tr("Momentum")}
+            value={momentum ? tr(momentum.label) : "—"}
+            line={momentum ? tr(momentum.unit === "week" ? "From about {from} to {to} a week, across {window}." : "From about {from} to {to} a day, across {window}.", { from: fmt1(momentum.from), to: fmt1(momentum.to), window: tr(window) }) : need}
             legend={
               momentum && (
                 <>
-                  <Key kind="solid">{period === "year" ? "4-week average" : "7-day average"}</Key>
-                  <Key kind="dashed">Trend</Key>
+                  <Key kind="solid">{period === "year" ? tr("4-week average") : tr("7-day average")}</Key>
+                  <Key kind="dashed">{tr("Trend")}</Key>
                 </>
               )
             }
-            formula={`the straight line that fits each ${momentum?.unit ?? "day"}'s count best (least squares); the curve is the average of the last ${period === "year" ? "four weeks" : "seven days"}`}
+            formula={period === "year" ? tr("the straight line that fits each week’s count best (least squares); the curve is the average of the last four weeks") : tr("the straight line that fits each day’s count best (least squares); the curve is the average of the last seven days")}
           >
             {momentum && <TrendChart momentum={momentum} dayLabel={pointLabel} />}
           </Frame>
@@ -213,14 +232,16 @@ export function Detailed({
           {burn && (
             <Frame
               className="@4xl/analytics:col-span-4"
-              label="How your days spread"
-              value={spread ? spread.label : "—"}
+              label={tr("How your days spread")}
+              value={spread ? tr(spread.label) : "—"}
               line={
                 spread
-                  ? `${spread.low === spread.high ? `Most days you finish about ${spread.low}` : `Most days you finish between ${spread.low} and ${spread.high}`}; the median is ${fmt1(spread.median)}.`
+                  ? spread.low === spread.high
+                    ? tr("Most days you finish about {n}; the median is {median}.", { n: spread.low, median: fmt1(spread.median) })
+                    : tr("Most days you finish between {low} and {high}; the median is {median}.", { low: spread.low, high: spread.high, median: fmt1(spread.median) })
                   : need
               }
-              formula="steadiness = 1 ÷ (1 + spread ÷ average); the bracket is the middle half of your days, the dot their median"
+              formula={tr("steadiness = 1 ÷ (1 + spread ÷ average); the bracket is the middle half of your days, the dot their median")}
             >
               {spread && <SpreadChart spread={spread} />}
             </Frame>
@@ -228,43 +249,43 @@ export function Detailed({
 
           <Frame
             className={burn ? "@4xl/analytics:col-span-4" : "@4xl/analytics:order-3 @4xl/analytics:col-span-6"}
-            label="By weekday"
-            value={bestDay.avg > 0 ? `${full[bestDay.index]}s` : "—"}
-            unit={bestDay.avg > 0 ? "carry the most" : undefined}
-            line={bestDay.avg > 0 ? `About ${fmt1(bestDay.avg)} done on a ${full[bestDay.index]}; under each day, the share of what was planned.` : "Not enough done yet to compare."}
-            formula={`tasks done ÷ the number of such weekdays, across ${window}`}
+            label={tr("By weekday")}
+            value={bestDay.avg > 0 ? tr("{day}s|weekday", { day: full[bestDay.index] }) : "—"}
+            unit={bestDay.avg > 0 ? tr("carry the most") : undefined}
+            line={bestDay.avg > 0 ? tr("About {n} done on a {day}; under each day, the share of what was planned.", { n: fmt1(bestDay.avg), day: full[bestDay.index] }) : tr("Not enough done yet to compare.")}
+            formula={tr("tasks done ÷ the number of such weekdays, across {window}", { window: tr(window) })}
           >
             <WeekdayChart weekdays={weekdays} names={names} />
           </Frame>
 
           <Frame
             className={burn ? "@4xl/analytics:col-span-4" : "@4xl/analytics:order-4 @4xl/analytics:col-span-6"}
-            label="Plan against done"
+            label={tr("Plan against done")}
             value={plan ? pct(Math.min(1, plan.share)) : "—"}
-            unit={plan ? "of a plan gets done" : undefined}
+            unit={plan ? tr("of a plan gets done") : undefined}
             line={
               plan
                 ? plan.ratio <= 1.15
-                  ? "Your plans match what you finish. Keep them this size."
-                  : `You plan about ${fmt1(plan.ratio)} tasks for each one you finish. A realistic day for you: ${plan.realistic}.`
-                : "Needs five days with something planned."
+                  ? tr("Your plans match what you finish. Keep them this size.")
+                  : tr("You plan about {ratio} tasks for each one you finish. A realistic day for you: {n}.", { ratio: fmt1(plan.ratio), n: plan.realistic })
+                : tr("Needs five days with something planned.")
             }
-            formula="a line through the days (least squares, from zero); dashed: everything planned gets done; a realistic day is what three days in four reach"
+            formula={tr("a line through the days (least squares, from zero); dashed: everything planned gets done; a realistic day is what three days in four reach")}
           >
             {plan && <PlanChart plan={plan} />}
           </Frame>
 
           <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-line shadow-[0_0_0_1px_var(--line)] @3xl/analytics:grid-cols-4 @4xl/analytics:order-5 @4xl/analytics:col-span-12">
-            <Fact label="A typical day" value={typical ? fmt1(typical.median) : "—"} unit="done (median)" />
-            <Fact label="In a row" value={streak.current} unit={streak.current === 1 ? "day with something done" : "days with something done"}>
+            <Fact label={tr("A typical day")} value={typical ? fmt1(typical.median) : "—"} unit={tr("done (median)")} />
+            <Fact label={tr("In a row")} value={streak.current} unit={trn(streak.current, "day with something done", "days with something done")}>
               <div aria-hidden="true" className="flex max-w-[180px] justify-between gap-1">
                 {fortnight.map((d, i) => (
                   <span key={i} className={`size-2 rounded-full ${d ? "bg-accent" : "shadow-[inset_0_0_0_1.25px_var(--line-2)]"}`} />
                 ))}
               </div>
             </Fact>
-            <Fact label="Longest run" value={streak.longest} unit={streak.longest === 1 ? "day" : "days"} />
-            <Fact label="Best day" value={typical?.best ? typical.best.done : "—"} unit={typical?.best ? `${dayShort(typical.best.date)}, ${formatShort(typical.best.date)}` : undefined} />
+            <Fact label={tr("Longest run")} value={streak.longest} unit={trn(streak.longest, "day|count", "days|count")} />
+            <Fact label={tr("Best day")} value={typical?.best ? typical.best.done : "—"} unit={typical?.best ? formatMedium(typical.best.date) : undefined} />
           </dl>
           {children && <div className="@4xl/analytics:order-6 @4xl/analytics:col-span-12">{children}</div>}
         </div>

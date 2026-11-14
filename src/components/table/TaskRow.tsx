@@ -2,6 +2,8 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
+import { tr } from "@/lib/i18n";
+import { useLang } from "../lang";
 import { AutoTextarea } from "../AutoTextarea";
 import { useDrag } from "../drag";
 import { ArrowRightIcon, CheckIcon, EllipsisIcon } from "../icons";
@@ -131,11 +133,11 @@ function SwipeActions({ dx, done }: { dx: number; done: boolean }) {
         {right ? (
           <>
             <CheckIcon size={13} />
-            {done ? "Open" : "Done"}
+            {done ? tr("Open|action") : tr("Done")}
           </>
         ) : (
           <>
-            Tomorrow
+            {tr("Tomorrow")}
             <ArrowRightIcon size={14} />
           </>
         )}
@@ -170,6 +172,8 @@ export const TaskRow = memo(function TaskRow({
   actions: TableActions;
   onMenu: (task: Task, anchor: DOMRect | { x: number; y: number }, trigger?: HTMLElement) => void;
 }) {
+  // Kept from being drawn again needlessly, the row still follows the language.
+  useLang();
   const editing = editingField !== null;
   const titleRef = useFocusEnd(editing);
   const drag = useDrag();
@@ -210,7 +214,7 @@ export const TaskRow = memo(function TaskRow({
       value={task.title}
       onChange={(e) => actions.change(task.id, { title: e.target.value.replace(/\n/g, " ") })}
       onKeyDown={keys}
-      aria-label="Task title"
+      aria-label={tr("Task title")}
       maxLength={500}
       dir="auto"
       className={`${titleText} text-ink`}
@@ -229,14 +233,14 @@ export const TaskRow = memo(function TaskRow({
         actions.select(task.id);
         actions.toggle(task);
       }}
-      label={task.done ? `Mark “${task.title}” as open` : `Mark “${task.title}” as done`}
+      label={task.done ? tr("Mark “{title}” as open", { title: task.title }) : tr("Mark “{title}” as done", { title: task.title })}
       className={card ? "mt-px" : ""}
     />
   );
   // ⋯ waits for the pointer; under it, it becomes a white tile with an edge, so it shows on any row (done ones too).
   const menu = (
     <IconButton
-      label="More actions"
+      label={tr("More actions")}
       size="sm"
       onClick={(e) => {
         e.stopPropagation();

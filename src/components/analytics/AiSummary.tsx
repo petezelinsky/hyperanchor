@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { SummaryInput } from "@/lib/summary";
 import { toUnlock, UNLOCK, type SavedSummary, type SummaryState } from "@/lib/summaries";
 import type { Usage } from "@/lib/types";
+import { getLang, m, num, tr, trn } from "@/lib/i18n";
 import { ChevronDown, HistoryIcon, SparkIcon } from "../icons";
 import { Orb } from "../voice/Orb";
 import { LiquidLens } from "../lens";
@@ -15,7 +16,7 @@ import { SummaryHistory } from "./SummaryHistory";
 
 /** About what a summary costs (the server sets this much aside, and counts what it really cost). */
 const ABOUT = 3000;
-const count = new Intl.NumberFormat("en-US");
+
 const HIDDEN = "hyperanchor:summary-hidden";
 
 /** Each period's state, kept while the page is open: coming back to a period shows its summary at once. */
@@ -37,15 +38,25 @@ export function preloadSummaries(account: string, keys: string[]) {
 }
 
 const PROBLEMS: Record<string, string> = {
-  limit: "That’s all of today’s AI tokens. More tomorrow.",
-  not_configured: "The summary isn’t set up on this server yet.",
-  refused: "This one couldn’t be summarized.",
-  busy: "Claude is busy right now. Try again in a moment.",
-  failed: "The summary didn’t come through. Try again.",
-  offline: "You’re offline. Try again when you’re back.",
+  limit: m("That’s all of today’s AI tokens. More tomorrow."),
+  not_configured: m("The summary isn’t set up on this server yet."),
+  refused: m("This one couldn’t be summarized."),
+  busy: m("Claude is busy right now. Try again in a moment."),
+  failed: m("The summary didn’t come through. Try again."),
+  offline: m("You’re offline. Try again when you’re back."),
 };
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** A period in a sentence about itself, whole (each language builds "this week" its own way). */
+const WORDS = {
+  when: { week: m("this week|when"), month: m("this month|when"), year: m("this year|when") },
+  reading: { day: m("Claude is reading your day…"), week: m("Claude is reading your week…"), month: m("Claude is reading your month…"), year: m("Claude is reading your year…") },
+  how: {
+    day: m("How this day went, in a few lines, written by Claude."),
+    week: m("How this week went, in a few lines, written by Claude."),
+    month: m("How this month went, in a few lines, written by Claude."),
+    year: m("How this year went, in a few lines, written by Claude."),
+  },
+} as const;
 
 /** Height follows the content: when what's inside changes (a skeleton becomes a summary), the box grows to it smoothly. */
 function Morph({ k, children }: { k: string; children: React.ReactNode }) {
@@ -198,16 +209,16 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
   const since = state?.since ?? null;
   const remaining = state ? toUnlock(period, done, since) : 0;
   const short = left !== null && left < ABOUT;
-  const phrase = period === "day" ? (input.current ? "today" : "that day") : `this ${noun}`;
-  const tasks = (n: number) => plural(n, "more task");
+  const when = period === "day" ? (input.current ? tr("today") : tr("that day")) : tr(WORDS.when[period]);
+
   const why = !state
     ? undefined
     : remaining > 0
       ? current || since != null
-        ? `Write again after ${tasks(remaining)} done ${phrase}`
-        : `Finish ${tasks(remaining)} ${phrase} to unlock the summary`
+        ? trn(remaining, "Write again after {n} more task done {when}", "Write again after {n} more tasks done {when}", { when })
+        : trn(remaining, "Finish {n} more task {when} to unlock the summary", "Finish {n} more tasks {when} to unlock the summary", { when })
       : short
-        ? "Not enough AI tokens left today. More tomorrow."
+        ? tr("Not enough AI tokens left today. More tomorrow.")
         : undefined;
   const can = !!state && !writing && !why;
 
@@ -216,7 +227,7 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
     setProblem(null);
     setFresh(null);
     try {
-      const res = await fetch("/api/summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+      const res = await fetch("/api/summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(getLang() === "en" ? input : { ...input, lang: getLang() }) });
       if (!alive.current) return;
       if (res.status === 401) return window.location.reload();
       const body = (await res.json().catch(() => null)) as { saved?: SavedSummary | null; left?: number; error?: string; done?: number; need?: number } | null;
@@ -224,9 +235,13 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
         if (body?.error === "locked" && typeof body.done === "number" && typeof body.need === "number") {
           // The server counts the period's tasks itself: its numbers stand.
           const n = body.need - body.done;
-          setProblem(`${tasks(n)} to finish ${phrase} before the ${current ? "next " : ""}summary.`);
+          setProblem(
+            current
+              ? trn(n, "{n} more task to finish {when} before the next summary.", "{n} more tasks to finish {when} before the next summary.", { when })
+              : trn(n, "{n} more task to finish {when} before the summary.", "{n} more tasks to finish {when} before the summary.", { when }),
+          );
         } else {
-          setProblem(PROBLEMS[body?.error ?? "failed"] ?? PROBLEMS.failed);
+          setProblem(tr(PROBLEMS[body?.error ?? "failed"] ?? PROBLEMS.failed));
           if (body?.error === "limit") setLeft(0);
         }
       } else {
@@ -237,7 +252,7 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
         if (hidden) toggleHidden(false);
       }
     } catch {
-      if (alive.current) setProblem(PROBLEMS.offline);
+      if (alive.current) setProblem(tr(PROBLEMS.offline));
     }
     if (alive.current) setWriting(false);
   };
@@ -292,16 +307,16 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
 
   const doneSince = Math.max(0, done - (since ?? 0));
   const line = writing
-    ? `Claude is reading your ${noun}…`
+    ? tr(WORDS.reading[period])
     : current
-      ? [`Written ${writtenAt(current.createdAt)}`, `${count.format(current.tokens)} tokens`, hidden ? "hidden" : ""].filter(Boolean).join(" · ")
+      ? [tr("Written {when}", { when: writtenAt(current.createdAt) }), trn(current.tokens, "{n} token", "{n} tokens"), hidden ? tr("hidden") : ""].filter(Boolean).join(" · ")
       : !state
-        ? `How this ${noun} went, in a few lines, written by Claude.`
+        ? tr(WORDS.how[period])
         : remaining > 0
           ? since != null
-            ? `The next summary unlocks after ${tasks(remaining)} done ${phrase}.`
-            : `Unlocks once ${UNLOCK[period]} tasks are done ${phrase}: ${remaining} to go.`
-          : `How this ${noun} went, in a few lines, written by Claude. About ${count.format(ABOUT)} tokens${left === null ? "" : ` of your ${count.format(left)} left today`}.`;
+            ? trn(remaining, "The next summary unlocks after {n} more task done {when}.", "The next summary unlocks after {n} more tasks done {when}.", { when })
+            : trn(UNLOCK[period], "Unlocks once {n} task is done {when}: {left} to go.", "Unlocks once {n} tasks are done {when}: {left} to go.", { when, left: remaining })
+          : `${tr(WORDS.how[period])} ${left === null ? tr("About {n} tokens.", { n: num(ABOUT) }) : tr("About {n} tokens of your {left} left today.", { n: num(ABOUT), left: num(left) })}`;
 
   return (
     <section ref={panel} aria-labelledby="ai-summary" aria-busy={writing} className={`min-w-0 overflow-hidden ${PANEL}`}>
@@ -312,7 +327,7 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
         </span>
         <div className="min-w-0 flex-1">
           <h2 id="ai-summary" className="text-body font-semibold text-ink">
-            AI summary
+            {tr("AI summary")}
           </h2>
           <p className="mt-0.5 text-footnote text-ink-3">{line}</p>
           {state && !writing && !current && remaining > 0 && (
@@ -330,14 +345,14 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
         </div>
         <div className="flex items-center gap-1 @max-xl/analytics:w-full">
           {!!state && state.total >= 2 && (
-            <Button variant="plain" size="sm" onClick={() => setHistory(true)} aria-haspopup="dialog" data-tip="Every summary written" className="gap-1.5 text-ink-2!">
+            <Button variant="plain" size="sm" onClick={() => setHistory(true)} aria-haspopup="dialog" data-tip={tr("Every summary written")} className="gap-1.5 text-ink-2!">
               <HistoryIcon size={14} />
-              History
+              {tr("History")}
             </Button>
           )}
           {current && !writing && (
             <Button variant="plain" size="sm" onClick={() => toggleHidden()} aria-expanded={!hidden} className="gap-1 text-ink-2!">
-              {hidden ? "Show" : "Hide"}
+              {hidden ? tr("Show") : tr("Hide")}
               <ChevronDown size={13} className={`transition-transform duration-(--duration-base) ${hidden ? "" : "rotate-180"}`} />
             </Button>
           )}
@@ -352,7 +367,7 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
             className={`ml-1 gap-2 @max-xl/analytics:ml-auto ${can || writing ? "" : "cursor-default opacity-40"}`}
           >
             {writing ? <span aria-hidden="true" className="size-3.5 animate-spin rounded-full border-[1.5px] border-current/30 border-t-current" /> : <SparkIcon size={14} />}
-            {writing ? "Writing…" : current ? "Write again" : "Summarize"}
+            {writing ? tr("Writing…") : current ? tr("Write again") : tr("Summarize")}
           </Button>
         </div>
       </div>

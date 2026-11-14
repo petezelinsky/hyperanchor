@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatMedium, parseYmd, relativeDay, dayName } from "@/lib/dates";
+import { dayDiff, dayName, formatMedium, parseYmd, relativeDay, yearAfter } from "@/lib/dates";
 import type { Task } from "@/lib/types";
+import { tr, trn } from "@/lib/i18n";
 import { ArrowRightIcon, TrashIcon } from "./icons";
 import { CARD } from "./table/TaskRow";
 import { FoldRow, NewTaskRow, TaskTable } from "./table/TaskTable";
@@ -70,7 +71,7 @@ export function DayView({
   return (
     <div className="mx-auto w-full max-w-[792px] pt-1 pb-6 md:px-6 md:pt-3 md:pb-16">
       {past && open.length > 0 && (
-        <Notice action={<MoveButton label="Move to today" onClick={() => onMoveToToday(open)} />}>{open.length} left open on this day</Notice>
+        <Notice action={<MoveButton label={tr("Move to today")} onClick={() => onMoveToToday(open)} />}>{trn(open.length, "{n} left open on this day", "{n} left open on this day")}</Notice>
       )}
 
       {welcome && !all.length && !carried.length ? (
@@ -91,13 +92,13 @@ export function DayView({
             <p className="flex h-12 items-center pl-[42px] text-body text-ink-3">
               {all.length
                 ? isToday
-                  ? "All done for today."
-                  : "Everything on this day is done."
+                  ? tr("All done for today.")
+                  : tr("Everything on this day is done.")
                 : past
-                  ? "Nothing was planned."
+                  ? tr("Nothing was planned.")
                   : isToday
-                    ? "Nothing planned yet."
-                    : `Nothing planned for ${dayName(d)} yet.`}
+                    ? tr("Nothing planned yet.")
+                    : tr("Nothing planned for {day} yet.", { day: dayName(d) })}
             </p>
           }
         />
@@ -109,13 +110,13 @@ export function DayView({
 /** An empty day: one line on it, and "New task" (with Speak) as a card in the middle of the page. */
 function EmptyDay({ date, todayKey, onAdd, onSpeak }: { date: string; todayKey: string; onAdd: () => void; onSpeak?: () => void }) {
   const d = parseYmd(date);
-  const rel = relativeDay(date, todayKey);
+  const tomorrow = dayDiff(d, parseYmd(todayKey)) === 1;
   const past = date < todayKey;
   const [title, line] = past
-    ? ["Nothing was planned on this day.", "You can still add what you did."]
+    ? [tr("Nothing was planned on this day."), tr("You can still add what you did.")]
     : date === todayKey
-      ? ["Nothing planned for today.", "Add the first task, or say everything that’s on your mind."]
-      : [`Nothing planned for ${rel === "Tomorrow" ? "tomorrow" : dayName(d)} yet.`, "Get a head start: add a task, or say a few."];
+      ? [tr("Nothing planned for today."), tr("Add the first task, or say everything that’s on your mind.")]
+      : [tomorrow ? tr("Nothing planned for tomorrow yet.") : tr("Nothing planned for {day} yet.", { day: dayName(d) }), tr("Get a head start: add a task, or say a few.")];
   return (
     // Phones: the screen under the two bars; computers: the work area. A little above the middle, where the eye rests.
     <div className="mx-auto flex min-h-[calc(100dvh-124px-env(safe-area-inset-bottom))] w-full max-w-[792px] flex-col items-center justify-center px-4 pb-[10dvh] text-center md:h-full md:min-h-[320px] md:px-6">
@@ -169,31 +170,31 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
   const thisYear = parseYmd(todayKey).getFullYear();
   const when = (date: string) => {
     const d = parseYmd(date);
-    return relativeDay(date, todayKey) ?? `${formatMedium(d)}${d.getFullYear() !== thisYear ? `, ${d.getFullYear()}` : ""}`;
+    return relativeDay(date, todayKey) ?? `${formatMedium(d)}${d.getFullYear() !== thisYear ? yearAfter(d.getFullYear()) : ""}`;
   };
   return (
     <div>
-      <FoldRow label="From earlier days" count={n} open={open} onToggle={() => setOpen(!open)} />
+      <FoldRow label={tr("From earlier days")} count={n} open={open} onToggle={() => setOpen(!open)} />
       <Accordion open={open}>
         <div className="px-3 pt-1 pb-3 md:px-0">
           {/* Bringing everything along is a choice made while looking at the list, not a button that's always there. */}
           <div className="flex min-h-9 items-center justify-between gap-3 pr-0.5 pl-3 text-footnote text-ink-3">
-            <span>Most recent first. Tick off, bring to today, or let go.</span>
-            <MoveButton label={n === 1 ? "Move to today" : "Move all to today"} onClick={onMoveAll} />
+            <span>{tr("Most recent first. Tick off, bring to today, or let go.")}</span>
+            <MoveButton label={n === 1 ? tr("Move to today") : tr("Move all to today")} onClick={onMoveAll} />
           </div>
           <ul className="mt-1 flex flex-col gap-1.5">
             {tasks.slice(0, limit).map((t) => (
               <li key={t.id} data-flip={t.id} className={`flex items-center gap-3 py-1.5 pr-1.5 pl-3 ${CARD}`}>
-                <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
+                <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={tr("Mark “{title}” as done", { title: t.title })} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-body text-ink">{t.title}</span>
                   <span className="block text-caption text-ink-3">{when(t.date)}</span>
                 </span>
                 <Button size="sm" variant="plain" onClick={() => actions.move(t, todayKey)} className="gap-1 text-ink!">
-                  Today
+                  {tr("Today")}
                   <ArrowRightIcon size={12} />
                 </Button>
-                <IconButton label={`Delete “${t.title}”`} tip="Delete" size="sm" onClick={() => actions.remove(t)} className="hover:text-red-ink!">
+                <IconButton label={tr("Delete “{title}”", { title: t.title })} tip={tr("Delete")} size="sm" onClick={() => actions.remove(t)} className="hover:text-red-ink!">
                   <TrashIcon size={14} />
                 </IconButton>
               </li>
@@ -205,7 +206,7 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
               onClick={() => setLimit((l) => l + MORE)}
               className="tap relative mt-2.5 ml-3 text-caption font-medium text-ink-2 underline decoration-ink-4 underline-offset-[3px] hover:text-ink hover:decoration-current"
             >
-              Show {Math.min(MORE, n - limit)} more
+              {tr("Show {n} more", { n: Math.min(MORE, n - limit) })}
             </button>
           )}
         </div>
@@ -217,20 +218,20 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
 /** First visit: what Hyperanchor is for, the four moves that matter (keys on the left, as a legend), and a way to try them. */
 function WelcomeCard({ welcome, onAdd }: { welcome: NonNullable<Welcome>; onAdd: () => void }) {
   const steps: { title: string; key: string; touch: string }[] = [
-    { title: "Add what’s on your mind", key: "N", touch: "Tap +" },
-    { title: "Tick tasks off as you go", key: "Space", touch: "Tap the box, or swipe right" },
-    { title: "Stuck? Do one thing at a time", key: "F", touch: "Tap the focus button" },
-    { title: "Plans change: move a task to another day", key: "Drag it", touch: "Swipe left for tomorrow" },
+    { title: tr("Add what’s on your mind"), key: "N", touch: tr("Tap +") },
+    { title: tr("Tick tasks off as you go"), key: tr("Space"), touch: tr("Tap the box, or swipe right") },
+    { title: tr("Stuck? Do one thing at a time"), key: "F", touch: tr("Tap the focus button") },
+    { title: tr("Plans change: move a task to another day"), key: tr("Drag it"), touch: tr("Swipe left for tomorrow") },
   ];
   return (
     // A note on the page, not a card over it: the same left edge as the list it stands in for.
     <div className="max-w-[520px] px-4 pt-5 md:px-3">
-      <h2 className="font-display text-title-2 font-semibold tracking-[-0.02em]">Welcome, {welcome.name}.</h2>
-      <p className="mt-1 text-body text-ink-2">Hyperanchor keeps your day calm: one list, one clear next step. Four things are enough to start.</p>
+      <h2 className="font-display text-title-2 font-semibold tracking-[-0.02em]">{tr("Welcome, {name}.", { name: welcome.name })}</h2>
+      <p className="mt-1 text-body text-ink-2">{tr("Hyperanchor keeps your day calm: one list, one clear next step. Four things are enough to start.")}</p>
       <dl className="mt-5 border-t border-line">
         {steps.map((s) => (
           <div key={s.title} className="flex min-h-11 items-center gap-4 border-b border-line py-2">
-            <dt className="w-14 flex-none pointer-coarse:hidden">{s.key === "Drag it" ? <span className="text-caption text-ink-3">Drag</span> : <Kbd>{s.key}</Kbd>}</dt>
+            <dt className="w-14 flex-none pointer-coarse:hidden">{s.key === "Drag it" ? <span className="text-caption text-ink-3">{tr("Drag")}</span> : <Kbd>{s.key}</Kbd>}</dt>
             <dd className="min-w-0 flex-1">
               <span className="block text-body text-ink">{s.title}</span>
               {/* Phones: the gesture under the step. */}
@@ -241,7 +242,7 @@ function WelcomeCard({ welcome, onAdd }: { welcome: NonNullable<Welcome>; onAdd:
       </dl>
       <div className="mt-6 flex flex-wrap gap-2">
         <Button variant="primary" onClick={welcome.onExamples}>
-          Try it with three examples
+          {tr("Try it with three examples")}
         </Button>
         <Button
           variant="plain"
@@ -250,7 +251,7 @@ function WelcomeCard({ welcome, onAdd }: { welcome: NonNullable<Welcome>; onAdd:
             onAdd();
           }}
         >
-          Start with my own
+          {tr("Start with my own")}
         </Button>
       </div>
     </div>
