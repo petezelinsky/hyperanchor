@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { DAILY_TOKENS } from "@/lib/allowance";
 import { formatShort, formatTime, parseYmd } from "@/lib/dates";
 import type { Usage } from "@/lib/types";
 import { num, tr, trn } from "@/lib/i18n";
@@ -21,7 +22,7 @@ function resetsAt() {
 }
 
 /**
- * Usage: a window of its own (from the account's panel), on what the AI has used. Today against the day's 10,000
+ * Usage: a window of its own (from the account's panel), on what the AI has used. Today against the day's allowance
  * tokens, the last two weeks day by day, a few figures drawn from them, what things cost, and the plan without a limit
  * that is on its way.
  */
@@ -66,7 +67,7 @@ export function UsageSheet({ onClose }: { onClose: () => void }) {
             <div className="text-caption font-medium text-ink-3">{tr("Today")}</div>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="tabular font-display text-[34px] leading-[40px] font-semibold tracking-[-0.025em] text-ink">{t ? num(t.used) : "–"}</span>
-              <span className="text-footnote text-ink-3">{tr("of {n} tokens", { n: num(t?.limit ?? 10000) })}</span>
+              <span className="text-footnote text-ink-3">{tr("of {n} tokens", { n: num(t?.limit ?? DAILY_TOKENS) })}</span>
             </div>
             <div
               role="img"
@@ -85,7 +86,7 @@ export function UsageSheet({ onClose }: { onClose: () => void }) {
               <h3 className="text-footnote font-semibold text-ink">{tr("Last {n} days", { n: DAYS })}</h3>
               <span className="tabular text-caption text-ink-3">{usage ? tr("{n} a day on average", { n: num(Math.round(total / DAYS)) }) : ""}</span>
             </div>
-            <Chart days={days} limit={t?.limit ?? 10000} loading={!usage} />
+            <Chart days={days} limit={t?.limit ?? DAILY_TOKENS} loading={!usage} />
 
             {/* Three figures: side by side where there's room, a line each on a narrow phone. */}
             <dl className="mt-5 grid divide-line rounded-[12px] shadow-[inset_0_0_0_1px_var(--line)] @max-[420px]/usage:divide-y @min-[420px]/usage:grid-cols-3 @min-[420px]/usage:divide-x">
@@ -103,7 +104,7 @@ export function UsageSheet({ onClose }: { onClose: () => void }) {
             </dl>
 
             <p className="mt-4 text-caption text-pretty text-ink-3">
-              {tr("Speaking tasks, sorting them and the AI summary all draw on the same {n} tokens a day. A minute of speech takes about {speech}, sorting it about {sorting}, a summary about {summary}.", { n: num(t?.limit ?? 10000), speech: num(1000), sorting: num(2000), summary: num(3000) })}
+              {tr("Speaking tasks, sorting them and the AI summary all draw on the same {n} tokens a day. A minute of speech takes about {speech}, sorting it about {sorting}, a summary about {summary}.", { n: num(t?.limit ?? DAILY_TOKENS), speech: num(1000), sorting: num(2000), summary: num(3000) })}
             </p>
 
             {/* The plan without a daily limit: not here yet. */}
