@@ -25,6 +25,7 @@ iPhone/iPad app (`ios/`, SwiftUI). Both talk to the same API (`src/app/api`) and
 ```bash
 npm run typecheck && npm run build        # web
 npm run tokens                            # regenerate design tokens for web + iOS
+npm run i18n                              # every sentence in the code has its Russian and Polish
 ```
 
 Xcode lives at `~/Downloads/Xcode.app` (the system `xcode-select` points at the Command Line Tools), so prefix
@@ -46,6 +47,11 @@ folders) and they're part of the target, no project edits needed.
 ## Conventions
 
 - Web: see `README.md` (stack, API, env). Server changes must not break the web: run typecheck and build.
+- Web languages (English, Русский, Polski): every word a person reads goes through `tr("…")` / `trn(n, "…", "…")` /
+  `rich("…", {…})` from `src/lib/i18n.ts` — the English sentence in the code is the key. Add its Russian and Polish to
+  `src/lib/locales/ru.ts` and `pl.ts` in the same piece of work and run `npm run i18n`: it fails when a sentence is
+  missing from either list. Dates and numbers go through `src/lib/dates.ts` and `num()`, never `toLocale…("en-US")`.
+  The pages the server draws (sign-in, legal) stay in English.
 - iOS: Swift 6, SwiftUI, iOS 17+, no third-party dependencies. Design rules from the README apply: neutral grays,
   black primary buttons, one accent that means today / done / progress; red only for destructive actions and
   drops, green only for rises in analytics; never color body text with the accent.
