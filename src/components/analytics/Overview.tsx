@@ -83,10 +83,10 @@ function Ring({ value, size = 84 }: { value: number | null; size?: number }) {
 
 function Stat({ label, value, foot, tip }: { label: string; value: React.ReactNode; foot?: React.ReactNode; tip?: string }) {
   return (
-    <div data-tip={tip} className="min-w-0 px-4 first:pl-0 last:pr-0 max-md:py-1">
+    <div data-tip={tip} className="min-w-0 px-4 first:pl-0 last:pr-0 max-md:px-3 max-md:py-1 max-md:first:pl-0 max-md:last:pr-0">
       <dt className="truncate text-caption text-ink-3">{label}</dt>
       <dd className="tabular mt-1 font-display text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">{value}</dd>
-      {foot && <dd className="mt-0.5 truncate text-caption text-ink-3">{foot}</dd>}
+      {foot && <dd className="mt-0.5 text-caption text-pretty text-ink-3 md:truncate">{foot}</dd>}
     </div>
   );
 }

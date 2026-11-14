@@ -8,7 +8,7 @@ import type { Usage } from "@/lib/types";
 
 /**
  * The signed-in account's AI allowance for today (UTC): tokens used, tokens left and the whole of it. Hearing speech,
- * sorting it into tasks and the summary in Progress all draw on it. `features` tells the iOS app which of them this
+ * sorting it into tasks and the summary in Analytics all draw on it. `features` tells the iOS app which of them this
  * server offers.
  */
 export async function GET() {

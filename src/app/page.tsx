@@ -26,7 +26,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const { name, email, image } = session.user;
   const user = { name: name ?? email ?? "", email: email ?? "", image: image ?? null };
   await touchUser(session.user.id, user);
-  // The AI (speaking tasks, the summary in Progress) needs the server's Anthropic key: without one the app simply
+  // The AI (speaking tasks, the summary in Analytics) needs the server's Anthropic key: without one the app simply
   // doesn't offer it. Speech is heard on the server when it has an OpenAI key, else by the browser itself.
   return (
     <TaskAppLoader user={user} account={session.user.id} voice={!!process.env.ANTHROPIC_API_KEY} transcribe={!!process.env.ANTHROPIC_API_KEY && !!process.env.OPENAI_API_KEY} />

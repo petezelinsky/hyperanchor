@@ -74,7 +74,7 @@ export function SegmentedControl<T extends string>({
   size = "md",
   className = "",
 }: {
-  /** null: none of them (the view switch while Progress is on screen). */
+  /** null: none of them (the view switch while Analytics is on screen). */
   value: T | null;
   /** With `iconOnly`, the label becomes the radio's accessible name and tooltip. */
   options: { value: T; label: string; icon?: React.ReactNode; iconOnly?: boolean; tip?: string }[];
