@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { tr, trn } from "@/lib/i18n";
 import { CloudOffIcon } from "./icons";
 import type { Trouble } from "./useTasks";
 
@@ -37,7 +38,8 @@ export function SyncStatus({ sync, className = "" }: { sync: Sync; className?: s
   const n = sync.waiting;
   const waiting = n ? (
     <>
-      {n} <span className="max-sm:hidden">{n === 1 ? "change" : "changes"} </span>waiting
+      <span className="max-sm:hidden">{trn(n, "{n} change waiting", "{n} changes waiting")}</span>
+      <span className="sm:hidden">{tr("{n} waiting", { n })}</span>
     </>
   ) : null;
   return (
@@ -45,14 +47,14 @@ export function SyncStatus({ sync, className = "" }: { sync: Sync; className?: s
       {!online || sync.trouble === "offline" ? (
         <>
           <CloudOffIcon size={13} className="flex-none" />
-          {waiting ? <span>Offline · {waiting}</span> : "Offline"}
+          {waiting ? <span>{tr("Offline")} · {waiting}</span> : tr("Offline")}
         </>
       ) : sync.trouble === "error" && waiting ? (
         <span>{waiting}</span>
       ) : slow ? (
         <>
           <span className="size-1.5 animate-pulse rounded-full bg-accent" />
-          Saving…
+          {tr("Saving…")}
         </>
       ) : null}
     </span>

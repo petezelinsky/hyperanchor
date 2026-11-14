@@ -1,5 +1,6 @@
 "use client";
 
+import { tr } from "@/lib/i18n";
 import { ChevronLeft, ChevronRight, ReturnIcon } from "./icons";
 import { Orb } from "./voice/Orb";
 
@@ -52,12 +53,12 @@ export function SpeakChip({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      aria-label="Speak your tasks"
-      data-tip="Speak your tasks (V)"
+      aria-label={tr("Speak your tasks")}
+      data-tip={tr("Speak your tasks (V)")}
       className="tap relative flex h-7 flex-none items-center gap-1.5 rounded-sm bg-surface pr-2.5 pl-2 text-footnote font-medium text-ink-2 shadow-[inset_0_0_0_1px_var(--line-2)] transition-colors duration-(--duration-fast) hover:bg-surface-3 hover:text-ink active:bg-line"
     >
       <Orb size={16} />
-      Speak
+      {tr("Speak")}
     </button>
   );
 }

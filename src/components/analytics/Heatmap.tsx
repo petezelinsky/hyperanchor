@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { addDays, dayDiff, formatLong, MONTHS_SHORT, startOfWeek, weekdayNames, ymd } from "@/lib/dates";
 import type { DayStat } from "@/lib/stats";
+import { tr } from "@/lib/i18n";
 
 // Sequential: one hue, more completed is darker (lighter in dark mode). Zero recedes toward the surface.
 const LEVELS = ["var(--heat-0)", "var(--heat-1)", "var(--heat-2)", "var(--heat-3)", "var(--heat-4)"];
@@ -66,7 +67,7 @@ export function Heatmap({ days, todayKey, onPick }: { days: DayStat[]; todayKey:
                     onBlur={() => setHover(null)}
                     onClick={(e) => onPick(d, e.currentTarget)}
                     aria-haspopup="dialog"
-                    aria-label={`${formatLong(d.date)}: ${d.done} of ${d.total} done`}
+                    aria-label={`${formatLong(d.date)}: ${tr("{done} of {total} done", { done: d.done, total: d.total })}`}
                     className={`aspect-square w-full rounded-xs transition-shadow duration-(--duration-fast) ${
                       on ? "shadow-[0_0_0_1.5px_var(--surface),0_0_0_3px_var(--ink-2)]" : d.isToday ? "shadow-[0_0_0_1.5px_var(--surface),0_0_0_2.5px_var(--ink-3)]" : ""
                     }`}
@@ -80,11 +81,11 @@ export function Heatmap({ days, todayKey, onPick }: { days: DayStat[]; todayKey:
         </div>
       </div>
       <div className="mt-3 flex items-center justify-end gap-1.5 text-caption-2 text-ink-3">
-        Less
+        {tr("Less")}
         {LEVELS.map((c, i) => (
           <span key={i} className="size-3 rounded-xs" style={{ background: c }} />
         ))}
-        More
+        {tr("More")}
       </div>
     </div>
   );
@@ -108,10 +109,10 @@ function HeatTip({ d, x, y, h, w, ahead }: { d: DayStat; x: number; y: number; h
       <div className="tabular mt-0.5 text-footnote">
         {d.total ? (
           <span className="font-semibold text-ink">
-            {d.done} <span className="font-normal text-ink-2">of {d.total} done</span>
+            {d.done} <span className="font-normal text-ink-2">{tr("of {n} done", { n: d.total })}</span>
           </span>
         ) : (
-          <span className="text-ink-2">{ahead ? "Still ahead" : "Nothing planned"}</span>
+          <span className="text-ink-2">{ahead ? tr("Still ahead") : tr("Nothing planned")}</span>
         )}
       </div>
     </div>

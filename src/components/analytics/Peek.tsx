@@ -1,10 +1,12 @@
 "use client";
 
 import { formatLong, MONTHS } from "@/lib/dates";
-import { pct } from "@/lib/stats";
+
 import type { Task } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 import { ArrowRightIcon, CheckIcon, XIcon } from "../icons";
 import { Button, IconButton, Popover, type Anchor } from "../ui";
+import { pct } from "./format";
 
 /** What a click on a chart opens: a day (its tasks), or a month of the year (its numbers). */
 export type Pick =
@@ -27,7 +29,7 @@ function Head({ title, line, onClose }: { title: string; line: string; onClose: 
         <h3 className="truncate text-footnote font-semibold text-ink">{title}</h3>
         <p className="tabular mt-0.5 text-caption text-ink-3">{line}</p>
       </div>
-      <IconButton label="Close" size="sm" onClick={onClose} className="-mt-0.5 flex-none">
+      <IconButton label={tr("Close")} size="sm" onClick={onClose} className="-mt-0.5 flex-none">
         <XIcon size={14} />
       </IconButton>
     </div>
@@ -44,7 +46,7 @@ export function Peek({ pick, todayKey, onOpenDay, onOpenMonth, onClose }: { pick
     const rate = pick.planned ? pick.done / pick.planned : null;
     return (
       <Popover anchor={pick.anchor} trigger={pick.trigger} label={`${MONTHS[pick.month]} ${pick.year}`} onClose={onClose} className="w-[288px] max-w-[calc(100vw-16px)]">
-        <Head title={`${MONTHS[pick.month]} ${pick.year}`} line={pick.planned ? `${pick.done} of ${pick.planned} done · ${pct(rate!)}` : "Nothing planned"} onClose={onClose} />
+        <Head title={`${MONTHS[pick.month]} ${pick.year}`} line={pick.planned ? `${tr("{done} of {total} done", { done: pick.done, total: pick.planned })} · ${pct(rate!)}` : tr("Nothing planned")} onClose={onClose} />
         {pick.planned > 0 && (
           <div className="px-4 pt-2.5">
             <Meter value={rate!} />
@@ -52,13 +54,13 @@ export function Peek({ pick, todayKey, onOpenDay, onOpenMonth, onClose }: { pick
         )}
         <dl className="mx-4 mt-3 text-footnote">
           <div className="flex items-center justify-between border-t border-line py-2">
-            <dt className="text-ink-2">Days with something done</dt>
+            <dt className="text-ink-2">{tr("Days with something done")}</dt>
             <dd className="tabular text-ink">
-              {pick.activeDays} <span className="text-ink-3">of {pick.elapsedDays}</span>
+              {pick.activeDays} <span className="text-ink-3">{tr("of {n}", { n: pick.elapsedDays })}</span>
             </dd>
           </div>
           <div className="flex items-center justify-between border-t border-line py-2">
-            <dt className="text-ink-2">Best day</dt>
+            <dt className="text-ink-2">{tr("Best day")}</dt>
             <dd className="tabular text-ink">{pick.best ? `${formatLong(pick.best.date).replace(/^\w+, /, "")} · ${pick.best.done}` : "—"}</dd>
           </div>
         </dl>
@@ -72,7 +74,7 @@ export function Peek({ pick, todayKey, onOpenDay, onOpenMonth, onClose }: { pick
             }}
             className="w-full text-ink!"
           >
-            See {MONTHS[pick.month]} in Analytics
+            {tr("See {month} in Analytics", { month: MONTHS[pick.month] })}
             <ArrowRightIcon size={13} />
           </Button>
         </div>
@@ -85,7 +87,7 @@ export function Peek({ pick, todayKey, onOpenDay, onOpenMonth, onClose }: { pick
   const title = formatLong(pick.date);
   return (
     <Popover anchor={pick.anchor} trigger={pick.trigger} label={title} onClose={onClose} className="w-[300px] max-w-[calc(100vw-16px)]">
-      <Head title={title} line={tasks.length ? `${done} of ${tasks.length} done · ${pct(done / tasks.length)}` : pick.key > todayKey ? "Nothing planned yet" : "Nothing was planned"} onClose={onClose} />
+      <Head title={title} line={tasks.length ? `${tr("{done} of {total} done", { done, total: tasks.length })} · ${pct(done / tasks.length)}` : pick.key > todayKey ? tr("Nothing planned yet") : tr("Nothing was planned")} onClose={onClose} />
       {tasks.length > 0 && (
         <>
           <div className="px-4 pt-2.5">
@@ -103,7 +105,7 @@ export function Peek({ pick, todayKey, onOpenDay, onOpenMonth, onClose }: { pick
                 <span dir="auto" className={`min-w-0 flex-1 truncate ${t.done ? "text-ink" : "text-ink-3"}`}>
                   {t.title}
                 </span>
-                <span className="sr-only">{t.done ? "done" : "open"}</span>
+                <span className="sr-only">{t.done ? tr("done") : tr("open")}</span>
               </li>
             ))}
           </ul>
@@ -120,7 +122,7 @@ export function Peek({ pick, todayKey, onOpenDay, onOpenMonth, onClose }: { pick
           }}
           className="w-full text-ink!"
         >
-          Open day
+          {tr("Open day")}
           <ArrowRightIcon size={13} />
         </Button>
       </div>

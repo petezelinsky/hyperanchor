@@ -5,10 +5,10 @@ import { createPortal } from "react-dom";
 import { addDays, formatMedium, parseYmd, relativeDay, startOfWeek, ymd, type WeekStart } from "@/lib/dates";
 import type { TaskDraft, Usage } from "@/lib/types";
 import { DRAFT_TEXT_MAX as TEXT_MAX } from "@/lib/validate";
+import { m, tr, trn } from "@/lib/i18n";
 import { AutoTextarea } from "../AutoTextarea";
-import { pourWords } from "../dust";
 import { ChevronDown, XIcon } from "../icons";
-import { motion, reducedMotion } from "../motion";
+import { reducedMotion } from "../motion";
 import { MiniMonth } from "../Sidebar";
 import { Button, IconButton, Kbd, Menu, Popover, type MenuEntry } from "../ui";
 import { canListen, Dictation, spokenLanguage, type StopReason } from "./dictation";
@@ -27,37 +27,37 @@ type Phase = "listening" | "hearing" | "sorting" | "idle";
  */
 type Problem = { message: string; again?: string; audio?: Recorded } | null;
 
-const LIMIT = "That’s all of today’s AI tokens. More tomorrow.";
+const LIMIT = m("That’s all of today’s AI tokens. More tomorrow.");
 /** About the least a short note costs to hear and sort: with less left today, listening doesn't start. */
 const ENOUGH = 2100;
 const PROBLEMS: Record<string, string> = {
   limit: LIMIT,
-  not_configured: "Sorting into tasks isn’t set up on this server yet.",
-  refused: "That couldn’t be sorted into tasks. Try saying it another way.",
-  busy: "The sorter is busy right now.",
-  failed: "That couldn’t be sorted into tasks.",
+  not_configured: m("Sorting into tasks isn’t set up on this server yet."),
+  refused: m("That couldn’t be sorted into tasks. Try saying it another way."),
+  busy: m("The sorter is busy right now."),
+  failed: m("That couldn’t be sorted into tasks."),
 };
 const HEARING: Record<string, string> = {
   limit: LIMIT,
-  not_configured: "Listening isn’t set up on this server yet. Type instead.",
-  too_long: "That was too long to write down at once. Say it in two or three parts.",
-  busy: "Couldn’t write that down right now. Try again in a moment.",
-  failed: "That couldn’t be written down. Try again.",
+  not_configured: m("Listening isn’t set up on this server yet. Type instead."),
+  too_long: m("That was too long to write down at once. Say it in two or three parts."),
+  busy: m("Couldn’t write that down right now. Try again in a moment."),
+  failed: m("That couldn’t be written down. Try again."),
 };
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-/** The least time the sphere spends thinking, so what was said can be seen pouring into it. */
-const THINK_MS = 1500;
-/** The ring's radius as a share of the sphere's half-width (ParticleRing draws it at 226 of 400). */
-const RING = 226 / 400;
+/** The least time the sphere spends thinking: about one turn of its wave, so the pause reads as thought, not as a stall. */
+const THINK_MS = 1900;
 
 /**
  * Speak your tasks: the whole screen, plain. The sphere listens in the middle and moves to every sound. Where the server
  * hears speech itself (`server`), the voice is recorded and written down there once the person stops — in any language,
  * worked out without asking (Settings can name one); elsewhere the browser's own recognition writes the words under the
- * sphere as they come. Once the person stops, the words pour into the sphere, which thinks (comets of light run round
- * it) while they are written down and sorted; then it breathes out and a sheet slides up from the bottom with the tasks
- * on their days: each can be reworded, moved to another day (any day, from a calendar) or left out. The sheet can be
- * pulled down to the stage and brought back. From there it's one step to add them, to speak some more, or to leave.
+ * sphere as they come. Once the person stops, the sphere thinks (one smooth wave goes round it, clockwise, and the dots
+ * it passes swell) while the words are written down and sorted; then a sheet with the tasks comes up from under the
+ * screen and lifts the stage with it: the sphere stays in sight above, smaller, and the sheet never takes more than half
+ * the screen (a long list scrolls inside it). Each task can be reworded, moved to another day (any day, from a
+ * calendar) or left out. The sheet can be pulled down and brought back. From there it's one step to add them, to speak
+ * some more, or to leave.
  * Typing (or pasting) works the same way, and takes over where the browser can't listen.
  */
 export function VoiceScreen({
@@ -96,16 +96,12 @@ export function VoiceScreen({
   const [confirming, setConfirming] = useState(false);
   const [dayMenu, setDayMenu] = useState<{ key: number; anchor: DOMRect; trigger: HTMLElement } | null>(null);
   const [calendar, setCalendar] = useState<{ key: number; anchor: DOMRect; trigger: HTMLElement; y: number; m: number } | null>(null);
-  // The words have poured into the sphere: they're no longer shown under it.
-  const [poured, setPoured] = useState(false);
   // How far the sheet is being pulled down (px), while it's held.
   const [pull, setPull] = useState(0);
 
   const dialog = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const words = useRef<HTMLParagraphElement>(null);
-  const sheet = useRef<HTMLElement>(null);
-  const backdrop = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const ring = useRef<ParticleRing | null>(null);
   const dictation = useRef<Dictation | null>(null);
@@ -126,22 +122,9 @@ export function VoiceScreen({
     meter.current = null;
   }, []);
 
-  /** What was said pours into the sphere (once it has been on screen for a moment). */
-  const pour = useCallback(() => {
-    setTimeout(() => {
-      const el = words.current;
-      const c = canvas.current;
-      const host = dialog.current;
-      if (!alive.current || !el || !c || !host || latest.current.phase !== "sorting") return;
-      const r = c.getBoundingClientRect();
-      if (pourWords(host, el, { x: r.left + r.width / 2, y: r.top + r.height / 2, r: (r.width / 2) * RING })) setPoured(true);
-    }, 420);
-  }, []);
-
   /**
-   * Sends `words` to be sorted; the tasks that come back join the ones already there. Spoken, the words pour into the
-   * sphere, which thinks for at least a moment, breathes out, and the sheet comes up; typed, the sheet comes up at once
-   * with lines filling in.
+   * Sends `words` to be sorted; the tasks that come back join the ones already there. Spoken, the sphere thinks for at
+   * least a moment, breathes out, and the sheet comes up; typed, the sheet comes up at once with lines filling in.
    */
   const sort = useCallback(async (words: string) => {
     const clean = words.trim();
@@ -149,17 +132,15 @@ export function VoiceScreen({
     if (clean.length > TEXT_MAX) {
       setPhase("idle");
       setReview(true);
-      return setProblem({ message: "That’s too much for one go. Sort it in two or three parts." });
+      return setProblem({ message: tr("That’s too much for one go. Sort it in two or three parts.") });
     }
     const spoken = !latest.current.typing && !!canvas.current;
     const began = performance.now();
     setPhase("sorting");
     setProblem(null);
     setConfirming(false);
-    if (spoken) {
-      setReview(false);
-      pour();
-    } else setReview(true);
+    if (spoken) setReview(false);
+    else setReview(true);
     // Spoken: the sheet waits for the sphere to have thought for a moment, then comes up as it breathes out.
     const settle = async () => {
       if (!spoken) return;
@@ -180,7 +161,7 @@ export function VoiceScreen({
       if (!res.ok) {
         const code = ((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? "failed";
         if (code === "limit") setSpent(true);
-        setProblem({ message: PROBLEMS[code] ?? PROBLEMS.failed, again: code === "busy" || code === "failed" ? clean : undefined });
+        setProblem({ message: tr(PROBLEMS[code] ?? PROBLEMS.failed), again: code === "busy" || code === "failed" ? clean : undefined });
       } else {
         const { tasks } = (await res.json()) as { tasks: TaskDraft[] };
         if (!alive.current) return;
@@ -189,18 +170,17 @@ export function VoiceScreen({
         setSaid("");
         setText("");
         if (tasks.length) setDrafts((list) => [...list, ...tasks.map((t) => ({ ...t, key: nextKey.current++, fresh: true }))]);
-        else setProblem({ message: "No tasks in that. Say what you need to do, and when." });
+        else setProblem({ message: tr("No tasks in that. Say what you need to do, and when.") });
       }
     } catch {
       if (!alive.current) return;
-      setProblem({ message: "You’re offline. What you said is kept: try again when you’re back.", again: clean });
+      setProblem({ message: tr("You’re offline. What you said is kept: try again when you’re back."), again: clean });
     }
     if (!alive.current) return;
     // Whatever came of it, the sheet is up now (with the tasks, or with what went wrong).
     setReview(true);
     setPhase("idle");
-    setPoured(false);
-  }, [pour]);
+  }, []);
 
   const heard = useCallback(
     (reason: StopReason, words: string) => {
@@ -217,14 +197,14 @@ export function VoiceScreen({
       setProblem({
         message:
           reason === "denied"
-            ? "The microphone is blocked for this site. Allow it in the address bar, or type instead."
+            ? tr("The microphone is blocked for this site. Allow it in the address bar, or type instead.")
             : reason === "no-microphone"
-              ? "No microphone was found. Connect one, or type instead."
+              ? tr("No microphone was found. Connect one, or type instead.")
               : reason === "network"
-                ? "Listening needs a connection. Try again, or type instead."
+                ? tr("Listening needs a connection. Try again, or type instead.")
                 : reason === "error"
-                  ? "Listening didn’t start. Try again, or type instead."
-                  : "Nothing was heard. Try again a little closer to the microphone.",
+                  ? tr("Listening didn’t start. Try again, or type instead.")
+                  : tr("Nothing was heard. Try again a little closer to the microphone."),
       });
     },
     [sort, hush],
@@ -251,20 +231,20 @@ export function VoiceScreen({
           const code = ((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? "failed";
           if (code === "limit") setSpent(true);
           setPhase("idle");
-          return setProblem({ message: HEARING[code] ?? HEARING.failed, audio: code === "busy" || code === "failed" ? audio : undefined });
+          return setProblem({ message: tr(HEARING[code] ?? HEARING.failed), audio: code === "busy" || code === "failed" ? audio : undefined });
         }
         const { text } = (await res.json()) as { text: string };
         if (!alive.current) return;
         if (!text.trim()) {
           setPhase("idle");
-          return setProblem({ message: "Nothing was heard. Try again a little closer to the microphone." });
+          return setProblem({ message: tr("Nothing was heard. Try again a little closer to the microphone.") });
         }
         setSaid(text);
         void sort(text);
       } catch {
         if (!alive.current) return;
         setPhase("idle");
-        setProblem({ message: "You’re offline. What you said is kept: try again when you’re back.", audio });
+        setProblem({ message: tr("You’re offline. What you said is kept: try again when you’re back."), audio });
       }
     },
     [sort, sample],
@@ -280,12 +260,12 @@ export function VoiceScreen({
       setProblem({
         message:
           reason === "denied"
-            ? "The microphone is blocked for this site. Allow it in the address bar, or type instead."
+            ? tr("The microphone is blocked for this site. Allow it in the address bar, or type instead.")
             : reason === "no-microphone"
-              ? "No microphone was found. Connect one, or type instead."
+              ? tr("No microphone was found. Connect one, or type instead.")
               : reason === "error"
-                ? "Listening didn’t start. Try again, or type instead."
-                : "Nothing was heard. Try again a little closer to the microphone.",
+                ? tr("Listening didn’t start. Try again, or type instead.")
+                : tr("Nothing was heard. Try again a little closer to the microphone."),
       });
     },
     [hear, hush],
@@ -300,7 +280,6 @@ export function VoiceScreen({
     setConfirming(false);
     setSaid("");
     setSaying("");
-    setPoured(false);
     setPhase("listening");
     if (record) {
       const r = new Recorder({ onSpeaking: setSpeaking, onStop: recorded });
@@ -396,7 +375,7 @@ export function VoiceScreen({
         setSaying("");
         setSpent(true);
         setPhase("idle");
-        setProblem({ message: LIMIT });
+        setProblem({ message: tr(LIMIT) });
       })
       .catch(() => {});
     return () => {
@@ -528,10 +507,10 @@ export function VoiceScreen({
     if (!days.includes(draft.date)) days.push(draft.date);
     const pick = (date: string) => () => setDrafts((list) => list.map((d) => (d.key === draft.key ? { ...d, date } : d)));
     return [
-      ...days.sort().map((date) => ({ label: date === nextWeek && !relativeDay(date, todayKey) ? `${formatMedium(parseYmd(date))} · next week` : dayLabel(date), onSelect: pick(date), checked: date === draft.date })),
+      ...days.sort().map((date) => ({ label: date === nextWeek && !relativeDay(date, todayKey) ? `${formatMedium(parseYmd(date))} · ${tr("next week")}` : dayLabel(date), onSelect: pick(date), checked: date === draft.date })),
       { separator: true },
       {
-        label: "Pick a date…",
+        label: tr("Pick a date…"),
         onSelect: () => {
           if (!dayMenu) return;
           const d = parseYmd(draft.date);
@@ -542,27 +521,11 @@ export function VoiceScreen({
   };
   const calendarDraft = calendar && drafts.find((d) => d.key === calendar.key);
 
-  /** The sheet goes back down (the tasks stay): it slides away, then is gone. */
+  /** The sheet goes back down (the tasks stay; a button on the stage brings it back). */
   const lower = (then?: () => void) => {
-    const s = sheet.current;
-    const b = backdrop.current;
     setPull(0);
-    if (!s || reducedMotion()) {
-      setReview(false);
-      return then?.();
-    }
-    const m = motion();
-    b?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: m.base, easing: m.in, fill: "forwards" });
-    void s
-      .animate([{ transform: getComputedStyle(s).transform === "none" ? "translateY(0)" : getComputedStyle(s).transform }, { transform: "translateY(100%)" }], { duration: m.base, easing: m.in, fill: "forwards" })
-      .finished.then(
-        () => {
-          if (!alive.current) return;
-          setReview(false);
-          then?.();
-        },
-        () => {},
-      );
+    setReview(false);
+    then?.();
   };
 
   /** Holding the sheet's handle: it follows the finger down, and let go far (or fast) enough it goes down for good. */
@@ -595,25 +558,25 @@ export function VoiceScreen({
   const n = drafts.filter((d) => d.title.trim()).length;
   const busy = phase === "sorting";
   const hearing = phase === "hearing";
-  const tasks = (count: number) => `${count} ${count === 1 ? "task" : "tasks"}`;
+
   const caption =
-    phase === "listening" ? (record ? `Listening · ${clock(elapsed)}` : "Listening") : hearing ? "Writing it down…" : busy ? "Sorting into tasks…" : "";
+    phase === "listening" ? (record ? `${tr("Listening")} · ${clock(elapsed)}` : tr("Listening")) : hearing ? tr("Writing it down…") : busy ? tr("Sorting into tasks…") : "";
   // What to say: a quiet line under the sphere, and an example under it, smaller still.
   const hint: [string, string] | null =
     phase === "listening"
-      ? ["Say what you’re going to do, and when.", "“Call the bank tomorrow morning, book the dentist on Friday.”"]
+      ? [tr("Say what you’re going to do, and when."), tr("“Call the bank tomorrow morning, book the dentist on Friday.”")]
       : typing || hearing || busy
         ? null
         : n
-          ? ["Anything else? Speak again, or add what you have.", ""]
-          : ["Press Speak again and say what you’re going to do.", ""];
+          ? [tr("Anything else? Speak again, or add what you have."), ""]
+          : [tr("Press Speak again and say what you’re going to do."), ""];
 
   return createPortal(
     <div
       ref={dialog}
       role="dialog"
       aria-modal="true"
-      aria-label="Speak your tasks"
+      aria-label={tr("Speak your tasks")}
       tabIndex={-1}
       data-floating=""
       className="fixed inset-0 z-[90] flex animate-[fade_var(--duration-base)_var(--ease-out)_both] flex-col bg-surface outline-none"
@@ -621,26 +584,27 @@ export function VoiceScreen({
       <header className="flex h-[52px] flex-none items-center justify-between gap-2 px-3 md:h-14 md:px-4">
         <Button onClick={leave} className="gap-2 pl-2.5">
           <XIcon size={14} />
-          Cancel
+          {tr("Cancel")}
           <span className="pointer-coarse:hidden">
-            <Kbd>Esc</Kbd>
+            <Kbd>{tr("Esc")}</Kbd>
           </span>
         </Button>
         {hears && (
           <Button variant="plain" onClick={() => type(!typing)} disabled={busy || hearing}>
-            {typing ? "Speak instead" : "Type instead"}
+            {typing ? tr("Speak instead") : tr("Type instead")}
           </Button>
         )}
       </header>
 
-      {/* The stage: the sphere and the words, or a box to type into, in the middle of the screen. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-        <div className="my-auto flex w-full flex-col items-center px-4 pt-2 pb-4 md:px-6 md:pb-6">
+      {/* The stage: the sphere and the words, or a box to type into, in the middle of the room it has. When the sheet
+          comes up the room gets smaller, and the sphere with it (it is sized by the stage's own height). */}
+      <div className={`flex min-h-0 flex-1 flex-col overscroll-contain [container-type:size] ${typing ? "overflow-y-auto" : "overflow-hidden"}`}>
+        <div className={`my-auto flex w-full flex-col items-center px-4 md:px-6 ${review && !typing ? "py-2" : "pt-2 pb-4 md:pb-6"}`}>
           {typing ? (
             <div className="w-full max-w-[600px] pt-4">
-              <h1 className="font-display text-title-2 font-semibold tracking-[-0.02em]">Type your tasks</h1>
+              <h1 className="font-display text-title-2 font-semibold tracking-[-0.02em]">{tr("Type your tasks")}</h1>
               <p className="mt-1 text-body text-ink-2">
-                {hears ? "In any order, as it comes. Each thing to do becomes a task on its day." : "This browser can’t listen, so type or paste. Each thing to do becomes a task on its day."}
+                {hears ? tr("In any order, as it comes. Each thing to do becomes a task on its day.") : tr("This browser can’t listen, so type or paste. Each thing to do becomes a task on its day.")}
               </p>
               <AutoTextarea
                 ref={field}
@@ -649,21 +613,21 @@ export function VoiceScreen({
                 maxLength={TEXT_MAX}
                 disabled={busy}
                 autoFocus={!hears}
-                aria-label="What you need to do"
-                placeholder="Tomorrow morning call the bank. On Friday book the dentist…"
+                aria-label={tr("What you need to do")}
+                placeholder={tr("Tomorrow morning call the bank. On Friday book the dentist…")}
                 className="mt-4 max-h-[36dvh] min-h-[112px] overflow-y-auto! rounded-lg bg-surface-2 p-3.5! text-[16px] leading-6 shadow-ring-line focus-visible:shadow-ring-line-2 md:text-callout"
               />
             </div>
           ) : (
             <>
-              <canvas ref={canvas} aria-hidden="true" className="size-[240px] flex-none text-ink md:size-[300px]" />
-              <p className="tabular mt-1 min-h-[18px] text-caption text-ink-3">{caption}</p>
+              <canvas ref={canvas} aria-hidden="true" className={`flex-none text-ink ${review ? "size-[min(240px,84cqh)] md:size-[min(300px,84cqh)]" : "size-[min(240px,56cqh)] md:size-[min(300px,60cqh)]"}`} />
+              <p className={`tabular mt-1 min-h-[18px] text-caption text-ink-3 ${review ? "hidden" : ""}`}>{caption}</p>
               <p
                 ref={words}
                 aria-live="off"
-                className={`mt-2 line-clamp-4 min-h-[52px] w-full max-w-[560px] text-center text-headline font-medium text-balance transition-opacity duration-(--duration-fast) md:min-h-[60px] md:text-[20px] md:leading-[30px] md:tracking-[-0.014em] ${
-                  poured ? "opacity-0" : ""
-                }`}
+                className={`mt-2 line-clamp-4 min-h-[52px] w-full max-w-[560px] text-center text-headline font-medium text-balance transition-colors duration-(--duration-base) md:min-h-[60px] md:text-[20px] md:leading-[30px] md:tracking-[-0.014em] ${
+                  busy ? "text-ink-3" : ""
+                } ${review ? "hidden" : ""}`}
               >
                 {problem && phase !== "listening" && !review ? (
                   <span className="text-callout font-normal text-ink-2 md:text-[17px] md:leading-6">{problem.message}</span>
@@ -684,30 +648,30 @@ export function VoiceScreen({
         </div>
       </div>
 
-      {/* The foot: the next step, in the middle, on the same white. */}
-      <div className="flex flex-none items-center justify-center gap-2 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:pt-3 md:pb-9">
+      {/* The foot: the next step, in the middle, on the same white (the sheet brings its own). */}
+      <div className={`flex-none items-center justify-center gap-2 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:pt-3 md:pb-9 ${review ? "hidden" : "flex"}`}>
         {n > 0 && !review && (
           <Button size="lg" onClick={() => setReview(true)} className="max-sm:flex-1 md:h-10 md:rounded-[10px]">
-            Review {tasks(n)}
+            {trn(n, "Review {n} task", "Review {n} tasks")}
           </Button>
         )}
         {typing ? (
           <Button size="lg" variant="primary" disabled={busy || !text.trim()} onClick={() => sort(text)} className="max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
-            Sort into tasks
+            {tr("Sort into tasks")}
           </Button>
         ) : problem?.audio && phase === "idle" ? (
           <>
             <Button size="lg" onClick={() => listen()} className="gap-2 max-sm:flex-1 md:h-10 md:rounded-[10px]">
               <Orb size={20} />
-              Speak again
+              {tr("Speak again")}
             </Button>
             <Button size="lg" variant="primary" onClick={() => hear(problem.audio!)} className="max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
-              Try again
+              {tr("Try again")}
             </Button>
           </>
         ) : phase === "listening" ? (
-          <Button size="lg" variant="primary" onClick={stop} aria-label="Done speaking" className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
-            Done
+          <Button size="lg" variant="primary" onClick={stop} aria-label={tr("Done speaking")} className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
+            {tr("Done|speaking")}
             <span className="pointer-coarse:hidden">
               <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] bg-on-primary/18 px-1.5 font-sans text-caption-2 font-medium">↵</kbd>
             </span>
@@ -715,27 +679,20 @@ export function VoiceScreen({
         ) : (
           <Button size="lg" variant="primary" disabled={busy || hearing || spent} onClick={() => listen()} className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
             <Orb size={20} />
-            Speak again
+            {tr("Speak again")}
           </Button>
         )}
       </div>
 
-      {/* The sheet: up from the bottom with the tasks, each one editable; the sphere stays in sight above it. Its handle
-          pulls it back down (the tasks stay, a button on the stage brings them back). */}
-      {review && (
-        <div
-          ref={backdrop}
-          className="absolute inset-0 z-10 flex animate-[fade_var(--duration-base)_var(--ease-out)_both] items-end justify-center bg-[linear-gradient(to_bottom,transparent_0%,var(--scrim)_72%)]"
-          onPointerDown={(e) => e.target === e.currentTarget && !busy && lower()}
-        >
+      {/* The sheet: it comes up from under the screen and lifts the stage with it, never past half the screen (a long
+          list scrolls inside). Its handle pulls it back down (the tasks stay, a button on the stage brings them back). */}
+      <Rise open={review}>
           <section
-            ref={sheet}
             role="dialog"
-            aria-modal="true"
-            aria-label="Tasks to add"
+            aria-label={tr("Tasks to add")}
             aria-busy={busy}
-            className="flex max-h-[min(78dvh,700px)] w-full max-w-[640px] animate-[sheet-up_520ms_cubic-bezier(0.16,1,0.3,1)_both] flex-col overflow-hidden rounded-t-[24px] bg-elevated pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--line),0_-18px_60px_-12px_rgba(0,0,0,0.28)] md:mx-4"
-            style={pull ? { transform: `translateY(${pull}px)`, animation: "none" } : undefined}
+            className="mx-auto flex max-h-[50dvh] w-full max-w-[720px] flex-col overflow-hidden rounded-t-[24px] bg-elevated pb-[env(safe-area-inset-bottom)] shadow-[0_0_0_1px_var(--line),0_-16px_48px_-20px_rgba(0,0,0,0.22)]"
+            style={pull ? { transform: `translateY(${pull}px)` } : { transition: "transform var(--duration-base) var(--ease-out)" }}
           >
             <div
               onPointerDown={hold}
@@ -747,16 +704,16 @@ export function VoiceScreen({
             <header onPointerDown={(e) => !(e.target as HTMLElement).closest("button") && hold(e)} className="flex h-14 flex-none touch-none items-center gap-3 pr-3 pl-5">
               {busy && <span aria-hidden="true" className="size-4 flex-none animate-spin rounded-full border-[1.5px] border-line-2 border-t-ink" />}
               <div className="min-w-0 flex-1">
-                <h2 className="truncate text-headline font-semibold">{busy ? "Sorting into tasks…" : n ? `${tasks(n)} to add` : "Nothing to add yet"}</h2>
-                {!busy && n > 0 && <p className="truncate text-caption text-ink-3">Edit a task, change its day, or leave it out.</p>}
+                <h2 className="truncate text-headline font-semibold">{busy ? tr("Sorting into tasks…") : n ? trn(n, "{n} task to add", "{n} tasks to add") : tr("Nothing to add yet")}</h2>
+                {!busy && n > 0 && <p className="truncate text-caption text-ink-3">{tr("Edit a task, change its day, or leave it out.")}</p>}
               </div>
-              <IconButton label="Close" onClick={discard} className="shadow-[inset_0_0_0_1px_var(--line-2)]">
+              <IconButton label={tr("Close")} onClick={discard} className="shadow-[inset_0_0_0_1px_var(--line-2)]">
                 <XIcon size={14} />
               </IconButton>
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-line">
-              <ul aria-label="Tasks to add">
+              <ul aria-label={tr("Tasks to add")}>
                 {drafts.map((d, i) => (
                   <li
                     key={d.key}
@@ -768,21 +725,21 @@ export function VoiceScreen({
                       value={d.title}
                       onChange={(e) => setDrafts((list) => list.map((x) => (x.key === d.key ? { ...x, title: e.target.value.replace(/\n/g, " ") } : x)))}
                       maxLength={500}
-                      aria-label="Task"
+                      aria-label={tr("Task")}
                       dir="auto"
                       className="-ml-2 min-w-0 flex-1 rounded-sm px-2! py-1.5! text-[16px] leading-[22px] text-ink transition-shadow duration-(--duration-fast) hover:shadow-ring-line focus-visible:bg-surface-2 focus-visible:shadow-ring-line-2 md:text-callout"
                     />
                     <Button
                       size="sm"
                       aria-haspopup="menu"
-                      aria-label={`Day: ${dayLabel(d.date)}. Change`}
+                      aria-label={tr("Day: {day}. Change", { day: dayLabel(d.date) })}
                       onClick={(e) => setDayMenu({ key: d.key, anchor: e.currentTarget.getBoundingClientRect(), trigger: e.currentTarget })}
                       className="flex-none gap-1 pr-2"
                     >
                       {dayLabel(d.date)}
                       <ChevronDown size={11} className="text-ink-3" />
                     </Button>
-                    <IconButton size="sm" label={`Leave out “${d.title}”`} tip="Leave out" onClick={() => setDrafts((list) => list.filter((x) => x.key !== d.key))} className="flex-none">
+                    <IconButton size="sm" label={tr("Leave out “{title}”", { title: d.title })} tip={tr("Leave out")} onClick={() => setDrafts((list) => list.filter((x) => x.key !== d.key))} className="flex-none">
                       <XIcon size={13} />
                     </IconButton>
                   </li>
@@ -802,29 +759,29 @@ export function VoiceScreen({
             <footer className="flex min-h-16 flex-none items-center gap-2 border-t border-line px-5 py-3">
               {confirming ? (
                 <>
-                  <span className="min-w-0 flex-1 text-body text-ink">Leave without adding {n === 1 ? "this task" : `these ${n} tasks`}?</span>
+                  <span className="min-w-0 flex-1 text-body text-ink">{trn(n, "Leave without adding this task?", "Leave without adding these {n} tasks?")}</span>
                   <Button size="lg" autoFocus onClick={() => setConfirming(false)} className="md:h-10 md:rounded-[10px]">
-                    Keep
+                    {tr("Keep")}
                   </Button>
                   <Button size="lg" variant="danger-quiet" onClick={close} className="md:h-10 md:rounded-[10px]">
-                    Leave
+                    {tr("Leave")}
                   </Button>
                 </>
               ) : (
                 <>
                   {problem?.again && !busy ? (
                     <Button size="lg" onClick={() => sort(problem.again!)} className="max-sm:flex-1 md:h-10 md:rounded-[10px]">
-                      Try again
+                      {tr("Try again")}
                     </Button>
                   ) : (
                     <Button size="lg" disabled={busy || spent} onClick={more} className="gap-2 max-sm:flex-1 md:h-10 md:rounded-[10px]">
                       {!typing && <Orb size={20} />}
-                      {typing ? "Type more" : n ? "Speak more" : "Speak again"}
+                      {typing ? tr("Type more") : n ? tr("Speak more") : tr("Speak again")}
                     </Button>
                   )}
                   <span className="flex-1 max-sm:hidden" />
                   <Button size="lg" variant="primary" disabled={!n || busy} onClick={add} className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
-                    {n ? `Add ${tasks(n)}` : "Add tasks"}
+                    {n ? trn(n, "Add {n} task", "Add {n} tasks") : tr("Add tasks")}
                     {n > 0 && !busy && (
                       <span className="pointer-coarse:hidden">
                         <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] bg-on-primary/18 px-1.5 font-sans text-caption-2 font-medium">↵</kbd>
@@ -835,18 +792,17 @@ export function VoiceScreen({
               )}
             </footer>
           </section>
-        </div>
-      )}
+      </Rise>
 
       {/* For assistive tech: what state the screen is in, without reading every word as it is heard. */}
       <p role="status" className="sr-only">
-        {busy ? "Sorting into tasks" : hearing ? "Writing down what you said" : phase === "listening" ? "Listening" : problem ? problem.message : n ? `${tasks(n)} ready to add` : ""}
+        {busy ? tr("Sorting into tasks") : hearing ? tr("Writing down what you said") : phase === "listening" ? tr("Listening") : problem ? problem.message : n ? trn(n, "{n} task ready to add", "{n} tasks ready to add") : ""}
       </p>
 
-      {openDayMenu && dayMenu && <Menu anchor={dayMenu.anchor} trigger={dayMenu.trigger} align="end" label="Day" entries={dayEntries(openDayMenu)} onClose={() => setDayMenu(null)} />}
+      {openDayMenu && dayMenu && <Menu anchor={dayMenu.anchor} trigger={dayMenu.trigger} align="end" label={tr("Day")} entries={dayEntries(openDayMenu)} onClose={() => setDayMenu(null)} />}
       {calendar && calendarDraft && (
         // Any day at all: a month to pick from, opened from the day's menu.
-        <Popover anchor={calendar.anchor} trigger={calendar.trigger} align="end" label="Pick a date" onClose={() => setCalendar(null)} className="w-[268px] p-2.5">
+        <Popover anchor={calendar.anchor} trigger={calendar.trigger} align="end" label={tr("Pick a date")} onClose={() => setCalendar(null)} className="w-[268px] p-2.5">
           <MiniMonth
             year={calendar.y}
             month={calendar.m}
@@ -863,5 +819,39 @@ export function VoiceScreen({
       )}
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Something that comes up from under the screen and takes its place in it, pushing what's above it up (and letting it
+ * back down as it leaves). Its height opens from nothing to what it holds; it is in the page only while it's up or on
+ * its way.
+ */
+function Rise({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(open);
+  const [up, setUp] = useState(false);
+  if (open && !mounted) setMounted(true);
+  useEffect(() => {
+    if (!open) {
+      setUp(false);
+      // With reduced motion nothing slides, so nothing tells when it's gone: it goes at once.
+      if (reducedMotion()) setMounted(false);
+      return;
+    }
+    // Two frames: the closed state has to be on screen before it can open from it.
+    let id = requestAnimationFrame(() => {
+      id = requestAnimationFrame(() => setUp(true));
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+  if (!mounted) return null;
+  return (
+    <div
+      className="grid flex-none px-0 transition-[grid-template-rows] duration-[520ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none md:px-4"
+      style={{ gridTemplateRows: up ? "1fr" : "0fr" }}
+      onTransitionEnd={(e) => e.target === e.currentTarget && !open && setMounted(false)}
+    >
+      <div className="min-h-0 overflow-hidden pt-4">{children}</div>
+    </div>
   );
 }

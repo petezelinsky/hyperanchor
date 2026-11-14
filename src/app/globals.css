@@ -514,6 +514,44 @@ svg[data-icon] * {
   }
 }
 
+/* The focus timer. Its tape passes under the needle a tick (5px) a second, so the strip repeats every five. */
+@keyframes tape {
+  to {
+    transform: translateX(-25px);
+  }
+}
+/* A figure of its clock rolling over: the new one comes up from below as the old one leaves upward. */
+@keyframes figure-in {
+  from {
+    opacity: 0;
+    transform: translateY(60%);
+  }
+}
+@keyframes figure-out {
+  to {
+    opacity: 0;
+    transform: translateY(-60%);
+  }
+}
+/* The head of the line round the card glows, slowly; when the time is up the closed frame sends out a ring. */
+@keyframes fuse-halo {
+  0%,
+  100% {
+    opacity: 0.14;
+  }
+  50% {
+    opacity: 0.32;
+  }
+}
+@keyframes fuse-over {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 20px color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+
 /* A finished task's words are crossed out by a line that draws itself along them, one line of text after another. */
 .strike {
   background-image: linear-gradient(currentColor, currentColor);
@@ -526,6 +564,21 @@ svg[data-icon] * {
   background-size: 100% 1.5px;
 }
 
+/* A chart's line drawing itself from left to right (the path is measured as 1 long). */
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+/* A page of Analytics arriving (another period, another week): it comes up as one, softly. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 /* An AI summary arriving: each part comes into focus in turn, out of a soft blur, settling up into place. */
 @keyframes summary-in {
   from {
@@ -536,6 +589,16 @@ svg[data-icon] * {
 }
 .summary-in {
   animation: summary-in 620ms var(--ease-out) both;
+}
+
+/* Touch: a finger resting on a task lifts it (drag.tsx), so the system's own long-press (selecting text, the callout)
+   stays out of the way; a task being edited keeps its text field as it is. */
+@media (pointer: coarse) {
+  [data-task-row][data-editing="false"] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 /* A sheet coming up from the bottom of the screen (the voice's tasks). */

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 
 type Fields = Pick<Task, "title" | "description" | "date" | "done" | "position">;
 type Notify = (message: string, action?: { label: string; run: () => void }) => void;
@@ -67,6 +68,8 @@ function outbox(key: string) {
  */
 export function useTasks(account: string, notify: Notify) {
   const [tasks, setTasks] = useState<Record<string, Task>>({});
+  // The ranges that have come back from the server at least once (so a page can tell "nothing there" from "not yet").
+  const covered = useRef<[string, string][]>([]);
   // Requests on the wire (for the "Saving…" hint), changes still waiting, and whether the first load has come back.
   const [inFlight, setInFlight] = useState(0);
   const [waiting, setWaiting] = useState(0);
@@ -129,7 +132,7 @@ export function useTasks(account: string, notify: Notify) {
         resume();
       }, retryDelay);
     };
-    const offline = () => fail("offline", "You’re offline. Your changes will save when you’re back.");
+    const offline = () => fail("offline", tr("You’re offline. Your changes will save when you’re back."));
 
     function resume() {
       clearTimeout(retryTimer);
@@ -165,11 +168,11 @@ export function useTasks(account: string, notify: Notify) {
         return true;
       }
       if (e.status >= 500 || e.status === 408 || e.status === 429) {
-        fail("error", `Couldn’t save “${op.title}”.`, { label: "Try again", run: resume });
+        fail("error", tr("Couldn’t save “{title}”.", { title: op.title }), { label: tr("Try again"), run: resume });
         return false;
       }
       // The server won't take this change: let it go and show what the server has.
-      notifyRef.current(`Couldn’t save “${op.title}”.`);
+      notifyRef.current(tr("Couldn’t save “{title}”.", { title: op.title }));
       for (const [from, to] of [...ranges.values()]) void load(from, to);
       return true;
     };
@@ -247,6 +250,7 @@ export function useTasks(account: string, notify: Notify) {
           for (const t of fetched) next[t.id] = t;
           return settle(prev, next);
         });
+        covered.current = [...covered.current.filter(([a, b]) => !(a >= from && b <= to)), [from, to] as [string, string]].slice(-24);
         setLoads((n) => n + 1);
       } catch (e) {
         failedLoad(e, () => load(from, to));
@@ -267,7 +271,7 @@ export function useTasks(account: string, notify: Notify) {
 
     const failedLoad = (e: unknown, retry: () => void) => {
       if (!(e instanceof HttpError)) offline();
-      else if (e.status !== 401) notifyRef.current("Couldn’t load your tasks.", { label: "Try again", run: retry });
+      else if (e.status !== 401) notifyRef.current(tr("Couldn’t load your tasks."), { label: tr("Try again"), run: retry });
     };
 
     /**
@@ -379,5 +383,7 @@ export function useTasks(account: string, notify: Notify) {
   }, [engine]);
 
   const { load, loadOpen, create, edit, remove, restore, merge } = engine;
-  return { tasks, load, loadOpen, create, edit, remove, restore, merge, saving: inFlight > 0, waiting, trouble, loads };
+  /** Whether every day from `from` to `to` has come back from the server (in one range). Changes with `loads`. */
+  const covers = (from: string, to: string) => covered.current.some(([a, b]) => a <= from && b >= to);
+  return { tasks, load, loadOpen, create, edit, remove, restore, merge, saving: inFlight > 0, waiting, trouble, loads, covers };
 }

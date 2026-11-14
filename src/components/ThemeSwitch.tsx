@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { m } from "@/lib/i18n";
 import { MoonIcon, SunIcon } from "./icons";
 import { applyTheme, readTheme, type Theme } from "./prefs";
 import { radioKeys } from "./ui";
 
 export const THEMES: { value: Theme; label: string; icon: React.ReactNode }[] = [
-  { value: "light", label: "Light", icon: <SunIcon size={14} /> },
-  { value: "dark", label: "Dark", icon: <MoonIcon size={14} /> },
+  { value: "light", label: m("Light"), icon: <SunIcon size={14} /> },
+  { value: "dark", label: m("Dark"), icon: <MoonIcon size={14} /> },
 ];
 
 /**

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, dayShort, parseYmd, ymd } from "@/lib/dates";
 import type { Task } from "@/lib/types";
+import { tr } from "@/lib/i18n";
 import { useDrag } from "../drag";
 import { PlusIcon } from "../icons";
 import { motion } from "../motion";
@@ -45,8 +46,8 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
             actions.composerCancel();
           }
         }}
-        placeholder="New task"
-        aria-label="New task title"
+        placeholder={tr("New task")}
+        aria-label={tr("New task title")}
         maxLength={500}
         className="block w-full resize-none bg-transparent text-footnote text-ink outline-none"
       />
@@ -90,7 +91,7 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
   return (
     // Pulled out by the lanes' and rows' padding: day names and checkboxes line up with the page title, and a hovered
     // row's box hangs just outside that line, as in Day.
-    <div ref={root} role="grid" aria-label="Tasks" className="grid grid-cols-7">
+    <div ref={root} role="grid" aria-label={tr("Tasks")} className="grid grid-cols-7">
       {sections.map((s) => {
         const d = parseYmd(s.date);
         const isToday = s.date === state.todayKey;
@@ -120,7 +121,7 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
             <div className="px-0.5 pt-3.5">
               <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1">
                 {/* How much is done, quiet, on the left; + on the right, where the hand goes after reading the day. */}
-                <span className="tabular truncate pl-1 text-caption text-ink-3" aria-label={all ? `${doneN} of ${all} done` : undefined}>
+                <span className="tabular truncate pl-1 text-caption text-ink-3" aria-label={all ? tr("{done} of {total} done", { done: doneN, total: all }) : undefined}>
                   {all ? `${doneN}/${all}` : ""}
                 </span>
                 <div className="flex flex-col items-center">
@@ -137,8 +138,8 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
                   {!past && (
                     <button
                       type="button"
-                      aria-label={`New task on ${dayShort(d)} ${d.getDate()}`}
-                      data-tip="New task"
+                      aria-label={tr("New task on {day}", { day: `${dayShort(d)} ${d.getDate()}` })}
+                      data-tip={tr("New task")}
                       onClick={() => actions.openComposer(s.date)}
                       className="tap relative flex size-6 flex-none items-center justify-center rounded-[7px] text-ink-3 opacity-0 transition-[opacity,color,background-color] duration-(--duration-fast) group-hover/col:opacity-100 hover:bg-surface hover:text-ink hover:shadow-[inset_0_0_0_1px_var(--line-2)] focus-visible:opacity-100 pointer-coarse:opacity-100"
                     >
@@ -172,7 +173,7 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
           anchor={menu.anchor}
           trigger={menu.trigger}
           align="end"
-          label={`Actions for ${menu.task.title}`}
+          label={tr("Actions for {title}", { title: menu.task.title })}
           entries={taskMenu(menu.task, state.todayKey, actions)}
           onClose={() => setMenu(null)}
         />

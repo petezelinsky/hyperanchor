@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, dayName, formatShort, parseYmd, startOfWeek, ymd } from "@/lib/dates";
 import { DEFAULT_SORT, type Sort } from "@/lib/tasks";
 import type { Task } from "@/lib/types";
+import { m, tr } from "@/lib/i18n";
 import { ChevronRight, PlusIcon } from "../icons";
 import { motion } from "../motion";
 import { SpeakChip } from "../Toolbar";
@@ -19,23 +20,23 @@ export function taskMenu(task: Task, todayKey: string, actions: TableActions): M
   const tomorrow = ymd(addDays(today, 1));
   const nextWeek = ymd(addDays(startOfWeek(today), 7));
   return [
-    { label: task.done ? "Mark as open" : "Mark as done", shortcut: "Space", onSelect: () => actions.toggle(task) },
-    { label: "Edit", shortcut: "↩", onSelect: () => actions.startEdit(task.id, "title") },
+    { label: task.done ? tr("Mark as open") : tr("Mark as done"), shortcut: tr("Space"), onSelect: () => actions.toggle(task) },
+    { label: tr("Edit"), shortcut: "↩", onSelect: () => actions.startEdit(task.id, "title") },
     { separator: true },
-    { label: "Move to today", disabled: task.date === todayKey, onSelect: () => actions.move(task, todayKey) },
-    { label: "Move to tomorrow", disabled: task.date === tomorrow, onSelect: () => actions.move(task, tomorrow) },
-    { label: "Move to next week", disabled: task.date === nextWeek, onSelect: () => actions.move(task, nextWeek) },
+    { label: tr("Move to today"), disabled: task.date === todayKey, onSelect: () => actions.move(task, todayKey) },
+    { label: tr("Move to tomorrow"), disabled: task.date === tomorrow, onSelect: () => actions.move(task, tomorrow) },
+    { label: tr("Move to next week"), disabled: task.date === nextWeek, onSelect: () => actions.move(task, nextWeek) },
     { separator: true },
-    { label: "Delete", shortcut: "⌫", destructive: true, onSelect: () => actions.remove(task) },
+    { label: tr("Delete"), shortcut: "⌫", destructive: true, onSelect: () => actions.remove(task) },
   ];
 }
 
 /** The orders a list can be in (the order button in the bar of Day and Week). */
 export const SORTS: { label: string; sort: Sort }[] = [
-  { label: "My order", sort: DEFAULT_SORT },
-  { label: "Newest first", sort: { key: "added", dir: "desc" } },
-  { label: "Name A–Z", sort: { key: "title", dir: "asc" } },
-  { label: "Name Z–A", sort: { key: "title", dir: "desc" } },
+  { label: m("My order"), sort: DEFAULT_SORT },
+  { label: m("Newest first"), sort: { key: "added", dir: "desc" } },
+  { label: m("Name A–Z"), sort: { key: "title", dir: "asc" } },
+  { label: m("Name Z–A"), sort: { key: "title", dir: "desc" } },
 ];
 
 function ComposerRow({ composer, actions }: { composer: Composer; actions: TableActions }) {
@@ -73,13 +74,13 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
             actions.composerCancel();
           }
         }}
-        placeholder="New task"
-        aria-label="New task title"
+        placeholder={tr("New task")}
+        aria-label={tr("New task title")}
         maxLength={500}
         enterKeyHint="done"
         className="m-0 block h-full w-full min-w-0 bg-transparent p-0 pr-2 text-[16px] leading-[22px] outline-none md:text-callout"
       />
-      <div className="flex h-[50px] items-center justify-end pr-1.5 md:h-12" data-tip="Enter to add">
+      <div className="flex h-[50px] items-center justify-end pr-1.5 md:h-12" data-tip={tr("Enter to add")}>
         <span className="pointer-coarse:hidden">
           <Kbd>↵</Kbd>
         </span>
@@ -89,13 +90,24 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
 }
 
 /** The first row of the list: a new task starts here, at the top; speaking them is the small button at its other end. */
-export function NewTaskRow({ onClick, onSpeak, className = "pr-6 pl-6 md:pr-3 md:pl-3" }: { onClick: () => void; onSpeak?: () => void; className?: string }) {
+export function NewTaskRow({
+  onClick,
+  onSpeak,
+  tools,
+  className = "pr-6 pl-6 md:pr-3 md:pl-3",
+}: {
+  onClick: () => void;
+  onSpeak?: () => void;
+  /** Quiet controls of the list at the end of the line, before Speak (the order of tasks). */
+  tools?: React.ReactNode;
+  className?: string;
+}) {
   return (
     <div className={`relative flex h-[50px] items-center md:h-12 ${className}`}>
       <button
         type="button"
         onClick={onClick}
-        data-tip="New task (N)"
+        data-tip={tr("New task (N)")}
         className="flex h-full min-w-0 flex-1 items-center text-left text-ink-3 transition-colors duration-(--duration-fast) hover:text-ink"
       >
         <span className="flex w-[30px] flex-none">
@@ -103,9 +115,14 @@ export function NewTaskRow({ onClick, onSpeak, className = "pr-6 pl-6 md:pr-3 md
             <PlusIcon size={12} />
           </span>
         </span>
-        <span className="text-[16px] leading-[22px] md:text-callout">New task</span>
+        <span className="text-[16px] leading-[22px] md:text-callout">{tr("New task")}</span>
       </button>
-      {onSpeak && <SpeakChip onClick={onSpeak} />}
+      {(tools || onSpeak) && (
+        <span className="flex flex-none items-center gap-1.5">
+          {tools}
+          {onSpeak && <SpeakChip onClick={onSpeak} />}
+        </span>
+      )}
     </div>
   );
 }
@@ -136,6 +153,7 @@ export function TaskTable({
   cleared,
   between,
   onSpeak,
+  tools,
 }: {
   sections: Section[];
   state: TableState;
@@ -153,6 +171,8 @@ export function TaskTable({
   between?: React.ReactNode;
   /** Day view: opens the voice screen (the small Speak button beside "New task"). */
   onSpeak?: () => void;
+  /** Day view: quiet controls at the end of the "New task" line (the order of tasks). */
+  tools?: React.ReactNode;
 }) {
   const [menu, setMenu] = useState<MenuState>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -181,7 +201,7 @@ export function TaskTable({
   );
   return (
     <div ref={root}>
-      <div role="grid" aria-label="Tasks">
+      <div role="grid" aria-label={tr("Tasks")}>
         {sections.map((s) => {
           const d = parseYmd(s.date);
           const isToday = s.date === state.todayKey;
@@ -206,16 +226,16 @@ export function TaskTable({
                 // is done, and + to add to it (not to days gone by).
                 <div className="flex h-11 items-end justify-between gap-3 pr-4 pb-1.5 pl-6 md:pr-1 md:pl-3">
                   <span className="flex min-w-0 items-baseline gap-2 text-footnote">
-                    <span className={`font-semibold ${isToday ? "text-accent-ink" : past ? "text-ink-3" : "text-ink"}`}>{isToday ? "Today" : dayName(d)}</span>
+                    <span className={`font-semibold ${isToday ? "text-accent-ink" : past ? "text-ink-3" : "text-ink"}`}>{isToday ? tr("Today") : dayName(d)}</span>
                     <span className="truncate text-ink-3">{isToday ? `${dayName(d)}, ${formatShort(d)}` : formatShort(d)}</span>
                   </span>
                   <span className="flex flex-none items-center gap-2.5">
-                    <span className="tabular text-caption text-ink-3">{all ? `${doneN} of ${all}` : ""}</span>
+                    <span className="tabular text-caption text-ink-3">{all ? tr("{done} of {total}", { done: doneN, total: all }) : ""}</span>
                     {!past && (
                       <button
                         type="button"
-                        aria-label={`New task on ${dayName(d)}`}
-                        data-tip="New task"
+                        aria-label={tr("New task on {day}", { day: dayName(d) })}
+                        data-tip={tr("New task")}
                         onClick={() => actions.openComposer(s.date)}
                         className="tap relative flex size-6 items-center justify-center rounded-[7px] text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
                       >
@@ -231,7 +251,7 @@ export function TaskTable({
                   <ComposerRow composer={state.composer!} actions={actions} />
                 </div>
               ) : placeholderRow ? (
-                <NewTaskRow onClick={() => actions.openComposer(s.date)} onSpeak={onSpeak} />
+                <NewTaskRow onClick={() => actions.openComposer(s.date)} onSpeak={onSpeak} tools={s.tasks.length + (s.completed?.length ?? 0) > 1 ? tools : undefined} />
               ) : null}
               <div data-list="open" className={`flex flex-col gap-1.5 px-3 md:px-0 ${grouped ? (s.tasks.length ? "pt-1 pb-2" : "") : s.tasks.length ? "pt-1" : ""}`}>
                 {s.tasks.map((t) => row(t, "open"))}
@@ -241,7 +261,7 @@ export function TaskTable({
               {!grouped && between}
               {!grouped && !!s.completed?.length && (
                 <>
-                  <FoldRow label="Done" count={s.completed.length} open={completedOpen} onToggle={() => onCompletedOpen?.(!completedOpen)} />
+                  <FoldRow label={tr("Done")} count={s.completed.length} open={completedOpen} onToggle={() => onCompletedOpen?.(!completedOpen)} />
                   <Accordion open={completedOpen}>
                     <div data-list="done" className="flex flex-col gap-1.5 px-3 pb-1 md:px-0">
                       {s.completed.map((t) => row(t, "done"))}
@@ -259,7 +279,7 @@ export function TaskTable({
           anchor={menu.anchor}
           trigger={menu.trigger}
           align="end"
-          label={`Actions for ${menu.task.title}`}
+          label={tr("Actions for {title}", { title: menu.task.title })}
           entries={taskMenu(menu.task, state.todayKey, actions)}
           onClose={() => setMenu(null)}
         />

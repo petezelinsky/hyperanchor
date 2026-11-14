@@ -4,12 +4,13 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
 import { addDays, formatLong, monthGrid, MONTHS, weekdayNames, ymd } from "@/lib/dates";
 import type { AppUser, Task, Usage } from "@/lib/types";
+import { m, num, tr } from "@/lib/i18n";
 import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
 import { useDrag } from "./drag";
 import { createPortal } from "react-dom";
-import { AgentIcon, ChartIcon, ChevronLeft, ChevronRight, EllipsisVerticalIcon, GoalIcon, SearchIcon, SidebarIcon, SignOutIcon, SlidersIcon, TasksIcon, TimelineIcon } from "./icons";
-import { SOON, SoonCard, SoonTag, type Soon } from "./Soon";
+import { AgentIcon, ChartIcon, ChevronLeft, ChevronRight, EllipsisVerticalIcon, GoalIcon, SearchIcon, SidebarIcon, SignOutIcon, SlidersIcon, TasksIcon, TimelineIcon, UsageIcon } from "./icons";
+import { SOON, SoonCard, type Soon } from "./Soon";
 import { SyncStatus, type Sync } from "./SyncStatus";
 import { ReturnButton, Stepper } from "./Toolbar";
 import { Burst, IconButton, Popover, ProgressRing } from "./ui";
@@ -24,8 +25,8 @@ export type Page = "tasks" | "analytics";
 export const pageOf = (v: View): Page => (isPlanner(v) ? "tasks" : "analytics");
 
 const PAGES: { page: Page; label: string; icon: React.ReactNode }[] = [
-  { page: "tasks", label: "Tasks", icon: <TasksIcon size={16} /> },
-  { page: "analytics", label: "Analytics", icon: <ChartIcon size={16} /> },
+  { page: "tasks", label: m("Tasks"), icon: <TasksIcon size={16} /> },
+  { page: "analytics", label: m("Analytics"), icon: <ChartIcon size={16} /> },
 ];
 /** What isn't open yet: listed after a line, quiet, with no page behind it. */
 const SOONS: { soon: Soon; icon: React.ReactNode }[] = [
@@ -107,18 +108,19 @@ export function Sidebar({
     handle.addEventListener("pointercancel", done);
   };
   return (
-    <aside ref={aside} aria-label="Sidebar" style={{ width }} className="relative hidden flex-none flex-col border-r border-line bg-canvas md:flex">
+    <aside ref={aside} aria-label={tr("Sidebar")} style={{ width }} className="relative hidden flex-none flex-col border-r border-line bg-canvas md:flex">
       <div className="flex h-14 flex-none items-center justify-between border-b border-line pr-3 pl-5">
         <Wordmark size={18} />
-        <IconButton label="Hide sidebar" tip="Hide sidebar ([)" size="sm" onClick={onHide} className="text-ink-3 hover:bg-line!">
+        <IconButton label={tr("Hide sidebar")} tip={tr("Hide sidebar ([)")} size="sm" onClick={onHide} className="text-ink-3 hover:bg-line!">
           <SidebarIcon size={16} />
         </IconButton>
       </div>
-      <nav aria-label="Pages" className="flex flex-none flex-col gap-0.5 px-2.5 py-3">
+      <nav aria-label={tr("Pages")} className="flex flex-none flex-col gap-0.5 px-2.5 py-3">
         {PAGES.map((p) => (
-          <SideRow key={p.page} icon={p.icon} label={p.label} on={page === p.page} onClick={() => onPage(p.page)} />
+          <SideRow key={p.page} icon={p.icon} label={tr(p.label)} on={page === p.page} onClick={() => onPage(p.page)} />
         ))}
-        <div aria-hidden="true" className="mx-2.5 my-2.5 h-px bg-line-2" />
+        {/* What's coming: set apart by a little air and one quiet word, not by a line and a tag on every row. */}
+        <div className="px-2.5 pt-5 pb-1 text-caption-2 font-medium text-ink-3">{tr("Soon")}</div>
         {SOONS.map((s) => (
           <SoonRow key={s.soon} soon={s.soon} icon={s.icon} />
         ))}
@@ -130,7 +132,7 @@ export function Sidebar({
           type="button"
           aria-haspopup="dialog"
           aria-expanded={accountOpen}
-          aria-label={`${user.name}: account`}
+          aria-label={tr("{name}: account", { name: user.name })}
           onClick={(e) => onAccount(e.currentTarget)}
           className={`group flex h-12 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-left transition-[background-color,box-shadow] duration-(--duration-fast) ${
             accountOpen ? "bg-surface shadow-lift" : "hover:bg-line"
@@ -148,7 +150,7 @@ export function Sidebar({
       <div
         role="separator"
         aria-orientation="vertical"
-        aria-label="Sidebar width"
+        aria-label={tr("Sidebar width")}
         aria-valuemin={WIDTH.min}
         aria-valuemax={WIDTH.max}
         aria-valuenow={width}
@@ -215,16 +217,15 @@ function SoonRow({ soon, icon }: { soon: Soon; icon: React.ReactNode }) {
         className="flex h-9 w-full cursor-default items-center gap-2.5 rounded-sm px-2.5 text-footnote font-medium text-ink-3 outline-offset-[-2px]"
       >
         <span className="text-ink-4">{icon}</span>
-        <span className="flex-1 text-left">{SOON[soon].title}</span>
-        <SoonTag />
+        <span className="flex-1 text-left">{tr(SOON[soon].title)}</span>
       </button>
       {card &&
         createPortal(
           <div
             id={id}
             role="tooltip"
-            style={{ left: card.right + 12, top: Math.max(8, Math.min(window.innerHeight - 160, card.top + card.height / 2 - 70)) }}
-            className="pointer-events-none fixed z-[110] w-[248px] animate-[soon-in_var(--duration-fast)_var(--ease-out)_both] rounded-lg bg-elevated px-5 pt-5 pb-4 shadow-float"
+            style={{ left: card.right + 12, top: Math.max(8, Math.min(window.innerHeight - 286, card.top + card.height / 2 - 120)) }}
+            className="pointer-events-none fixed z-[110] w-[332px] animate-[soon-in_var(--duration-base)_var(--ease-out)_both] rounded-[16px] bg-elevated p-3 pb-4 shadow-float"
           >
             <SoonCard soon={soon} />
           </div>,
@@ -283,10 +284,10 @@ export function MiniMonth({
           {MONTHS[month]} <span className="font-normal text-ink-3">{year}</span>
         </span>
         <span className="flex h-8 items-center rounded-sm bg-surface shadow-[inset_0_0_0_1px_var(--line-2)]">
-          <IconButton label="Previous month" onClick={() => onShift(-1)} className="rounded-r-none!">
+          <IconButton label={tr("Previous month")} onClick={() => onShift(-1)} className="rounded-r-none!">
             <ChevronLeft size={14} />
           </IconButton>
-          <IconButton label="Next month" onClick={() => onShift(1)} className="rounded-l-none! border-l border-line-2">
+          <IconButton label={tr("Next month")} onClick={() => onShift(1)} className="rounded-l-none! border-l border-line-2">
             <ChevronRight size={14} />
           </IconButton>
         </span>
@@ -349,9 +350,11 @@ export function MiniMonth({
 /** What the bar says about the page: the day ("Today"), the week, the month, or a page's name, with its date beside it. */
 export type Head = {
   title: string;
+  /** For a narrow bar, a name that says it all on its own ("Wed, Nov 11" for "Wednesday" and "November 11" beside it). */
+  titleNarrow?: string;
   /** The quiet part beside the title: the date in full ("Wednesday, November 11"), a range, the year. */
   soft?: string;
-  /** The same for phones and narrow windows ("Wed, Nov 11"). */
+  /** The same, shorter, for a bar without the room ("Wed, Nov 11"). */
   softShort?: string;
   /** Makes the title a button (Day and Week: it opens the month to pick a day from). */
   onTitle?: (button: HTMLElement) => void;
@@ -369,12 +372,19 @@ export type Nav = {
 };
 
 /**
- * The one bar across the top of the work area, in three parts that never crowd each other. On the left, what's on
- * screen: the arrows, then its name and date (the arrows come first, so they stay put however long the date is, and a
- * day can be stepped through without chasing them), and the way back to the present once away from it. In the middle,
- * the switch (Day / Week / Month, or Analytics' periods). On the right, what the page offers: how much of the day is
- * done, and Focus. With the sidebar hidden, the button to bring it back is the only thing before the arrows. Phones
- * have two rows: the name of the app, the switch and the account; then the arrows, the date and the page's actions.
+ * The one bar across the top of the work area. On the left, what's on screen: the arrows, then its name and date (the
+ * arrows come first, so they stay put however long the date is), and the way back to the present once away from it.
+ * Then the switch (Day / Week / Month, or Analytics' periods) and what the page offers: how much of the day is done,
+ * and Focus.
+ *
+ * It arranges itself by its own width, not the window's (the sidebar can be wide, narrow or hidden):
+ * - wide: three parts, the switch in the very middle, the date in full;
+ * - less: the same with the date short;
+ * - less still: one row, the switch moved to the right beside Focus (the day's count sits before it, so the switch
+ *   doesn't shift when the count comes and goes);
+ * - narrow: two rows, the switch across the top.
+ * A date that doesn't fit beside its name leaves whole rather than being cut short. Phones have two rows of their own:
+ * the name of the app, the switch and the account; then the arrows, the date and the page's actions.
  */
 export function AppBar({
   user,
@@ -382,6 +392,7 @@ export function AppBar({
   head,
   nav,
   center,
+  meter,
   actions,
   sidebar,
   onShowSidebar,
@@ -393,6 +404,8 @@ export function AppBar({
   head: Head;
   nav?: Nav;
   center?: React.ReactNode;
+  /** How much of the day is done (Day). */
+  meter?: React.ReactNode;
   /** The page's own actions, at the right end. */
   actions?: React.ReactNode;
   /** Whether the sidebar is shown (computers). */
@@ -410,17 +423,27 @@ export function AppBar({
     return () => window.removeEventListener("scroll", update);
   }, []);
 
-  // The name and the date share one baseline; the button around them (when there is one) is a quiet tile.
+  // The name and the date share one baseline, on a line that holds only what fits: the date wraps out of sight whole
+  // when there's no room for it. The button around them (when there is one) is a quiet tile.
   const words = (
-    <>
-      <h1 className="flex-none font-display text-[17px] leading-6 font-semibold tracking-[-0.014em] whitespace-nowrap">{head.title}</h1>
+    <span className="flex h-6 min-w-0 flex-wrap items-baseline gap-x-2 gap-y-3 overflow-hidden">
+      <h1 className="flex-none font-display text-[17px] leading-6 font-semibold tracking-[-0.014em] whitespace-nowrap">
+        {head.titleNarrow ? (
+          <>
+            <span className="@max-[640px]/appbar:hidden">{head.title}</span>
+            <span className="@min-[640px]/appbar:hidden">{head.titleNarrow}</span>
+          </>
+        ) : (
+          head.title
+        )}
+      </h1>
       {head.soft && (
-        <span className="tabular min-w-0 truncate text-body whitespace-nowrap text-ink-3">
-          <span className={head.softShort ? "max-lg:hidden" : ""}>{head.soft}</span>
-          {head.softShort && <span className="lg:hidden">{head.softShort}</span>}
+        <span className={`tabular flex-none text-body whitespace-nowrap text-ink-3 ${head.titleNarrow ? "@max-[640px]/appbar:hidden" : ""}`}>
+          <span className={head.softShort ? "@max-[1100px]/appbar:hidden" : ""}>{head.soft}</span>
+          {head.softShort && <span className="@min-[1100px]/appbar:hidden">{head.softShort}</span>}
         </span>
       )}
-    </>
+    </span>
   );
   const title = head.onTitle ? (
     <button
@@ -428,15 +451,15 @@ export function AppBar({
       onClick={(e) => head.onTitle?.(e.currentTarget)}
       aria-haspopup="dialog"
       aria-expanded={!!head.titleOpen}
-      data-tip="Pick a day"
-      className={`tap relative flex h-8 min-w-0 items-baseline gap-2 rounded-sm px-2 pt-[5px] text-left transition-colors duration-(--duration-fast) ${
+      data-tip={tr("Pick a day")}
+      className={`tap relative flex h-8 min-w-0 items-center rounded-sm px-2 text-left transition-colors duration-(--duration-fast) ${
         head.titleOpen ? "bg-surface-3" : "hover:bg-surface-3"
       }`}
     >
       {words}
     </button>
   ) : (
-    <div className="flex h-8 min-w-0 items-baseline gap-2 px-2 pt-[5px]">{words}</div>
+    <div className="flex h-8 min-w-0 items-center px-2">{words}</div>
   );
   const left = (
     <div className={`flex min-w-0 items-center gap-1 ${nav ? "" : "-ml-2"}`}>
@@ -448,51 +471,65 @@ export function AppBar({
 
   return (
     <>
-      {/* Computers: one row, three parts. */}
-      <header className="hidden h-14 flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-line bg-surface px-4 md:grid">
-        <div className="flex min-w-0 items-center gap-2">
-          {!sidebar && (
-            <IconButton label="Show sidebar" tip="Show sidebar ([)" onClick={onShowSidebar} className="-ml-1 flex-none text-ink-2">
-              <SidebarIcon size={16} />
-            </IconButton>
-          )}
-          {left}
-        </div>
-        <div className="flex justify-center">{center}</div>
-        <div className="flex min-w-0 items-center justify-end gap-3">
-          {!sidebar && <SyncStatus sync={sync} className="empty:hidden" />}
-          {actions}
+      {/* Computers. */}
+      <header className="@container/appbar hidden flex-none border-b border-line bg-surface md:block">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 @min-[560px]/appbar:h-14 @min-[560px]/appbar:grid-cols-[minmax(0,1fr)_auto_auto] @min-[860px]/appbar:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] @min-[860px]/appbar:gap-x-4">
+          <div className="flex h-12 min-w-0 items-center gap-2 @min-[560px]/appbar:h-auto">
+            {!sidebar && (
+              <IconButton label={tr("Show sidebar")} tip={tr("Show sidebar ([)")} onClick={onShowSidebar} className="-ml-1 flex-none text-ink-2">
+                <SidebarIcon size={16} />
+              </IconButton>
+            )}
+            {left}
+            {meter && <span className="ml-auto hidden flex-none pl-1 @min-[560px]/appbar:flex @min-[860px]/appbar:hidden">{meter}</span>}
+          </div>
+          <div className="order-first col-span-2 flex justify-center pt-2.5 @max-[560px]/appbar:*:w-full @min-[560px]/appbar:order-none @min-[560px]/appbar:col-span-1 @min-[560px]/appbar:pt-0">
+            {center}
+          </div>
+          <div className="flex min-w-0 items-center justify-end gap-3">
+            {!sidebar && <SyncStatus sync={sync} className="empty:hidden" />}
+            {meter && <span className="flex flex-none @min-[560px]/appbar:hidden @min-[860px]/appbar:flex">{meter}</span>}
+            {actions}
+          </div>
         </div>
       </header>
 
       {/* Phones: the app's name, the switch and the account stay on top; the arrows, the date and the actions follow. */}
+      {/* When the three don't fit (a small phone, four periods, longer words), the name gives way, whole. */}
       <header
-        className={`sticky top-0 z-30 flex h-[52px] flex-none items-center gap-3 bg-surface px-4 transition-shadow duration-(--duration-fast) md:hidden ${
+        className={`sticky top-0 z-30 flex h-[52px] flex-none items-center gap-3 bg-surface px-4 transition-shadow duration-(--duration-fast) max-[340px]:gap-2 md:hidden ${
           scrolled ? "shadow-[0_1px_0_var(--line)]" : ""
         }`}
       >
-        <Wordmark size={17} />
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
-          {center}
-          <button
-            type="button"
-            aria-haspopup="dialog"
-            aria-expanded={accountOpen}
-            aria-label={`${user.name}: account`}
-            onClick={(e) => onAccount(e.currentTarget)}
-            className={`relative flex-none rounded-full transition-shadow duration-(--duration-fast) before:absolute before:-inset-[6px] ${
-              accountOpen ? "shadow-[0_0_0_2px_var(--surface),0_0_0_3.5px_var(--ink)]" : ""
-            }`}
-          >
-            <Avatar name={user.name} image={user.image} size={30} />
-          </button>
+        <div className="flex h-full min-w-0 shrink-[1000] flex-wrap overflow-hidden">
+          <span aria-hidden="true" className="h-full w-px flex-none" />
+          <span className="flex h-full flex-none items-center">
+            <Wordmark size={17} />
+          </span>
         </div>
+        {/* The switch takes the room there is, up to its full size; pressed for room, it tightens before the name goes. */}
+        <div className="flex min-w-0 flex-auto justify-end">{center}</div>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={accountOpen}
+          aria-label={tr("{name}: account", { name: user.name })}
+          onClick={(e) => onAccount(e.currentTarget)}
+          className={`relative flex-none rounded-full transition-shadow duration-(--duration-fast) before:absolute before:-inset-[6px] ${
+            accountOpen ? "shadow-[0_0_0_2px_var(--surface),0_0_0_3.5px_var(--ink)]" : ""
+          }`}
+        >
+          <Avatar name={user.name} image={user.image} size={30} />
+        </button>
       </header>
-      <div className="flex h-12 flex-none items-center justify-between gap-3 border-b border-line px-4 md:hidden">
-        <div className="min-w-0">{left}</div>
-        <div className="flex flex-none items-center gap-2.5">
-          <SyncStatus sync={sync} className="empty:hidden" />
-          {actions}
+      <div className="@container/appbar flex-none border-b border-line md:hidden">
+        <div className="flex h-12 items-center justify-between gap-3 px-4">
+          <div className="min-w-0">{left}</div>
+          <div className="flex flex-none items-center gap-2.5">
+            <SyncStatus sync={sync} className="empty:hidden" />
+            {meter && <span className="flex flex-none @max-[340px]/appbar:hidden">{meter}</span>}
+            {actions}
+          </div>
         </div>
       </div>
     </>
@@ -504,7 +541,7 @@ export function DayCount({ done, total }: { done: number; total: number }) {
   if (!total) return null;
   const allDone = done === total;
   return (
-    <span aria-label={`${done} of ${total} done`} data-tip={allDone ? "All done" : `${done} of ${total} done`} className="flex flex-none items-center gap-1.5 text-footnote text-ink-3">
+    <span aria-label={tr("{done} of {total} done", { done, total })} data-tip={allDone ? tr("All done") : tr("{done} of {total} done", { done, total })} className="flex flex-none items-center gap-1.5 text-footnote text-ink-3">
       <Burst active={allDone}>
         <ProgressRing value={done / total} size={14} stroke={1.75} />
       </Burst>
@@ -514,8 +551,6 @@ export function DayCount({ done, total }: { done: number; total: number }) {
     </span>
   );
 }
-
-const count = new Intl.NumberFormat("en-US");
 
 /**
  * The account's panel: who is signed in; how many tokens of the day's allowance are left for the AI (speaking tasks, the
@@ -531,6 +566,7 @@ export function AccountPanel({
   onPage,
   onSearch,
   onSettings,
+  onUsage,
   onClose,
 }: {
   user: AppUser;
@@ -542,6 +578,8 @@ export function AccountPanel({
   onPage: (p: Page) => void;
   onSearch: () => void;
   onSettings: () => void;
+  /** Opens the Usage window. */
+  onUsage: () => void;
   onClose: () => void;
 }) {
   const [, startSignOut] = useTransition();
@@ -553,7 +591,7 @@ export function AccountPanel({
   };
   const page = pageOf(view);
   return (
-    <Popover anchor={rect} trigger={anchor} align={phone ? "end" : "start"} label="Account" onClose={onClose} className="w-[300px] max-w-[calc(100vw-16px)] p-1.5">
+    <Popover anchor={rect} trigger={anchor} align={phone ? "end" : "start"} label={tr("Account")} onClose={onClose} className="w-[300px] max-w-[calc(100vw-16px)] p-1.5">
       <div className="flex items-center gap-3 px-2.5 pt-2 pb-2.5">
         <Avatar name={user.name} image={user.image} size={36} />
         <div className="min-w-0 flex-1">
@@ -562,48 +600,35 @@ export function AccountPanel({
         </div>
       </div>
 
-      {usage !== undefined && (
-        <>
-          <Rule />
-          <div className="px-2.5 pt-2 pb-2.5" aria-busy={usage === null}>
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-footnote font-medium text-ink">Tokens left today</span>
-              <span className="tabular text-footnote font-medium text-ink">{usage ? count.format(usage.today.left) : "–"}</span>
-            </div>
-            <div
-              role="img"
-              aria-label={usage ? `${count.format(usage.today.left)} of ${count.format(usage.today.limit)} tokens left today` : "Loading"}
-              className="mt-2 h-[3px] overflow-hidden rounded-full bg-line-2"
-            >
-              <div
-                className="h-full origin-left rounded-full bg-ink transition-transform duration-(--duration-data) ease-out"
-                style={{ transform: `scaleX(${usage ? Math.max(0, Math.min(1, usage.today.left / usage.today.limit)) : 0})` }}
-              />
-            </div>
-          </div>
-        </>
-      )}
-
       <Rule />
       {phone && (
         <>
           {PAGES.map((p) => (
-            <PanelRow key={p.page} icon={p.icon} label={p.label} current={page === p.page} onClick={go(() => onPage(p.page))} />
+            <PanelRow key={p.page} icon={p.icon} label={tr(p.label)} current={page === p.page} onClick={go(() => onPage(p.page))} />
           ))}
-          <PanelRow icon={<SearchIcon size={16} />} label="Search" onClick={go(onSearch)} />
-          <Rule />
+          <PanelRow icon={<SearchIcon size={16} />} label={tr("Search")} onClick={go(onSearch)} />
+          <div className="px-2.5 pt-3 pb-1 text-caption-2 font-medium text-ink-3">{tr("Soon")}</div>
           {SOONS.map((s) => (
             <div key={s.soon}>
-              <PanelRow icon={s.icon} label={SOON[s.soon].title} soon expanded={soonOpen === s.soon} onClick={() => setSoonOpen((o) => (o === s.soon ? null : s.soon))} />
-              {soonOpen === s.soon && <SoonCard soon={s.soon} className="animate-rise px-4 pt-3 pb-4" />}
+              <PanelRow icon={s.icon} label={tr(SOON[s.soon].title)} soon expanded={soonOpen === s.soon} onClick={() => setSoonOpen((o) => (o === s.soon ? null : s.soon))} />
+              {soonOpen === s.soon && <SoonCard soon={s.soon} className="animate-rise px-2 pt-1.5 pb-3" />}
             </div>
           ))}
           <Rule />
         </>
       )}
-      <PanelRow icon={<SlidersIcon size={16} />} label="Settings" onClick={go(onSettings)} />
+      {usage !== undefined && (
+        // What the AI has used, in a window of its own; the row itself says how much of today is left.
+        <PanelRow
+          icon={<UsageIcon size={16} />}
+          label={tr("Usage")}
+          note={usage ? tr("{n} left today", { n: num(usage.today.left) }) : undefined}
+          onClick={go(onUsage)}
+        />
+      )}
+      <PanelRow icon={<SlidersIcon size={16} />} label={tr("Settings")} onClick={go(onSettings)} />
       <Rule />
-      <PanelRow icon={<SignOutIcon size={16} />} label="Sign out" onClick={() => startSignOut(() => signOutAction())} />
+      <PanelRow icon={<SignOutIcon size={16} />} label={tr("Sign out")} onClick={() => startSignOut(() => signOutAction())} />
     </Popover>
   );
 }
@@ -613,6 +638,7 @@ const Rule = () => <div aria-hidden="true" className="-mx-1.5 my-1.5 h-px bg-lin
 function PanelRow({
   icon,
   label,
+  note,
   soon = false,
   expanded,
   current = false,
@@ -620,6 +646,8 @@ function PanelRow({
 }: {
   icon: React.ReactNode;
   label: string;
+  /** A quiet word at the end of the row. */
+  note?: string;
   /** Not open yet: quiet, and it shows what it will be instead of going anywhere. */
   soon?: boolean;
   expanded?: boolean;
@@ -638,7 +666,7 @@ function PanelRow({
     >
       <span className={`flex size-4 flex-none items-center justify-center ${soon ? "text-ink-4" : "text-ink-2"}`}>{icon}</span>
       <span className="flex-1">{label}</span>
-      {soon && <SoonTag />}
+      {note && <span className="tabular text-caption font-normal text-ink-3">{note}</span>}
       {current && <span aria-hidden="true" className="size-1.5 rounded-full bg-ink" />}
     </button>
   );
