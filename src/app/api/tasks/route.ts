@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sql } from "@/lib/db";
-import { badRequest, currentUserId, unauthorized, TASK_COLUMNS } from "@/lib/api";
+import { badRequest, currentUserId, unauthorized, TASK_COLUMNS, isJson } from "@/lib/api";
 import { isDate, isUuid, parsePatch } from "@/lib/validate";
 import type { Task } from "@/lib/types";
 
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
   const userId = await currentUserId();
   if (!userId) return unauthorized();
 
+  if (!isJson(req)) return badRequest("JSON only");
   const body = await req.json().catch(() => null);
   if (!isUuid(body?.id)) return badRequest("Invalid id");
   const parsed = parsePatch(body);

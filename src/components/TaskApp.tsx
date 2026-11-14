@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, dayDiff, dayName, formatLong, formatMedium, formatShort, monthGrid, MONTHS, parseYmd, relativeDay, setWeekStart, startOfWeek, ymd, type WeekStart } from "@/lib/dates";
-import { periodBounds, statsRange, type Period } from "@/lib/stats";
+import { contextRange, periodBounds, statsRange, type Period } from "@/lib/stats";
 import { DEFAULT_SORT, placeBetween, placeOf, sortTasks, type Sort } from "@/lib/tasks";
 import type { AppUser, Task, TaskDraft, Usage } from "@/lib/types";
 import { AnalyticsView } from "./analytics/AnalyticsView";
@@ -207,6 +207,11 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
   useEffect(() => {
     if (view === "analytics") load(ymd(addDays(parseYmd(todayKey), -365)), todayKey);
   }, [load, view, todayKey]);
+  // A day or a week is read against the four weeks up to it (Detailed analytics).
+  const context = useMemo(() => (view === "analytics" ? contextRange(stats.period, stats.offset, todayKey) : null), [view, stats, todayKey, weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (context) load(...context);
+  }, [load, context]);
 
   // Grouped by day first, then each day sorted: far less work than sorting everything, with hundreds of old tasks loaded.
   const byDateMap = useMemo(() => {
@@ -916,11 +921,13 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
     head = {
       title: "Analytics",
       soft:
-        stats.period === "week"
-          ? shortRange(b.start, b.end, now.getFullYear())
-          : stats.period === "month"
-            ? `${MONTHS[b.start.getMonth()]} ${b.start.getFullYear()}`
-            : String(b.start.getFullYear()),
+        stats.period === "day"
+          ? `${formatLong(b.start)}${b.start.getFullYear() !== now.getFullYear() ? `, ${b.start.getFullYear()}` : ""}`
+          : stats.period === "week"
+            ? shortRange(b.start, b.end, now.getFullYear())
+            : stats.period === "month"
+              ? `${MONTHS[b.start.getMonth()]} ${b.start.getFullYear()}`
+              : String(b.start.getFullYear()),
     };
     nav = {
       prev: `Previous ${stats.period}`,
@@ -928,7 +935,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
       onPrev: () => setStats((st) => ({ ...st, offset: st.offset - 1 })),
       onNext: () => setStats((st) => ({ ...st, offset: Math.min(0, st.offset + 1) })),
       nextDisabled: stats.offset === 0,
-      back: stats.offset !== 0 ? { label: `Back to this ${stats.period}`, onClick: goToday } : undefined,
+      back: stats.offset !== 0 ? { label: stats.period === "day" ? "Back to today" : `Back to this ${stats.period}`, onClick: goToday } : undefined,
     };
   }
   const center =
@@ -938,6 +945,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
         value={stats.period}
         onChange={(period) => setStats({ period, offset: 0 })}
         options={[
+          { value: "day", label: "Day" },
           { value: "week", label: "Week" },
           { value: "month", label: "Month" },
           { value: "year", label: "Year" },
@@ -1070,7 +1078,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
                 onOpenDay={openDay}
                 onToggle={actions.toggle}
                 onMove={actions.move}
-                onPlan={() => showView(stats.period === "week" ? "week" : "month")}
+                onPlan={() => showView(stats.period === "day" ? "day" : stats.period === "week" ? "week" : "month")}
               />
             )}
           </main>

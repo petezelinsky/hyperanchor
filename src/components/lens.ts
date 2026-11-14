@@ -84,6 +84,8 @@ export class LiquidLens {
   private start = 0;
   private charge = 0;
   private stopScroll: (() => void) | null = null;
+  private fading: Animation | null = null;
+  private waiting: (() => void)[] = [];
 
   /**
    * `area`: the part of the page the ring rolls over (what scrolls: the work area); `content`: what is in it (drawn
@@ -94,6 +96,16 @@ export class LiquidLens {
     private readonly content: () => HTMLElement | null,
     private readonly version: () => string = () => "",
   ) {}
+
+  /** A ring is on screen (held or rolling). */
+  playing() {
+    return this.holding || this.raf !== 0;
+  }
+
+  /** Resolves once the ring has passed and the picture has faded back into the page (at once when nothing plays). */
+  ended(): Promise<void> {
+    return this.playing() ? new Promise((resolve) => this.waiting.push(resolve)) : Promise.resolve();
+  }
 
   static supported() {
     return typeof window !== "undefined" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches && !!document.createElement("canvas").getContext("webgl2");
@@ -236,6 +248,9 @@ export class LiquidLens {
     }
     const view = this.view;
     const gl = this.gl!;
+    // A ring that starts while the last one is still fading takes the picture back at full strength.
+    this.fading?.cancel();
+    this.fading = null;
     const ratio = pic.canvas.width / pic.w;
     view.width = pic.canvas.width;
     view.height = pic.canvas.height;
@@ -283,12 +298,34 @@ export class LiquidLens {
     else this.finish();
   };
 
+  /**
+   * The ring is over: the picture fades back into the live page under it (which may have changed meanwhile, so the
+   * change shows as a soft crossfade rather than a cut), and whoever waits for the end hears of it.
+   */
   private finish() {
     cancelAnimationFrame(this.raf);
     this.raf = 0;
     this.holding = false;
     this.stopScroll?.();
     this.stopScroll = null;
-    this.view?.remove();
+    const view = this.view;
+    const done = () => {
+      const waiting = this.waiting;
+      this.waiting = [];
+      for (const w of waiting) w();
+    };
+    if (view?.isConnected) {
+      const fade = view.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+      this.fading = fade;
+      fade.onfinish = () => {
+        if (this.fading !== fade) return;
+        this.fading = null;
+        view.remove();
+        done();
+      };
+      fade.oncancel = () => {
+        if (this.fading === fade) this.fading = null;
+      };
+    } else done();
   }
 }

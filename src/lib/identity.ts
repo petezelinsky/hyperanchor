@@ -22,6 +22,8 @@ export async function verifyGoogleIdToken(idToken: string, nonce?: string): Prom
   const { payload } = await jwtVerify(idToken, GOOGLE_JWKS, {
     issuer: ["https://accounts.google.com", "accounts.google.com"],
     audience,
+    // Google signs with RSA keys only: anything else is refused before the keys are even looked at.
+    algorithms: ["RS256"],
   });
   if (nonce && payload.nonce !== nonce) throw new Error("Nonce mismatch");
   if (typeof payload.sub !== "string" || !payload.sub) throw new Error("Missing subject");
@@ -35,7 +37,7 @@ export async function verifyGoogleIdToken(idToken: string, nonce?: string): Prom
 
 /** Verifies an Apple identity token issued to the iOS app (`aud` = bundle ID). The app sends the raw nonce; Apple signs its SHA-256. */
 export async function verifyAppleIdToken(idToken: string, nonce?: string): Promise<Identity> {
-  const { payload } = await jwtVerify(idToken, APPLE_JWKS, { issuer: APPLE_ISSUER, audience: appleBundleId() });
+  const { payload } = await jwtVerify(idToken, APPLE_JWKS, { issuer: APPLE_ISSUER, audience: appleBundleId(), algorithms: ["RS256"] });
   if (nonce && payload.nonce !== sha256(nonce)) throw new Error("Nonce mismatch");
   if (typeof payload.sub !== "string" || !payload.sub) throw new Error("Missing subject");
   return { sub: payload.sub, email: typeof payload.email === "string" ? payload.email : "", name: null, image: null };

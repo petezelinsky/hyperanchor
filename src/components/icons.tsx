@@ -112,6 +112,15 @@ export const EllipsisIcon = ({ size = 16, className }: IconProps) => (
   </svg>
 );
 
+/** History: a clock whose hand turns back. */
+export const HistoryIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M2.2 8a5.8 5.8 0 1 0 5.8-5.8 6.3 6.3 0 0 0-4.35 1.77L2.2 5.4" />
+    <path d="M2.2 2.4v3h3" />
+    <path d="M8 5v3l2.2 1.2" />
+  </Svg>
+);
+
 export const XIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m4 4 8 8M12 4l-8 8" />

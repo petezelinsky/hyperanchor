@@ -4,7 +4,14 @@ import { currentUserId, unauthorized } from "@/lib/api";
 
 type Row = { date: string; title: string; description: string; done: boolean; createdAt: Date; updatedAt: Date };
 
-const cell = (v: string) => (/[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+/**
+ * One cell. A value a spreadsheet would read as a formula (=, +, -, @, a tab or a return first) gets a leading quote, so
+ * a task title pasted from somewhere can never run as one when the file is opened.
+ */
+const cell = (v: string) => {
+  const s = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
 
 /** All of the person's tasks as a CSV file (opens in any spreadsheet). */
 export async function GET() {

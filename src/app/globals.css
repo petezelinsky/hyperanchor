@@ -526,6 +526,38 @@ svg[data-icon] * {
   background-size: 100% 1.5px;
 }
 
+/* An AI summary arriving: each part comes into focus in turn, out of a soft blur, settling up into place. */
+@keyframes summary-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    transform: translateY(8px);
+  }
+}
+.summary-in {
+  animation: summary-in 620ms var(--ease-out) both;
+}
+
+/* A sheet coming up from the bottom of the screen (the voice's tasks). */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+/* Something at work (the AI summary's mark while Claude reads): it breathes, gently. */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+}
+
 /* A line that's on its way (tasks being sorted): a soft band of light passes over it. */
 .skeleton {
   background: linear-gradient(90deg, var(--surface-3) 0%, var(--line-2) 45%, var(--surface-3) 90%);

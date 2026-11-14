@@ -55,21 +55,25 @@ export function OpenCard({
   todayKey,
   onToggle,
   onMove,
+  title = "Left open",
+  empty = "Nothing from earlier days is waiting.",
   className = "",
 }: {
   open: Summary["open"];
   todayKey: string;
   onToggle: (t: Task) => void;
   onMove: (t: Task, date: string) => void;
+  title?: string;
+  empty?: string;
   className?: string;
 }) {
   const [all, setAll] = useState(false);
   const shown = all ? open : open.slice(0, 6);
 
   return (
-    <Card title="Left open" count={open.length} className={className}>
+    <Card title={title} count={open.length} className={className}>
       {open.length === 0 ? (
-        <p className="pb-2 text-footnote text-ink-3">Nothing from earlier days is waiting.</p>
+        <p className="pb-2 text-footnote text-ink-3">{empty}</p>
       ) : (
         <>
           <ul>
@@ -80,10 +84,12 @@ export function OpenCard({
                   {task.title}
                 </span>
                 <span className="tabular flex-none text-caption text-ink-3">{formatShort(day.date)}</span>
-                <Button size="sm" variant="plain" onClick={() => onMove(task, todayKey)} aria-label={`Move “${task.title}” to today`} className="flex-none gap-1 text-ink!">
-                  Today
-                  <ArrowRightIcon size={12} />
-                </Button>
+                {day.key !== todayKey && (
+                  <Button size="sm" variant="plain" onClick={() => onMove(task, todayKey)} aria-label={`Move “${task.title}” to today`} className="flex-none gap-1 text-ink!">
+                    Today
+                    <ArrowRightIcon size={12} />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>

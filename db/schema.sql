@@ -50,3 +50,33 @@ alter table ai_usage enable row level security;
 -- What the sorting cost in tokens (input, cached input included, and output): the account menu's Usage shows the sum.
 alter table ai_usage add column if not exists input_tokens bigint not null default 0;
 alter table ai_usage add column if not exists output_tokens bigint not null default 0;
+
+-- AI summaries (Analytics): what was written about a period, so it can be read again on any device and kept as history,
+-- and how many of the period's tasks were done when it was written: the next one for the same period waits until that
+-- many more are done. Deleting one empties it (summary null) but keeps that count, so deleting never gets round the wait.
+create table if not exists ai_summaries (
+  id         uuid primary key,
+  user_id    text not null,
+  period     text not null check (period in ('day', 'week', 'month', 'year')),
+  start_date date not null,
+  end_date   date not null,
+  label      text not null default '',
+  done_count integer not null default 0,
+  summary    jsonb,
+  tokens     integer not null default 0,
+  created_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+
+create index if not exists ai_summaries_user_idx on ai_summaries (user_id, created_at desc);
+
+alter table ai_summaries enable row level security;
+
+-- Deleting an account ends every session and app token issued until then, on every device: the moment is kept here
+-- (one line per person), and sign-ins made before it no longer count.
+create table if not exists revocations (
+  user_id text primary key,
+  before  timestamptz not null
+);
+
+alter table revocations enable row level security;

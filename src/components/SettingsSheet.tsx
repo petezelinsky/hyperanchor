@@ -351,6 +351,10 @@ function DeleteAccount() {
       setFailed(false);
       const res = await fetch("/api/account", { method: "DELETE" }).catch(() => null);
       if (!res?.ok) return setFailed(true);
+      // Nothing of the account stays in this browser either: changes waiting to be sent, and summaries kept here.
+      try {
+        for (const key of Object.keys(localStorage)) if (key.startsWith("hyperanchor:outbox:") || key.startsWith("hyperanchor:summary:")) localStorage.removeItem(key);
+      } catch {}
       await signOutAction();
     });
 
