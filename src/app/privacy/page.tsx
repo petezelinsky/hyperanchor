@@ -7,7 +7,7 @@ const CONTACT_EMAIL = "privacy@hyperanchor.app";
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" effective="November 13, 2026">
+    <LegalPage title="Privacy Policy" effective="November 14, 2026">
       <LegalSection n={1} title="Overview">
         <p>
           Hyperanchor (“we”, “us”) is a task planner. This policy explains what information we collect when you use Hyperanchor, how we use it
@@ -36,9 +36,11 @@ export default function PrivacyPage() {
             microphone is, to move the sphere to your voice; that is worked out in your browser and is never sent or kept.
           </li>
           <li>
-            <Strong>The AI summary in Progress.</Strong> When you ask for a summary, the numbers on that page and the titles of the tasks in
-            that period are sent to our AI provider, which writes a few lines about it. We do not keep them on our server; the summary is
-            kept in your browser, on your device.
+            <Strong>The AI summary in Analytics.</Strong> When you ask for a summary, the numbers on that page and the titles of the tasks
+            in that period are sent to our AI provider, which writes a few lines about it. We keep the summary it writes (which can quote
+            your task titles), the period it is about and the number of tasks done when it was written, so you can read it again on any
+            device and in its history. You can delete any summary there: its text is erased at once; the count of tasks stays, so the next
+            summary for that period still waits its turn. Deleting your account deletes them all.
           </li>
           <li>
             <Strong>AI usage.</Strong> We keep a count of how often you use the AI features each day and of what they cost (in tokens), to
@@ -55,7 +57,7 @@ export default function PrivacyPage() {
         <LegalList>
           <li>To sign you in and keep your account secure.</li>
           <li>To store your tasks and show them on any device you use.</li>
-          <li>To turn what you say or type on the Speak screen into tasks, and to write the summary in Progress when you ask for it.</li>
+          <li>To turn what you say or type on the Speak screen into tasks, and to write the summary in Analytics when you ask for it.</li>
           <li>To fix problems and keep the service running.</li>
           <li>To tell you about important changes to Hyperanchor or this policy.</li>
         </LegalList>
@@ -74,7 +76,7 @@ export default function PrivacyPage() {
         <p>
           We share data only with service providers that help us run Hyperanchor, such as hosting, database and authentication providers;
           OpenAI, whose speech-to-text model turns your recordings on the Speak screen into text; and Anthropic, whose Claude models sort
-          that text into tasks and write the summary in Progress. They may use it only to provide those services to us. We may also disclose
+          that text into tasks and write the summary in Analytics. They may use it only to provide those services to us. We may also disclose
           information if required by law.
         </p>
       </LegalSection>
@@ -94,8 +96,8 @@ export default function PrivacyPage() {
       <LegalSection n={8} title="Your choices">
         <p>
           You can export all of your tasks as a CSV file in Settings on the web, and delete your account at any time in Settings, on the web or
-          in the iPhone app: your tasks and profile are deleted right away (copies in our providers’ backups expire within 30 days) and, if you
-          use Sign in with Apple, Hyperanchor’s access to your Apple account is revoked. You can also ask us to access, export, correct or delete
+          in the iPhone app: your tasks, summaries and profile are deleted right away (copies in our providers’ backups expire within 30 days),
+          you are signed out on every device and, if you use Sign in with Apple, Hyperanchor’s access to your Apple account is revoked. You can also ask us to access, export, correct or delete
           your data by contacting us, and revoke Hyperanchor’s access in your{" "}
           <a href="https://myaccount.google.com/permissions">Google account settings</a> or in your Apple account’s Sign in with Apple settings.
         </p>

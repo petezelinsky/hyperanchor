@@ -32,12 +32,17 @@ export async function signMobileToken(uid: string, user: AppUser) {
     .sign(signingKey());
 }
 
-/** The user id in a valid, unexpired token; null otherwise. */
-export async function verifyMobileToken(token: string): Promise<string | null> {
+/** The user id in a valid, unexpired token, and when the token was issued (seconds); null otherwise. */
+export async function readMobileToken(token: string): Promise<{ sub: string; iat: number } | null> {
   try {
     const { payload } = await jwtVerify(token, signingKey(), { issuer: ISSUER, audience: AUDIENCE, algorithms: ["HS256"] });
-    return typeof payload.sub === "string" && payload.sub ? payload.sub : null;
+    return typeof payload.sub === "string" && payload.sub ? { sub: payload.sub, iat: typeof payload.iat === "number" ? payload.iat : 0 } : null;
   } catch {
     return null;
   }
+}
+
+/** The user id in a valid, unexpired token; null otherwise. */
+export async function verifyMobileToken(token: string): Promise<string | null> {
+  return (await readMobileToken(token))?.sub ?? null;
 }

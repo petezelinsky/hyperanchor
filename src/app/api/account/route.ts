@@ -3,9 +3,11 @@ import { getToken } from "next-auth/jwt";
 import { currentUserId, unauthorized } from "@/lib/api";
 import { sql } from "@/lib/db";
 import { exchangeAppleCode, revokeAppleToken, appleBundleId } from "@/lib/identity";
+import { revokeAll } from "@/lib/revocations";
 
 /**
- * Deletes the account: every task of the signed-in user, their profile and their AI usage counts. For Sign in with Apple the token is revoked too
+ * Deletes the account: every task of the signed-in user, their profile, their AI usage counts and summaries, and every
+ * session and app token they signed in with until now (on every device). For Sign in with Apple the token is revoked too
  * (App Store guideline 5.1.1(v)): the iOS app sends a fresh `authorizationCode`, the web keeps Apple's
  * refresh token in its session. Data is deleted even if Apple can't be reached; `revoked` says how that went.
  */
@@ -37,6 +39,9 @@ export async function DELETE(req: NextRequest) {
   const deleted = await sql.begin(async (tx) => {
     const rows = await tx`delete from tasks where user_id = ${userId} returning id`;
     await tx`delete from ai_usage where user_id = ${userId}`;
+    await tx`delete from ai_summaries where user_id = ${userId}`;
+    // Every session and app token signed in until now stops working, on every device.
+    await revokeAll(tx, userId);
     await tx`delete from users where id = ${userId}`;
     return rows.length;
   });

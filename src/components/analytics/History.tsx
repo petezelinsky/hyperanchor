@@ -14,7 +14,8 @@ export type HistoryRow = {
   rate: number | null;
   tasks?: Task[];
   activeDays?: string;
-  onPick: () => void;
+  /** Opens the row's day (or month) beside it. */
+  onPick: (el: HTMLElement) => void;
 };
 
 type SortKey = "date" | "done" | "rate";
@@ -58,7 +59,7 @@ export function HistoryCard({ rows, unit, className = "" }: { rows: HistoryRow[]
             <table className="w-full border-collapse text-footnote sm:min-w-[560px]">
               <thead>
                 <tr className="border-b border-line text-caption text-ink-3">
-                  {th("date", unit === "days" ? "Date" : "Month")}
+                  {th("date", unit === "days" ? "Date" : "Month", false, "pl-2")}
                   {th("done", "Done", true)}
                   <th className="py-2 pl-4 text-right font-medium max-sm:hidden">Planned</th>
                   {th("rate", "Rate", true, "pl-5")}
@@ -69,11 +70,11 @@ export function HistoryCard({ rows, unit, className = "" }: { rows: HistoryRow[]
                 {shown.map(({ r }) => (
                   <tr
                     key={r.key}
-                    onClick={r.onPick}
-                    className="group cursor-pointer border-b border-line last:border-0"
+                    onClick={(e) => r.onPick(e.currentTarget)}
+                    className="group cursor-pointer border-b border-line transition-colors duration-(--duration-fast) last:border-0 hover:bg-surface-2"
                   >
-                    <td className="py-2.5 whitespace-nowrap">
-                      <button type="button" className="font-medium decoration-ink-4 underline-offset-[3px] group-hover:underline">
+                    <td className="py-2.5 pl-2 whitespace-nowrap">
+                      <button type="button" aria-haspopup="dialog" className="font-medium decoration-ink-4 underline-offset-[3px] group-hover:underline">
                         {r.label}
                       </button>
                     </td>

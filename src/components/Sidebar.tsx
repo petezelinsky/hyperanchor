@@ -7,31 +7,50 @@ import type { AppUser, Task, Usage } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { Wordmark } from "./Brand";
 import { useDrag } from "./drag";
-import { AgentIcon, ChartIcon, ChevronLeft, ChevronRight, EllipsisVerticalIcon, GoalIcon, HomeIcon, KeyboardIcon, SearchIcon, SidebarIcon, SignOutIcon, SlidersIcon, TimelineIcon } from "./icons";
+import { createPortal } from "react-dom";
+import { AgentIcon, ChartIcon, ChevronLeft, ChevronRight, EllipsisVerticalIcon, GoalIcon, SearchIcon, SidebarIcon, SignOutIcon, SlidersIcon, TasksIcon, TimelineIcon } from "./icons";
+import { SOON, SoonCard, SoonTag, type Soon } from "./Soon";
 import { SyncStatus, type Sync } from "./SyncStatus";
 import { ReturnButton, Stepper } from "./Toolbar";
 import { Burst, IconButton, Popover, ProgressRing } from "./ui";
 
-export type View = "day" | "week" | "month" | "analytics" | "timeline" | "goals" | "agent";
+export type View = "day" | "week" | "month" | "analytics";
 
-/** The planner's own views (Home): the day, the week, the month. */
+/** The planner's own views (Tasks): the day, the week, the month. */
 export const isPlanner = (v: View) => v === "day" || v === "week" || v === "month";
 
 /** The pages of the app, as the sidebar (and the phone's account panel) lists them. */
-export type Page = "home" | "analytics" | "timeline" | "goals" | "agent";
-export const pageOf = (v: View): Page => (isPlanner(v) ? "home" : (v as Page));
+export type Page = "tasks" | "analytics";
+export const pageOf = (v: View): Page => (isPlanner(v) ? "tasks" : "analytics");
 
-const PAGES: { page: Page; label: string; icon: React.ReactNode; soon?: boolean }[] = [
-  { page: "home", label: "Home", icon: <HomeIcon size={16} /> },
-  { page: "analytics", label: "Progress", icon: <ChartIcon size={16} /> },
-  { page: "timeline", label: "Timeline", icon: <TimelineIcon size={16} />, soon: true },
-  { page: "goals", label: "Goals", icon: <GoalIcon size={16} />, soon: true },
-  { page: "agent", label: "Agent", icon: <AgentIcon size={16} />, soon: true },
+const PAGES: { page: Page; label: string; icon: React.ReactNode }[] = [
+  { page: "tasks", label: "Tasks", icon: <TasksIcon size={16} /> },
+  { page: "analytics", label: "Analytics", icon: <ChartIcon size={16} /> },
+];
+/** What isn't open yet: listed after a line, quiet, with no page behind it. */
+const SOONS: { soon: Soon; icon: React.ReactNode }[] = [
+  { soon: "timeline", icon: <TimelineIcon size={16} /> },
+  { soon: "goals", icon: <GoalIcon size={16} /> },
+  { soon: "agent", icon: <AgentIcon size={16} /> },
 ];
 
+const WIDTH = { min: 216, max: 360, normal: 248 };
+const WIDTH_KEY = "hyperanchor:sidebar-width";
+const readWidth = () => {
+  try {
+    const w = Number(localStorage.getItem(WIDTH_KEY));
+    return w >= WIDTH.min && w <= WIDTH.max ? w : WIDTH.normal;
+  } catch {
+    return WIDTH.normal;
+  }
+};
+const clampWidth = (w: number) => Math.round(Math.min(WIDTH.max, Math.max(WIDTH.min, w)));
+
 /**
- * Computers: the sidebar, on the left for the whole height, and it can be hidden. The name on top, the pages (Home: the
- * day, the week, the month; Progress; Timeline, Goals and Agent, coming), and the account at the foot.
+ * Computers: the sidebar, on the left for the whole height. It can be hidden, and made wider or narrower by its right
+ * edge (remembered on this device; a double click there sets it back). The name on top, the pages (Tasks: the day, the
+ * week, the month; Analytics), then, after a line, what's coming (Timeline, Goals, Agent: not pages yet, only a word on
+ * what they'll be), and the account at the foot.
  */
 export function Sidebar({
   user,
@@ -51,8 +70,44 @@ export function Sidebar({
   accountOpen: boolean;
 }) {
   const page = pageOf(view);
+  const [width, setWidth] = useState(readWidth);
+  const aside = useRef<HTMLElement>(null);
+  const keep = (w: number) => {
+    setWidth(w);
+    try {
+      localStorage.setItem(WIDTH_KEY, String(w));
+    } catch {}
+  };
+  // Dragging the edge moves it directly (no redraw of the app on every move); the width is kept when it's let go.
+  const resize = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = aside.current;
+    if (!el || e.button > 0) return;
+    e.preventDefault();
+    const handle = e.currentTarget;
+    const x0 = e.clientX;
+    const w0 = el.offsetWidth;
+    handle.setPointerCapture(e.pointerId);
+    const body = document.body.style;
+    const { cursor, userSelect } = body;
+    body.cursor = "col-resize";
+    body.userSelect = "none";
+    const move = (ev: PointerEvent) => {
+      el.style.width = `${clampWidth(w0 + ev.clientX - x0)}px`;
+    };
+    const done = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", done);
+      handle.removeEventListener("pointercancel", done);
+      body.cursor = cursor;
+      body.userSelect = userSelect;
+      keep(clampWidth(el.offsetWidth));
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", done);
+    handle.addEventListener("pointercancel", done);
+  };
   return (
-    <aside aria-label="Sidebar" className="hidden w-[248px] flex-none flex-col border-r border-line bg-canvas md:flex">
+    <aside ref={aside} aria-label="Sidebar" style={{ width }} className="relative hidden flex-none flex-col border-r border-line bg-canvas md:flex">
       <div className="flex h-14 flex-none items-center justify-between border-b border-line pr-3 pl-5">
         <Wordmark size={18} />
         <IconButton label="Hide sidebar" tip="Hide sidebar ([)" size="sm" onClick={onHide} className="text-ink-3 hover:bg-line!">
@@ -61,7 +116,11 @@ export function Sidebar({
       </div>
       <nav aria-label="Pages" className="flex flex-none flex-col gap-0.5 px-2.5 py-3">
         {PAGES.map((p) => (
-          <SideRow key={p.page} icon={p.icon} label={p.label} soon={p.soon} on={page === p.page} onClick={() => onPage(p.page)} />
+          <SideRow key={p.page} icon={p.icon} label={p.label} on={page === p.page} onClick={() => onPage(p.page)} />
+        ))}
+        <div aria-hidden="true" className="mx-2.5 my-2.5 h-px bg-line-2" />
+        {SOONS.map((s) => (
+          <SoonRow key={s.soon} soon={s.soon} icon={s.icon} />
         ))}
       </nav>
       <div className="flex-1" />
@@ -85,11 +144,31 @@ export function Sidebar({
           <EllipsisVerticalIcon size={16} className={`flex-none transition-colors duration-(--duration-fast) ${accountOpen ? "text-ink" : "text-ink-3 group-hover:text-ink"}`} />
         </button>
       </div>
+      {/* The edge: drag it to make the sidebar wider or narrower; the arrow keys work too, and a double click sets it back. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Sidebar width"
+        aria-valuemin={WIDTH.min}
+        aria-valuemax={WIDTH.max}
+        aria-valuenow={width}
+        tabIndex={0}
+        onPointerDown={resize}
+        onDoubleClick={() => keep(WIDTH.normal)}
+        onKeyDown={(e) => {
+          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+          e.preventDefault();
+          keep(clampWidth(width + (e.key === "ArrowRight" ? 16 : -16)));
+        }}
+        className="group/edge absolute inset-y-0 -right-[4px] z-10 w-[8px] cursor-col-resize touch-none outline-none"
+      >
+        <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 transition-colors duration-(--duration-fast) group-hover/edge:bg-ink-4 group-focus-visible/edge:bg-ink-3 group-active/edge:bg-ink-3" />
+      </div>
     </aside>
   );
 }
 
-function SideRow({ icon, label, soon = false, on = false, onClick }: { icon: React.ReactNode; label: string; soon?: boolean; on?: boolean; onClick: () => void }) {
+function SideRow({ icon, label, on = false, onClick }: { icon: React.ReactNode; label: string; on?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -101,15 +180,59 @@ function SideRow({ icon, label, soon = false, on = false, onClick }: { icon: Rea
     >
       <span className={on ? "text-ink" : "text-ink-2"}>{icon}</span>
       <span className="flex-1 text-left">{label}</span>
-      {soon && <SoonTag />}
     </button>
   );
 }
 
-/** "Soon": a page that isn't open yet. */
-export const SoonTag = () => (
-  <span className="inline-flex h-[18px] flex-none items-center rounded-[5px] px-1.5 text-caption-2 font-medium text-ink-3 shadow-[inset_0_0_0_1px_var(--line-2)]">Soon</span>
-);
+/**
+ * Something that isn't open yet: a quiet row that goes nowhere. Resting the pointer on it (or reaching it with the
+ * keyboard) shows, beside it, what it will be.
+ */
+function SoonRow({ soon, icon }: { soon: Soon; icon: React.ReactNode }) {
+  const [card, setCard] = useState<DOMRect | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const id = `soon-${soon}`;
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const show = (el: HTMLElement, wait: number) => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCard(el.getBoundingClientRect()), wait);
+  };
+  const hide = () => {
+    clearTimeout(timer.current);
+    setCard(null);
+  };
+  return (
+    <>
+      <button
+        type="button"
+        aria-disabled="true"
+        aria-describedby={card ? id : undefined}
+        onPointerEnter={(e) => e.pointerType === "mouse" && show(e.currentTarget, 140)}
+        onPointerLeave={hide}
+        onFocus={(e) => show(e.currentTarget, 0)}
+        onBlur={hide}
+        onClick={(e) => (card ? hide() : show(e.currentTarget, 0))}
+        className="flex h-9 w-full cursor-default items-center gap-2.5 rounded-sm px-2.5 text-footnote font-medium text-ink-3 outline-offset-[-2px]"
+      >
+        <span className="text-ink-4">{icon}</span>
+        <span className="flex-1 text-left">{SOON[soon].title}</span>
+        <SoonTag />
+      </button>
+      {card &&
+        createPortal(
+          <div
+            id={id}
+            role="tooltip"
+            style={{ left: card.right + 12, top: Math.max(8, Math.min(window.innerHeight - 160, card.top + card.height / 2 - 70)) }}
+            className="pointer-events-none fixed z-[110] w-[248px] animate-[soon-in_var(--duration-fast)_var(--ease-out)_both] rounded-lg bg-elevated px-5 pt-5 pb-4 shadow-float"
+          >
+            <SoonCard soon={soon} />
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
 
 /**
  * The month to pick a day from (it opens from the title in the bar; phones also see it in Month): plain numbers, no
@@ -249,7 +372,7 @@ export type Nav = {
  * The one bar across the top of the work area, in three parts that never crowd each other. On the left, what's on
  * screen: the arrows, then its name and date (the arrows come first, so they stay put however long the date is, and a
  * day can be stepped through without chasing them), and the way back to the present once away from it. In the middle,
- * the switch (Day / Week / Month, or Progress's periods). On the right, what the page offers: how much of the day is
+ * the switch (Day / Week / Month, or Analytics' periods). On the right, what the page offers: how much of the day is
  * done, and Focus. With the sidebar hidden, the button to bring it back is the only thing before the arrows. Phones
  * have two rows: the name of the app, the switch and the account; then the arrows, the date and the page's actions.
  */
@@ -396,8 +519,8 @@ const count = new Intl.NumberFormat("en-US");
 
 /**
  * The account's panel: who is signed in; how many tokens of the day's allowance are left for the AI (speaking tasks, the
- * summary); Settings and the keyboard shortcuts; and signing out as the last line. Phones, which have no sidebar (nor a
- * keyboard for / and Ctrl K), also find the pages and Search here.
+ * summary); Settings (the keyboard shortcuts are in there); and signing out as the last line. Phones, which have no
+ * sidebar (nor a keyboard for / and Ctrl K), also find the pages, what's coming, and Search here.
  */
 export function AccountPanel({
   user,
@@ -408,7 +531,6 @@ export function AccountPanel({
   onPage,
   onSearch,
   onSettings,
-  onShortcuts,
   onClose,
 }: {
   user: AppUser;
@@ -420,10 +542,10 @@ export function AccountPanel({
   onPage: (p: Page) => void;
   onSearch: () => void;
   onSettings: () => void;
-  onShortcuts: () => void;
   onClose: () => void;
 }) {
   const [, startSignOut] = useTransition();
+  const [soonOpen, setSoonOpen] = useState<Soon | null>(null);
   const [rect] = useState(() => anchor.getBoundingClientRect());
   const go = (run: () => void) => () => {
     onClose();
@@ -463,11 +585,23 @@ export function AccountPanel({
       )}
 
       <Rule />
-      {phone &&
-        PAGES.map((p) => <PanelRow key={p.page} icon={p.icon} label={p.label} soon={p.soon} current={page === p.page} onClick={go(() => onPage(p.page))} />)}
-      {phone && <PanelRow icon={<SearchIcon size={16} />} label="Search" onClick={go(onSearch)} />}
+      {phone && (
+        <>
+          {PAGES.map((p) => (
+            <PanelRow key={p.page} icon={p.icon} label={p.label} current={page === p.page} onClick={go(() => onPage(p.page))} />
+          ))}
+          <PanelRow icon={<SearchIcon size={16} />} label="Search" onClick={go(onSearch)} />
+          <Rule />
+          {SOONS.map((s) => (
+            <div key={s.soon}>
+              <PanelRow icon={s.icon} label={SOON[s.soon].title} soon expanded={soonOpen === s.soon} onClick={() => setSoonOpen((o) => (o === s.soon ? null : s.soon))} />
+              {soonOpen === s.soon && <SoonCard soon={s.soon} className="animate-rise px-4 pt-3 pb-4" />}
+            </div>
+          ))}
+          <Rule />
+        </>
+      )}
       <PanelRow icon={<SlidersIcon size={16} />} label="Settings" onClick={go(onSettings)} />
-      {!phone && <PanelRow icon={<KeyboardIcon size={16} />} label="Keyboard shortcuts" onClick={go(onShortcuts)} />}
       <Rule />
       <PanelRow icon={<SignOutIcon size={16} />} label="Sign out" onClick={() => startSignOut(() => signOutAction())} />
     </Popover>
@@ -476,15 +610,33 @@ export function AccountPanel({
 
 const Rule = () => <div aria-hidden="true" className="-mx-1.5 my-1.5 h-px bg-line" />;
 
-function PanelRow({ icon, label, soon = false, current = false, onClick }: { icon: React.ReactNode; label: string; soon?: boolean; current?: boolean; onClick: () => void }) {
+function PanelRow({
+  icon,
+  label,
+  soon = false,
+  expanded,
+  current = false,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  /** Not open yet: quiet, and it shows what it will be instead of going anywhere. */
+  soon?: boolean;
+  expanded?: boolean;
+  current?: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-current={current ? "page" : undefined}
-      className="flex h-9 w-full items-center gap-2.5 rounded-sm px-2.5 text-left text-footnote font-medium text-ink transition-colors duration-(--duration-fast) hover:bg-surface-3 pointer-coarse:h-11"
+      aria-expanded={soon ? expanded : undefined}
+      className={`flex h-9 w-full items-center gap-2.5 rounded-sm px-2.5 text-left text-footnote font-medium transition-colors duration-(--duration-fast) pointer-coarse:h-11 ${
+        soon ? "text-ink-3" : "text-ink hover:bg-surface-3"
+      }`}
     >
-      <span className="flex size-4 flex-none items-center justify-center text-ink-2">{icon}</span>
+      <span className={`flex size-4 flex-none items-center justify-center ${soon ? "text-ink-4" : "text-ink-2"}`}>{icon}</span>
       <span className="flex-1">{label}</span>
       {soon && <SoonTag />}
       {current && <span aria-hidden="true" className="size-1.5 rounded-full bg-ink" />}

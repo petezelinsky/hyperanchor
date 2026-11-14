@@ -13,7 +13,7 @@ export const canRecord = () =>
 /** The longest one recording runs (the server takes five minutes at a time). */
 const RECORD_MAX_MS = 4.5 * 60_000;
 /** A pause this long after something was said ends the listening by itself. */
-const SILENCE_AFTER_WORDS = 5000;
+const SILENCE_AFTER_WORDS = 3500;
 /** Nothing said at all for this long: there's no point in listening on. */
 const SILENCE_AT_START = 12_000;
 /** The meter's level (0…1) that counts as a voice, and the lower one it has to fall under to count as a pause. */

@@ -24,7 +24,7 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
     box.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: motion().fast, easing: motion().out });
   }, [composer.nonce]);
   return (
-    <div ref={box} data-editing="true" className="rounded-sm bg-surface-2 px-1.5 py-1.5 shadow-ring-line-2">
+    <div ref={box} data-editing="true" className="rounded-[8px] bg-surface px-2 py-[7px] shadow-[0_0_0_1px_var(--ink-4)]">
       <textarea
         ref={ref}
         rows={2}
@@ -55,10 +55,11 @@ function ComposerCard({ composer, actions }: { composer: Composer; actions: Tabl
 }
 
 /**
- * The week as seven lanes that run the height of the screen, split by hairlines; today's lane is shaded. Each day: its
- * name and how much is done, its date (today's in a black tile) with + beside it (not on days gone by), a thin line
- * that fills as tasks get done, then what's left, and what's finished below as quiet lines. A new task starts at the top
- * of its day. A task looks like a card only while it's dragged; a lane takes a drop anywhere.
+ * The week as seven lanes that run the height of the screen, split by hairlines; today's lane is shaded. Each day's head
+ * is centred: its name over its date (today's on a soft ring of the accent, nothing heavier), how much is done on the
+ * left and + on the right (not on days gone by), and a thin line under it that fills as tasks get done. Then what's
+ * left, as cards, and what's finished below them, quieter. A new task starts at the top of its day; a lane takes a drop
+ * anywhere.
  */
 export function WeekBoard({ sections, state, actions }: { sections: Section[]; state: TableState; actions: TableActions }) {
   const [menu, setMenu] = useState<MenuState>(null);
@@ -116,42 +117,50 @@ export function WeekBoard({ sections, state, actions }: { sections: Section[]; s
               hot ? "bg-accent-soft" : isToday ? "bg-surface-2" : ""
             }`}
           >
-            <div className="px-1.5 pt-4">
-              <div className="flex h-[18px] items-center justify-between gap-1">
-                <span className={`text-footnote font-medium ${isToday ? "text-ink" : "text-ink-3"}`}>{dayShort(d)}</span>
-                <span className="tabular text-caption text-ink-3">{all ? `${doneN} of ${all}` : ""}</span>
-              </div>
-              <div className="mt-1.5 flex h-[30px] items-center justify-between gap-1">
-                <span
-                  className={`tabular flex h-[30px] items-center justify-center text-[20px] leading-[26px] font-semibold tracking-[-0.02em] ${
-                    isToday ? "-ml-0.5 min-w-[30px] rounded-sm bg-primary px-1.5 text-on-primary" : past ? "text-ink-3" : "text-ink"
-                  }`}
-                >
-                  {d.getDate()}
+            <div className="px-0.5 pt-3.5">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1">
+                {/* How much is done, quiet, on the left; + on the right, where the hand goes after reading the day. */}
+                <span className="tabular truncate pl-1 text-caption text-ink-3" aria-label={all ? `${doneN} of ${all} done` : undefined}>
+                  {all ? `${doneN}/${all}` : ""}
                 </span>
-                {!past && (
-                  <button
-                    type="button"
-                    aria-label={`New task on ${dayShort(d)} ${d.getDate()}`}
-                    data-tip="New task"
-                    onClick={() => actions.openComposer(s.date)}
-                    className="tap relative flex size-6 flex-none items-center justify-center rounded-[7px] bg-surface text-ink-2 shadow-[inset_0_0_0_1px_var(--line-2)] transition-colors duration-(--duration-fast) hover:text-ink focus-visible:opacity-100"
+                <div className="flex flex-col items-center">
+                  <span className={`text-caption leading-4 font-medium ${isToday ? "text-accent-ink" : "text-ink-3"}`}>{dayShort(d)}</span>
+                  <span
+                    className={`tabular mt-0.5 flex size-8 items-center justify-center rounded-full text-[19px] leading-none font-medium tracking-[-0.02em] ${
+                      isToday ? "bg-accent-soft font-semibold text-accent-ink shadow-[inset_0_0_0_1px_var(--accent-track)]" : past ? "text-ink-3" : "text-ink"
+                    }`}
                   >
-                    <PlusIcon size={13} />
-                  </button>
-                )}
+                    {d.getDate()}
+                  </span>
+                </div>
+                <span className="flex justify-end">
+                  {!past && (
+                    <button
+                      type="button"
+                      aria-label={`New task on ${dayShort(d)} ${d.getDate()}`}
+                      data-tip="New task"
+                      onClick={() => actions.openComposer(s.date)}
+                      className="tap relative flex size-6 flex-none items-center justify-center rounded-[7px] text-ink-3 opacity-0 transition-[opacity,color,background-color] duration-(--duration-fast) group-hover/col:opacity-100 hover:bg-surface hover:text-ink hover:shadow-[inset_0_0_0_1px_var(--line-2)] focus-visible:opacity-100 pointer-coarse:opacity-100"
+                    >
+                      <PlusIcon size={13} />
+                    </button>
+                  )}
+                </span>
               </div>
               {/* The day's progress: a thin line that fills as tasks get done. */}
-              <div aria-hidden="true" className="mt-2.5 mb-2 h-[2px] overflow-hidden rounded-full bg-line-2">
-                <div className="h-full origin-left rounded-full bg-ink transition-transform duration-(--duration-data) ease-out" style={{ transform: `scaleX(${all ? doneN / all : 0})` }} />
+              <div aria-hidden="true" className="mx-1 mt-3 mb-2.5 h-[2px] overflow-hidden rounded-full bg-line">
+                <div
+                  className={`h-full origin-left rounded-full transition-transform duration-(--duration-data) ease-out ${isToday ? "bg-accent" : "bg-ink-3"}`}
+                  style={{ transform: `scaleX(${all ? doneN / all : 0})` }}
+                />
               </div>
             </div>
-            <div data-list="open" className="flex flex-col gap-px">
+            <div data-list="open" className="flex flex-col gap-1.5">
               {composing && <ComposerCard composer={state.composer!} actions={actions} />}
               {s.tasks.map((t) => card(t, "open"))}
             </div>
             {done.length > 0 && (
-              <div data-list="done" className={`${s.tasks.length || composing ? "mt-2.5" : ""} flex flex-col gap-px`}>
+              <div data-list="done" className={`${s.tasks.length || composing ? "mt-3" : ""} flex flex-col gap-1.5`}>
                 {done.map((t) => card(t, "done"))}
               </div>
             )}

@@ -74,7 +74,7 @@ export function SegmentedControl<T extends string>({
   size = "md",
   className = "",
 }: {
-  /** null: none of them (the view switch while Progress is on screen). */
+  /** null: none of them (the view switch while Analytics is on screen). */
   value: T | null;
   /** With `iconOnly`, the label becomes the radio's accessible name and tooltip. */
   options: { value: T; label: string; icon?: React.ReactNode; iconOnly?: boolean; tip?: string }[];
@@ -604,18 +604,36 @@ export function Kbd({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** How tall the soft lower edge of an opening (or closing) list is, at most. */
+const EDGE = 56;
+/** Whether this browser can fade an edge with a mask (else the edge is cut straight). */
+const softEdges = () => typeof CSS !== "undefined" && CSS.supports("mask-size", "1px 1px, 1px 1px");
+
+type Unfold = { anims: Animation[]; from: number; to: number };
+
 /**
- * A list that opens and closes in place, moving by transforms only: the list is laid out once, at its full size, and is
- * revealed from the top while everything under it slides down (and back up as it closes). Nothing is laid out again
- * frame by frame, so a long list opens as smoothly as a short one. Its content exists only while open or closing.
+ * A list that opens and closes in place: the space it needs opens while everything under it slides down (and back up as
+ * it closes), and the list fades in from the top as it is uncovered, its lower edge soft rather than cut. It is laid out
+ * once, at its full size, and nothing is laid out again frame by frame, so a long list opens as smoothly as a short one.
+ * Its content exists only while open or closing.
  */
 export function Accordion({ open, children }: { open: boolean; children: React.ReactNode }) {
   const [mounted, setMounted] = useState(open);
-  // Opening mounts the content in the same render, so the first frame already has it in place (clipped).
+  // Opening mounts the content in the same render, so the first frame already has it in place (hidden).
   if (open && !mounted) setMounted(true);
   const box = useRef<HTMLDivElement>(null);
   const first = useRef(true);
-  const running = useRef<{ anims: Animation[]; followers: HTMLElement[] }>({ anims: [], followers: [] });
+  const running = useRef<Unfold | null>(null);
+
+  const stop = () => {
+    for (const a of running.current?.anims ?? []) a.cancel();
+    running.current = null;
+    const el = box.current;
+    if (el) {
+      el.style.maskImage = "";
+      el.style.maskRepeat = "";
+    }
+  };
 
   useLayoutEffect(() => {
     if (first.current) {
@@ -624,10 +642,11 @@ export function Accordion({ open, children }: { open: boolean; children: React.R
     }
     const el = box.current;
     if (!el) return;
-    // A toggle mid-way turns around from where things are now.
-    const hiddenNow = running.current.anims.length ? clipBottom(el) : open ? null : 0;
-    for (const a of running.current.anims) a.cancel();
-    running.current = { anims: [], followers: [] };
+    // How much of it shows (0 to 1); a toggle mid-way turns around from where things are now.
+    const was = running.current;
+    const t = was?.anims[0]?.effect?.getComputedTiming().progress;
+    const now = was ? (typeof t === "number" ? was.from + (was.to - was.from) * t : was.to) : open ? 0 : 1;
+    stop();
     const h = el.offsetHeight;
     if (!h) {
       if (!open) setMounted(false);
@@ -639,26 +658,46 @@ export function Accordion({ open, children }: { open: boolean; children: React.R
       else setMounted(false);
       return;
     }
-    const from = Math.min(h, hiddenNow ?? h);
-    const to = open ? 0 : h;
-    const duration = Math.max(90, (m.base * Math.abs(to - from)) / h);
+    const to = open ? 1 : 0;
+    const duration = Math.max(120, m.base * 1.15 * Math.abs(to - now));
     const timing: KeyframeAnimationOptions = { duration, easing: open ? m.out : m.in, fill: "both" };
+    // The edge: solid down to a soft band that ends where the rows below begin. The band narrows away as the last rows
+    // arrive, so nothing changes when the animation lets go.
+    const soft = softEdges();
+    const edge = Math.min(EDGE, h * 0.5);
+    const frames: Keyframe[] = Array.from({ length: 17 }, (_, i) => {
+      const p = now + (to - now) * (i / 16);
+      const band = edge * Math.min(1, (1 - p) / 0.35);
+      const end = h * p;
+      return soft
+        ? { offset: i / 16, maskSize: `100% ${Math.max(0, end - band)}px, 100% ${band}px`, maskPosition: `0 0, 0 ${end - band}px` }
+        : { offset: i / 16, clipPath: `inset(0 0 ${h - end}px 0)` };
+    });
+    if (soft) {
+      el.style.maskImage = "linear-gradient(#000, #000), linear-gradient(#000, transparent)";
+      el.style.maskRepeat = "no-repeat";
+    }
     const followers = below(el, h);
     const anims = [
-      el.animate([{ clipPath: `inset(0 0 ${from}px 0)` }, { clipPath: `inset(0 0 ${to}px 0)` }], timing),
-      ...followers.map((f) => f.animate([{ transform: `translateY(${-from}px)` }, { transform: `translateY(${-to}px)` }], timing)),
+      el.animate(frames, timing),
+      ...followers.map((f) => f.animate([{ transform: `translateY(${-h * (1 - now)}px)` }, { transform: `translateY(${-h * (1 - to)}px)` }], timing)),
     ];
-    // The rows themselves settle in as they're revealed.
+    // The rows fade as they come and go: in, settling down a little; out, a touch sooner than the space closes.
     const inner = el.firstElementChild;
-    if (open && from === h && inner) anims.push(inner.animate([{ opacity: 0.25, transform: "translateY(-6px)" }, { opacity: 1, transform: "none" }], { duration: m.base, easing: m.out }));
-    running.current = { anims, followers };
+    if (inner)
+      anims.push(
+        inner.animate(
+          open ? [{ opacity: now, transform: `translateY(${-6 * (1 - now)}px)` }, { opacity: 1, transform: "none" }] : [{ opacity: now }, { opacity: 0 }],
+          { duration: open ? duration : duration * 0.75, easing: open ? m.out : m.in, fill: "both" },
+        ),
+      );
+    const run: Unfold = { anims, from: now, to };
+    running.current = run;
     void anims[0].finished.then(
       () => {
-        if (running.current.anims !== anims) return;
-        if (open) {
-          for (const a of anims) a.cancel();
-          running.current = { anims: [], followers: [] };
-        } else setMounted(false); // the space closes in the same frame as the slid-up rows let go (below)
+        if (running.current !== run) return;
+        if (open) stop();
+        else setMounted(false); // the space closes in the same frame as the slid-up rows let go (below)
       },
       () => {},
     );
@@ -666,9 +705,8 @@ export function Accordion({ open, children }: { open: boolean; children: React.R
 
   // Closed: the content is gone and the rows under it are where they slid to, so they let go of the slide.
   useLayoutEffect(() => {
-    if (mounted || !running.current.anims.length) return;
-    for (const a of running.current.anims) a.cancel();
-    running.current = { anims: [], followers: [] };
+    if (mounted || !running.current) return;
+    stop();
   }, [mounted]);
 
   return (
@@ -677,15 +715,6 @@ export function Accordion({ open, children }: { open: boolean; children: React.R
       {(open || mounted) && <div className="min-w-0">{children}</div>}
     </div>
   );
-}
-
-/** How much of `el` is clipped away at the bottom right now (an accordion caught mid-way). */
-function clipBottom(el: HTMLElement): number | null {
-  const m = /^inset\(([^)]*)\)/.exec(getComputedStyle(el).clipPath);
-  if (!m) return null;
-  // inset(top right bottom left), shortened the way CSS shortens margins.
-  const v = m[1].trim().split(/\s+/).map((x) => parseFloat(x) || 0);
-  return v.length >= 3 ? v[2] : v[0];
 }
 
 /**

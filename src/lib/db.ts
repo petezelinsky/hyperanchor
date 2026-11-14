@@ -48,6 +48,30 @@ begin
   if not exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'users' and column_name = 'ai_daily_tokens') then
     alter table users add column if not exists ai_daily_tokens integer;
   end if;
+  if to_regclass('ai_summaries') is null then
+    create table if not exists ai_summaries (
+      id         uuid primary key,
+      user_id    text not null,
+      period     text not null check (period in ('day', 'week', 'month', 'year')),
+      start_date date not null,
+      end_date   date not null,
+      label      text not null default '',
+      done_count integer not null default 0,
+      summary    jsonb,
+      tokens     integer not null default 0,
+      created_at timestamptz not null default now(),
+      deleted_at timestamptz
+    );
+    create index if not exists ai_summaries_user_idx on ai_summaries (user_id, created_at desc);
+    alter table ai_summaries enable row level security;
+  end if;
+  if to_regclass('revocations') is null then
+    create table if not exists revocations (
+      user_id text primary key,
+      before  timestamptz not null
+    );
+    alter table revocations enable row level security;
+  end if;
 end $$;
 `;
 

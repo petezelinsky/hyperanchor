@@ -1,25 +1,35 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Spend } from "./budget";
+import type { Summary, SummaryPeriod } from "./summaries";
 import { isDate } from "./validate";
 
+export type { Summary, SummaryPeriod } from "./summaries";
+
 /**
- * The summary in Progress: what a week, a month or a year looked like, written by Claude from the page's own numbers
- * and the titles of the tasks in it. One call; the answer comes in a fixed shape (a headline, a few observations, one
- * thing to try). Nothing is stored on the server.
+ * The summary in Analytics: what a day, a week, a month or a year looked like, written by Claude from the page's own
+ * numbers and the titles of the tasks in it. One call; the answer comes in a fixed shape (a headline, a few
+ * observations, one thing to try). The route keeps what was written (ai_summaries), so it can be read again.
  */
 
-/** The most capable model, at low effort: a short, careful read of a small amount of data. ANTHROPIC_SUMMARY_MODEL overrides it. */
+/**
+ * Claude Opus 5.5 for every period, months included, at low effort: a short, careful read of a small amount of data.
+ * ANTHROPIC_SUMMARY_MODEL overrides it.
+ */
 const MODEL = process.env.ANTHROPIC_SUMMARY_MODEL || "claude-opus-5-5";
 
 /** About what a summary costs, set aside from the day's allowance before the call (the real cost replaces it after). */
 export const SUMMARY_ESTIMATE = 3000;
 
-export type SummaryPeriod = "week" | "month" | "year";
-
 /** What the page sends: the numbers it shows, and the titles of what was done and what is still open. */
 export type SummaryInput = {
   period: SummaryPeriod;
-  /** "Nov 9 – 15", "November 2026", "2026". */
+  /**
+   * The period's first and last day. Older apps don't send them: their summaries are written as before, without being
+   * kept or counted towards the next one.
+   */
+  start?: string;
+  end?: string;
+  /** "Saturday, Nov 14", "Nov 9 – 15", "November 2026", "2026". */
   label: string;
   /** The period is the current one (and still running). */
   current: boolean;
@@ -31,7 +41,7 @@ export type SummaryInput = {
   activeDays: number;
   elapsedDays: number;
   previous: { done: number; planned: number } | null;
-  /** Per day (week, month) or per month (year), in order. */
+  /** Per day (a day: the week up to it; a week, a month: its days) or per month (a year), in order. */
   series: { label: string; done: number; planned: number }[];
   /** Per weekday, for a month or a year. */
   weekdays: { day: string; done: number; planned: number }[];
@@ -39,23 +49,38 @@ export type SummaryInput = {
   openTitles: { title: string; date: string }[];
 };
 
-export type Summary = { headline: string; points: string[]; next: string };
-
 const int = (v: unknown, max = 100_000) => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(max, Math.round(v))) : 0);
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
+
+const DAY_MS = 86_400_000;
+const lastOfMonth = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+
+/** Whether `start` to `end` is a whole day, week (seven days, whichever day it starts on), calendar month or year. */
+export function isPeriod(period: SummaryPeriod, start: string, end: string) {
+  const days = Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / DAY_MS) + 1;
+  const [y, m, d] = start.split("-").map(Number);
+  if (period === "day") return days === 1;
+  if (period === "week") return days === 7;
+  if (period === "month") return d === 1 && end === lastOfMonth(y, m);
+  return start === `${y}-01-01` && end === `${y}-12-31`;
+}
 
 /** The page's data, checked and cut to size: anything else in the body is dropped. Null when it isn't usable. */
 export function cleanInput(raw: unknown): SummaryInput | null {
   const b = raw as Record<string, unknown> | null;
   if (!b || typeof b !== "object") return null;
   const period = b.period;
-  if (period !== "week" && period !== "month" && period !== "year") return null;
+  if (period !== "day" && period !== "week" && period !== "month" && period !== "year") return null;
   if (!isDate(b.today)) return null;
+  // A period is named by its days, all of them or none (older apps).
+  const dated = b.start !== undefined || b.end !== undefined;
+  if (dated && !(isDate(b.start) && isDate(b.end) && isPeriod(period, b.start, b.end))) return null;
   const list = <T>(v: unknown, max: number, map: (x: Record<string, unknown>) => T | null): T[] =>
     Array.isArray(v) ? v.slice(0, max).flatMap((x) => (x && typeof x === "object" ? (map(x as Record<string, unknown>) ?? []) : [])) : [];
   const prev = b.previous as Record<string, unknown> | null;
   return {
     period,
+    ...(dated ? { start: b.start as string, end: b.end as string } : {}),
     label: str(b.label, 40),
     current: b.current === true,
     today: b.today as string,
@@ -72,7 +97,7 @@ export function cleanInput(raw: unknown): SummaryInput | null {
   };
 }
 
-const SYSTEM = `You write a short summary of how a period (a week, a month or a year) went in a person's to-do list, from the numbers and task titles you are given.
+const SYSTEM = `You write a short summary of how a period (a day, a week, a month or a year) went in a person's to-do list, from the numbers and task titles you are given.
 
 Write to the person, in the second person. Be specific: name days, numbers and tasks from the data. Look for what is useful to know: how much got done against what was planned, and against the period before; which days carried the load and which stayed empty; what kind of things got done and what kept being left open; anything that repeats. Say only what the data shows. Don't guess at reasons or feelings.
 
@@ -83,6 +108,8 @@ points: two to four observations, one sentence each, at most 24 words each, the 
 next: one small, concrete thing to try in the next period that follows from the data, at most 20 words. When there is too little data for that, say what would make the next summary more useful.
 
 A period still running ("current": true) is not over: speak of it as so far, and count the days still ahead ("upcoming") as planned, not missed.
+
+For a day, "series" is the week up to it and "previous" the day before: use them only as the background the day stands against.
 
 Write in the language most of the task titles are written in; in English when there are none or it is unclear. Quote task titles as they are.
 

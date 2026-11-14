@@ -30,7 +30,7 @@ export function taskMenu(task: Task, todayKey: string, actions: TableActions): M
   ];
 }
 
-/** The orders a list can be in (Settings → Task order). */
+/** The orders a list can be in (the order button in the bar of Day and Week). */
 export const SORTS: { label: string; sort: Sort }[] = [
   { label: "My order", sort: DEFAULT_SORT },
   { label: "Newest first", sort: { key: "added", dir: "desc" } },
@@ -51,7 +51,7 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
   }, [composer.nonce]);
 
   return (
-    <div ref={rowRef} role="row" data-editing="true" className={`relative ${COLS} min-h-[50px] items-center bg-surface-2 shadow-ring-line-2 md:min-h-12 md:rounded-sm`}>
+    <div ref={rowRef} role="row" data-editing="true" className={`relative ${COLS} min-h-[50px] items-center rounded-[10px] bg-surface shadow-[0_0_0_1px_var(--ink-4)] md:min-h-12`}>
       <div className="flex h-[50px] items-center md:h-12">
         <span className="size-[18px] rounded-[6px] border-[1.5px] border-check-ring bg-surface" />
       </div>
@@ -89,9 +89,9 @@ function ComposerRow({ composer, actions }: { composer: Composer; actions: Table
 }
 
 /** The first row of the list: a new task starts here, at the top; speaking them is the small button at its other end. */
-function NewTaskRow({ onClick, onSpeak }: { onClick: () => void; onSpeak?: () => void }) {
+export function NewTaskRow({ onClick, onSpeak, className = "pr-6 pl-6 md:pr-3 md:pl-3" }: { onClick: () => void; onSpeak?: () => void; className?: string }) {
   return (
-    <div className="relative flex h-[50px] items-center pr-4 pl-4 md:h-12 md:pr-3 md:pl-3">
+    <div className={`relative flex h-[50px] items-center md:h-12 ${className}`}>
       <button
         type="button"
         onClick={onClick}
@@ -106,7 +106,6 @@ function NewTaskRow({ onClick, onSpeak }: { onClick: () => void; onSpeak?: () =>
         <span className="text-[16px] leading-[22px] md:text-callout">New task</span>
       </button>
       {onSpeak && <SpeakChip onClick={onSpeak} />}
-      <span aria-hidden="true" className="pointer-events-none absolute right-4 bottom-0 left-[46px] h-px bg-line md:right-3 md:left-[42px]" />
     </div>
   );
 }
@@ -114,7 +113,7 @@ function NewTaskRow({ onClick, onSpeak }: { onClick: () => void; onSpeak?: () =>
 /** A folded group under the list (earlier days, done): a square with a chevron, the name, how many. */
 export function FoldRow({ label, count, open, onToggle }: { label: string; count: number; open: boolean; onToggle: () => void }) {
   return (
-    <button type="button" aria-expanded={open} onClick={onToggle} className="group/fold relative flex h-[46px] w-full items-center pr-4 pl-4 text-left md:h-11 md:pr-3 md:pl-3">
+    <button type="button" aria-expanded={open} onClick={onToggle} className="group/fold relative mt-2 flex h-[42px] w-full items-center pr-6 pl-6 text-left md:h-10 md:pr-3 md:pl-3">
       <span className="flex w-[30px] flex-none">
         <span className="flex size-[18px] items-center justify-center rounded-[6px] bg-surface-2 text-ink-2 shadow-ring-line transition-colors duration-(--duration-fast) group-hover/fold:text-ink">
           <ChevronRight size={12} className={`transition-transform duration-(--duration-fast) ${open ? "rotate-90" : ""}`} />
@@ -122,7 +121,6 @@ export function FoldRow({ label, count, open, onToggle }: { label: string; count
       </span>
       <span className="flex-1 text-footnote font-medium text-ink-2 transition-colors duration-(--duration-fast) group-hover/fold:text-ink">{label}</span>
       <span className="tabular text-caption text-ink-3">{count}</span>
-      <span aria-hidden="true" className="pointer-events-none absolute right-4 bottom-0 left-[46px] h-px bg-line md:right-3 md:left-[42px]" />
     </button>
   );
 }
@@ -204,12 +202,12 @@ export function TaskTable({
               className={`transition-colors duration-(--duration-fast) ${hot ? "bg-accent-soft" : ""}`}
             >
               {grouped && (
-                // A band per day: its name and date, how much is done, and + to add to it (not to days gone by).
-                <div className="-mt-px flex h-10 items-center justify-between gap-3 bg-surface-2 pr-3 pl-4 shadow-[inset_0_-1px_0_var(--line),inset_0_1px_0_var(--line)] md:pl-3">
-                  <span className={`flex min-w-0 items-center gap-2 text-footnote font-semibold ${past ? "text-ink-3" : "text-ink"}`}>
-                    {isToday && <span className="rounded-[5px] bg-primary px-1.5 text-caption-2 leading-4 font-semibold text-on-primary">Today</span>}
-                    {dayName(d)}
-                    <span className="font-normal text-ink-3">{formatShort(d)}</span>
+                // A head per day, over its cards: its name and date (today's name in the accent, nothing heavier), how much
+                // is done, and + to add to it (not to days gone by).
+                <div className="flex h-11 items-end justify-between gap-3 pr-4 pb-1.5 pl-6 md:pr-1 md:pl-3">
+                  <span className="flex min-w-0 items-baseline gap-2 text-footnote">
+                    <span className={`font-semibold ${isToday ? "text-accent-ink" : past ? "text-ink-3" : "text-ink"}`}>{isToday ? "Today" : dayName(d)}</span>
+                    <span className="truncate text-ink-3">{isToday ? `${dayName(d)}, ${formatShort(d)}` : formatShort(d)}</span>
                   </span>
                   <span className="flex flex-none items-center gap-2.5">
                     <span className="tabular text-caption text-ink-3">{all ? `${doneN} of ${all}` : ""}</span>
@@ -219,7 +217,7 @@ export function TaskTable({
                         aria-label={`New task on ${dayName(d)}`}
                         data-tip="New task"
                         onClick={() => actions.openComposer(s.date)}
-                        className="tap relative flex size-6 items-center justify-center rounded-[7px] bg-surface text-ink-2 shadow-[inset_0_0_0_1px_var(--line-2)] transition-colors hover:text-ink"
+                        className="tap relative flex size-6 items-center justify-center rounded-[7px] text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
                       >
                         <PlusIcon size={13} />
                       </button>
@@ -229,21 +227,25 @@ export function TaskTable({
               )}
               {/* A new task starts at the top of its day, and lands there. */}
               {composing ? (
-                <ComposerRow composer={state.composer!} actions={actions} />
+                <div className={`px-3 md:px-0 ${grouped ? "pt-2" : "pt-1 pb-0.5"}`}>
+                  <ComposerRow composer={state.composer!} actions={actions} />
+                </div>
               ) : placeholderRow ? (
                 <NewTaskRow onClick={() => actions.openComposer(s.date)} onSpeak={onSpeak} />
               ) : null}
-              <div data-list="open">
+              <div data-list="open" className={`flex flex-col gap-1.5 px-3 md:px-0 ${grouped ? (s.tasks.length ? "pt-1 pb-2" : "") : s.tasks.length ? "pt-1" : ""}`}>
                 {s.tasks.map((t) => row(t, "open"))}
                 {!s.tasks.length && !composing && cleared}
               </div>
-              {grouped && !!s.completed?.length && <div data-list="done">{s.completed.map((t) => row(t, "done"))}</div>}
+              {grouped && !!s.completed?.length && <div data-list="done" className="flex flex-col gap-1.5 px-3 pb-2 md:px-0">{s.completed.map((t) => row(t, "done"))}</div>}
               {!grouped && between}
               {!grouped && !!s.completed?.length && (
                 <>
                   <FoldRow label="Done" count={s.completed.length} open={completedOpen} onToggle={() => onCompletedOpen?.(!completedOpen)} />
                   <Accordion open={completedOpen}>
-                    <div data-list="done">{s.completed.map((t) => row(t, "done"))}</div>
+                    <div data-list="done" className="flex flex-col gap-1.5 px-3 pb-1 md:px-0">
+                      {s.completed.map((t) => row(t, "done"))}
+                    </div>
                   </Accordion>
                 </>
               )}

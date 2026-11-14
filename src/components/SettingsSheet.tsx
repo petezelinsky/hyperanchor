@@ -4,12 +4,10 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { signOutAction } from "@/app/actions";
 import type { WeekStart } from "@/lib/dates";
-import type { Sort } from "@/lib/tasks";
 import type { AppUser } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { ArrowLeftIcon, ChevronDown, ChevronRight, DownloadIcon, SignOutIcon, XIcon } from "./icons";
 import { applyTheme, readSounds, readTheme, saveSounds, type Theme } from "./prefs";
-import { SORTS } from "./table/TaskTable";
 import { THEMES } from "./ThemeSwitch";
 import { Button, buttonClass, IconButton, Kbd, Menu, Modal, SegmentedControl, type MenuEntry } from "./ui";
 import { canListen, guessLanguage, languageName, readLanguageChoice, saveLanguageChoice, spokenLanguages } from "./voice/dictation";
@@ -34,7 +32,7 @@ function shortcuts(voice: boolean): { title: string; items: [string, string][] }
         ["T", "Go to today"],
         ["← →", "Previous / next"],
         ["D W M", "Day, week, month"],
-        ["A", "Progress"],
+        ["A", "Analytics"],
         ["[", "Show or hide the sidebar"],
         [`${mac ? "⌘" : "Ctrl"} Z`, "Undo the last action"],
         ["?", "Keyboard shortcuts"],
@@ -65,8 +63,8 @@ function shortcuts(voice: boolean): { title: string; items: [string, string][] }
 }
 
 /**
- * Settings: a window. Sections are named, not painted: General (appearance, the first day of the week, the order of
- * tasks, sounds, the keyboard shortcuts on computers), Voice (the spoken language: worked out by itself unless one is
+ * Settings: a window. Sections are named, not painted: General (appearance, the first day of the week, sounds, the
+ * keyboard shortcuts on computers; the order of tasks is on the task pages themselves), Voice (the spoken language: worked out by itself unless one is
  * named here), your data, and the account, which opens one level down (where deleting it lives, at the very end).
  * Signing out sits at the foot. Every change applies at once.
  */
@@ -75,8 +73,6 @@ export function SettingsSheet({
   user,
   weekStart,
   onWeekStart,
-  sort,
-  onSort,
   voice,
   transcribe,
   sample,
@@ -86,8 +82,6 @@ export function SettingsSheet({
   user: AppUser;
   weekStart: WeekStart;
   onWeekStart: (w: WeekStart) => void;
-  sort: Sort;
-  onSort: (s: Sort) => void;
   /** Whether the Speak screen is offered (its settings and its shortcut are listed only then). */
   voice: boolean;
   /** Whether speech is written down on the server (any language, worked out from the voice itself). */
@@ -101,7 +95,6 @@ export function SettingsSheet({
   const [sounds, setSounds] = useState(readSounds);
   const [language, setLanguage] = useState(readLanguageChoice);
   const [signingOut, startSignOut] = useTransition();
-  const order = SORTS.find((o) => o.sort.key === sort.key && o.sort.dir === sort.dir) ?? SORTS[0];
   const guessed = languageName(guessLanguage(sample));
   // Opened straight on the shortcuts (?), Back closes; from Settings, it goes back to Settings.
   const back = tab === "shortcuts" && page === "shortcuts" ? null : () => setPage("settings");
@@ -137,7 +130,7 @@ export function SettingsSheet({
                 className="w-[176px]"
               />
             </Row>
-            <Row title="Week starts on" hint="In Week, Month and Progress.">
+            <Row title="Week starts on" hint="In Week, Month and Analytics.">
               <SegmentedControl
                 label="Week starts on"
                 value={weekStart === 0 ? "sunday" : "monday"}
@@ -148,9 +141,6 @@ export function SettingsSheet({
                 onChange={(v) => onWeekStart(v === "sunday" ? 0 : 1)}
                 className="w-[176px]"
               />
-            </Row>
-            <Row title="Task order" hint={order.sort.key === "manual" ? "Yours: drag tasks to arrange them." : "Dragging is off while tasks are sorted."}>
-              <Pick label="Task order" value={order.label} entries={SORTS.map((o) => ({ label: o.label, checked: o === order, onSelect: () => onSort(o.sort) }))} />
             </Row>
             <Row title="Sounds" hint="A soft chime when the focus timer is up." last>
               <SegmentedControl
@@ -361,6 +351,10 @@ function DeleteAccount() {
       setFailed(false);
       const res = await fetch("/api/account", { method: "DELETE" }).catch(() => null);
       if (!res?.ok) return setFailed(true);
+      // Nothing of the account stays in this browser either: changes waiting to be sent, and summaries kept here.
+      try {
+        for (const key of Object.keys(localStorage)) if (key.startsWith("hyperanchor:outbox:") || key.startsWith("hyperanchor:summary:")) localStorage.removeItem(key);
+      } catch {}
       await signOutAction();
     });
 

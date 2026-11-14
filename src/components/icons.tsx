@@ -40,15 +40,15 @@ export const MoonIcon = (p: IconProps) => (
   </Svg>
 );
 
-/** Home: the planner itself (the day, the week, the month). */
-export const HomeIcon = (p: IconProps) => (
+/** Tasks: the planner itself (the day, the week, the month), signed by its box with a tick. */
+export const TasksIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M2.5 7.3 8 2.6l5.5 4.7v5.2a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1Z" />
-    <path d="M6.4 13.5V9.8h3.2v3.7" />
+    <rect x="2" y="2.5" width="12" height="11" rx="2.4" />
+    <path d="m5.4 8.1 1.75 1.75L10.6 6.2" />
   </Svg>
 );
 
-/** Progress: three bars in a rounded frame. */
+/** Analytics: three bars in a rounded frame. */
 export const ChartIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="2" y="2.5" width="12" height="11" rx="2.4" />
@@ -110,6 +110,15 @@ export const EllipsisIcon = ({ size = 16, className }: IconProps) => (
     <circle cx="8" cy="8" r="0.95" />
     <circle cx="12.4" cy="8" r="0.95" />
   </svg>
+);
+
+/** History: a clock whose hand turns back. */
+export const HistoryIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M2.2 8a5.8 5.8 0 1 0 5.8-5.8 6.3 6.3 0 0 0-4.35 1.77L2.2 5.4" />
+    <path d="M2.2 2.4v3h3" />
+    <path d="M8 5v3l2.2 1.2" />
+  </Svg>
 );
 
 export const XIcon = (p: IconProps) => (

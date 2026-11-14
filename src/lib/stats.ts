@@ -1,12 +1,16 @@
 import { addDays, dayDiff, dowIndex, parseYmd, startOfWeek, ymd } from "./dates";
 import type { Task } from "./types";
 
-export type Period = "week" | "month" | "year";
+export type Period = "day" | "week" | "month" | "year";
 export type Bounds = { start: Date; end: Date; days: number };
 
-/** The week/month/year `offset` periods away from today's (offset ≤ 0). */
+/** The day/week/month/year `offset` periods away from today's (offset ≤ 0). */
 export function periodBounds(period: Period, offset: number, todayKey: string): Bounds {
   const today = parseYmd(todayKey);
+  if (period === "day") {
+    const start = addDays(today, offset);
+    return { start, end: start, days: 1 };
+  }
   if (period === "week") {
     const start = addDays(startOfWeek(today), offset * 7);
     return { start, end: addDays(start, 6), days: 7 };
@@ -24,6 +28,13 @@ export function periodBounds(period: Period, offset: number, todayKey: string): 
 /** What analytics needs loaded: the previous period (for comparisons) through the end of this one. */
 export function statsRange(period: Period, offset: number, todayKey: string): [string, string] {
   return [ymd(periodBounds(period, offset - 1, todayKey).start), ymd(periodBounds(period, offset, todayKey).end)];
+}
+
+/** The days a day or a week is read against (the four weeks up to its end): what Detailed analytics also needs loaded. */
+export function contextRange(period: Period, offset: number, todayKey: string): [string, string] | null {
+  if (period !== "day" && period !== "week") return null;
+  const end = periodBounds(period, offset, todayKey).end;
+  return [ymd(addDays(end, -27)), ymd(end)];
 }
 
 export type DayStat = { key: string; date: Date; tasks: Task[]; done: number; total: number; elapsed: boolean; isToday: boolean };

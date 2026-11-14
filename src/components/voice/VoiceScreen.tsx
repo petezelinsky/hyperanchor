@@ -6,16 +6,19 @@ import { addDays, formatMedium, parseYmd, relativeDay, startOfWeek, ymd, type We
 import type { TaskDraft, Usage } from "@/lib/types";
 import { DRAFT_TEXT_MAX as TEXT_MAX } from "@/lib/validate";
 import { AutoTextarea } from "../AutoTextarea";
+import { pourWords } from "../dust";
 import { ChevronDown, XIcon } from "../icons";
-import { reducedMotion } from "../motion";
-import { Button, IconButton, Kbd, Menu, type MenuEntry } from "../ui";
+import { motion, reducedMotion } from "../motion";
+import { MiniMonth } from "../Sidebar";
+import { Button, IconButton, Kbd, Menu, Popover, type MenuEntry } from "../ui";
 import { canListen, Dictation, spokenLanguage, type StopReason } from "./dictation";
 import { canMeter, Meter } from "./meter";
 import { Orb } from "./Orb";
 import { ParticleRing, type RingMode } from "./ParticleRing";
 import { canRecord, Recorder, type Recorded, type RecordStop } from "./recorder";
 
-type Draft = TaskDraft & { key: number };
+/** A task understood from what was said; `fresh` until it has come into the sheet once. */
+type Draft = TaskDraft & { key: number; fresh?: boolean };
 /** Listening; writing down what was said (on the server); waiting for the tasks to come back; or at rest. */
 type Phase = "listening" | "hearing" | "sorting" | "idle";
 /**
@@ -42,14 +45,20 @@ const HEARING: Record<string, string> = {
   failed: "That couldn’t be written down. Try again.",
 };
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+/** The least time the sphere spends thinking, so what was said can be seen pouring into it. */
+const THINK_MS = 1500;
+/** The ring's radius as a share of the sphere's half-width (ParticleRing draws it at 226 of 400). */
+const RING = 226 / 400;
 
 /**
  * Speak your tasks: the whole screen, plain. The sphere listens in the middle and moves to every sound. Where the server
  * hears speech itself (`server`), the voice is recorded and written down there once the person stops — in any language,
  * worked out without asking (Settings can name one); elsewhere the browser's own recognition writes the words under the
- * sphere as they come. Then a window comes up at once, with lines filling in while the words are sorted, then the tasks
- * on their days: each can be reworded, moved to another day or left out. From there it's one step to add them, to speak
- * some more, or to leave. Typing (or pasting) works the same way, and takes over where the browser can't listen.
+ * sphere as they come. Once the person stops, the words pour into the sphere, which thinks (comets of light run round
+ * it) while they are written down and sorted; then it breathes out and a sheet slides up from the bottom with the tasks
+ * on their days: each can be reworded, moved to another day (any day, from a calendar) or left out. The sheet can be
+ * pulled down to the stage and brought back. From there it's one step to add them, to speak some more, or to leave.
+ * Typing (or pasting) works the same way, and takes over where the browser can't listen.
  */
 export function VoiceScreen({
   todayKey,
@@ -86,9 +95,17 @@ export function VoiceScreen({
   const [review, setReview] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [dayMenu, setDayMenu] = useState<{ key: number; anchor: DOMRect; trigger: HTMLElement } | null>(null);
+  const [calendar, setCalendar] = useState<{ key: number; anchor: DOMRect; trigger: HTMLElement; y: number; m: number } | null>(null);
+  // The words have poured into the sphere: they're no longer shown under it.
+  const [poured, setPoured] = useState(false);
+  // How far the sheet is being pulled down (px), while it's held.
+  const [pull, setPull] = useState(0);
 
   const dialog = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const words = useRef<HTMLParagraphElement>(null);
+  const sheet = useRef<HTMLElement>(null);
+  const backdrop = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const ring = useRef<ParticleRing | null>(null);
   const dictation = useRef<Dictation | null>(null);
@@ -109,7 +126,23 @@ export function VoiceScreen({
     meter.current = null;
   }, []);
 
-  /** Sends `words` to be sorted; the window comes up at once, and the tasks that come back join the ones already there. */
+  /** What was said pours into the sphere (once it has been on screen for a moment). */
+  const pour = useCallback(() => {
+    setTimeout(() => {
+      const el = words.current;
+      const c = canvas.current;
+      const host = dialog.current;
+      if (!alive.current || !el || !c || !host || latest.current.phase !== "sorting") return;
+      const r = c.getBoundingClientRect();
+      if (pourWords(host, el, { x: r.left + r.width / 2, y: r.top + r.height / 2, r: (r.width / 2) * RING })) setPoured(true);
+    }, 420);
+  }, []);
+
+  /**
+   * Sends `words` to be sorted; the tasks that come back join the ones already there. Spoken, the words pour into the
+   * sphere, which thinks for at least a moment, breathes out, and the sheet comes up; typed, the sheet comes up at once
+   * with lines filling in.
+   */
   const sort = useCallback(async (words: string) => {
     const clean = words.trim();
     if (!clean) return;
@@ -118,10 +151,24 @@ export function VoiceScreen({
       setReview(true);
       return setProblem({ message: "That’s too much for one go. Sort it in two or three parts." });
     }
+    const spoken = !latest.current.typing && !!canvas.current;
+    const began = performance.now();
     setPhase("sorting");
     setProblem(null);
     setConfirming(false);
-    setReview(true);
+    if (spoken) {
+      setReview(false);
+      pour();
+    } else setReview(true);
+    // Spoken: the sheet waits for the sphere to have thought for a moment, then comes up as it breathes out.
+    const settle = async () => {
+      if (!spoken) return;
+      const wait = THINK_MS - (performance.now() - began);
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      if (!alive.current) return;
+      ring.current?.pulse();
+      setReview(true);
+    };
     try {
       const res = await fetch("/api/tasks/parse", {
         method: "POST",
@@ -137,17 +184,23 @@ export function VoiceScreen({
       } else {
         const { tasks } = (await res.json()) as { tasks: TaskDraft[] };
         if (!alive.current) return;
+        await settle();
+        if (!alive.current) return;
         setSaid("");
         setText("");
-        if (tasks.length) setDrafts((list) => [...list, ...tasks.map((t) => ({ ...t, key: nextKey.current++ }))]);
+        if (tasks.length) setDrafts((list) => [...list, ...tasks.map((t) => ({ ...t, key: nextKey.current++, fresh: true }))]);
         else setProblem({ message: "No tasks in that. Say what you need to do, and when." });
       }
     } catch {
       if (!alive.current) return;
       setProblem({ message: "You’re offline. What you said is kept: try again when you’re back.", again: clean });
     }
-    if (alive.current) setPhase("idle");
-  }, []);
+    if (!alive.current) return;
+    // Whatever came of it, the sheet is up now (with the tasks, or with what went wrong).
+    setReview(true);
+    setPhase("idle");
+    setPoured(false);
+  }, [pour]);
 
   const heard = useCallback(
     (reason: StopReason, words: string) => {
@@ -187,9 +240,11 @@ export function VoiceScreen({
         // No language is named: the speech model hears it, and a mix of them (Russian with English words in it) stays a
         // mix. What it gets instead is the person's latest task titles, as the words that came before: their names,
         // their terms, and the way they mix languages, so those come back written the same way.
+        // (In a header, not the address: addresses end up in request logs.)
         const context = sample.slice(0, 12).join(". ").slice(0, 400);
-        if (context) q.set("context", context);
-        const res = await fetch(`/api/voice/transcribe?${q}`, { method: "POST", headers: { "Content-Type": audio.blob.type || "audio/webm" }, body: audio.blob });
+        const headers: Record<string, string> = { "Content-Type": audio.blob.type || "audio/webm" };
+        if (context) headers["X-Transcribe-Context"] = encodeURIComponent(context);
+        const res = await fetch(`/api/voice/transcribe?${q}`, { method: "POST", headers, body: audio.blob });
         if (!alive.current) return;
         if (res.status === 401) return window.location.reload(); // the session ran out: back to signing in
         if (!res.ok) {
@@ -236,14 +291,16 @@ export function VoiceScreen({
     [hear, hush],
   );
 
-  const listen = useCallback(() => {
+  /** Starts listening. `keepSheet`: the sheet is on its way down by itself (it leaves when its slide is over). */
+  const listen = useCallback((keepSheet = false) => {
     dictation.current?.cancel();
     hush();
     setProblem(null);
-    setReview(false);
+    if (!keepSheet) setReview(false);
     setConfirming(false);
     setSaid("");
     setSaying("");
+    setPoured(false);
     setPhase("listening");
     if (record) {
       const r = new Recorder({ onSpeaking: setSpeaking, onStop: recorded });
@@ -393,12 +450,12 @@ export function VoiceScreen({
       ring.current = null;
     };
   }, [showRing]);
-  const mode: RingMode = phase === "listening" ? "speech" : phase === "sorting" || phase === "hearing" ? "steady" : "silent";
+  const mode: RingMode = phase === "listening" ? "speech" : phase === "sorting" || phase === "hearing" ? "think" : "silent";
   useEffect(() => {
     const r = ring.current;
     if (!r) return;
     r.o.mode = mode;
-    r.o.intensity = mode === "steady" ? 0.55 : 1;
+    r.o.intensity = mode === "think" ? 0.8 : 1;
     r.gate = mode === "speech" ? (speaking ? 1 : 0) : null;
     r.o.color = getComputedStyle(r.canvas).color;
   }, [mode, speaking, showRing]);
@@ -408,6 +465,8 @@ export function VoiceScreen({
     const onKey = (e: KeyboardEvent) => {
       const l = latest.current;
       if (e.key === "Escape") {
+        // An open menu or calendar takes its own Escape.
+        if (document.querySelector('[role="menu"], [aria-label="Pick a date"]')) return;
         e.preventDefault();
         if (l.confirming) return setConfirming(false);
         return l.review ? discard() : leave();
@@ -449,13 +508,15 @@ export function VoiceScreen({
     } else listen();
   };
 
-  /** From the window back to the stage, for more: listening again, or the box to type in. */
+  /** From the sheet back to the stage, for more: listening again (at once, as the sheet slides down), or the box to type in. */
   const more = () => {
     if (typing) {
-      setReview(false);
       setProblem(null);
-      requestAnimationFrame(() => field.current?.focus());
-    } else listen();
+      lower(() => field.current?.focus());
+    } else {
+      listen(true);
+      lower();
+    }
   };
 
   const today = parseYmd(todayKey);
@@ -466,7 +527,68 @@ export function VoiceScreen({
     if (!days.includes(nextWeek)) days.push(nextWeek);
     if (!days.includes(draft.date)) days.push(draft.date);
     const pick = (date: string) => () => setDrafts((list) => list.map((d) => (d.key === draft.key ? { ...d, date } : d)));
-    return days.sort().map((date) => ({ label: date === nextWeek && !relativeDay(date, todayKey) ? `${formatMedium(parseYmd(date))} · next week` : dayLabel(date), onSelect: pick(date), checked: date === draft.date }));
+    return [
+      ...days.sort().map((date) => ({ label: date === nextWeek && !relativeDay(date, todayKey) ? `${formatMedium(parseYmd(date))} · next week` : dayLabel(date), onSelect: pick(date), checked: date === draft.date })),
+      { separator: true },
+      {
+        label: "Pick a date…",
+        onSelect: () => {
+          if (!dayMenu) return;
+          const d = parseYmd(draft.date);
+          setCalendar({ key: draft.key, anchor: dayMenu.anchor, trigger: dayMenu.trigger, y: d.getFullYear(), m: d.getMonth() });
+        },
+      },
+    ];
+  };
+  const calendarDraft = calendar && drafts.find((d) => d.key === calendar.key);
+
+  /** The sheet goes back down (the tasks stay): it slides away, then is gone. */
+  const lower = (then?: () => void) => {
+    const s = sheet.current;
+    const b = backdrop.current;
+    setPull(0);
+    if (!s || reducedMotion()) {
+      setReview(false);
+      return then?.();
+    }
+    const m = motion();
+    b?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: m.base, easing: m.in, fill: "forwards" });
+    void s
+      .animate([{ transform: getComputedStyle(s).transform === "none" ? "translateY(0)" : getComputedStyle(s).transform }, { transform: "translateY(100%)" }], { duration: m.base, easing: m.in, fill: "forwards" })
+      .finished.then(
+        () => {
+          if (!alive.current) return;
+          setReview(false);
+          then?.();
+        },
+        () => {},
+      );
+  };
+
+  /** Holding the sheet's handle: it follows the finger down, and let go far (or fast) enough it goes down for good. */
+  const hold = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.button > 0) return;
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const y0 = e.clientY;
+    const t0 = performance.now();
+    let dy = 0;
+    const move = (ev: PointerEvent) => {
+      const raw = ev.clientY - y0;
+      dy = raw > 0 ? raw : raw / 4;
+      setPull(dy);
+    };
+    const up = (ev: PointerEvent) => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+      const fast = dy / Math.max(1, performance.now() - t0) > 0.6;
+      if (ev.type === "pointerup" && (dy > 120 || (fast && dy > 30))) lower();
+      else setPull(0);
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
   };
   const openDayMenu = dayMenu && drafts.find((d) => d.key === dayMenu.key);
 
@@ -476,14 +598,15 @@ export function VoiceScreen({
   const tasks = (count: number) => `${count} ${count === 1 ? "task" : "tasks"}`;
   const caption =
     phase === "listening" ? (record ? `Listening · ${clock(elapsed)}` : "Listening") : hearing ? "Writing it down…" : busy ? "Sorting into tasks…" : "";
-  const hint =
+  // What to say: a quiet line under the sphere, and an example under it, smaller still.
+  const hint: [string, string] | null =
     phase === "listening"
-      ? "Say what you need to do, and when."
-      : typing || hearing
-        ? ""
+      ? ["Say what you’re going to do, and when.", "“Call the bank tomorrow morning, book the dentist on Friday.”"]
+      : typing || hearing || busy
+        ? null
         : n
-          ? "Anything else? Speak again, or add what you have."
-          : "Press Speak again and say what you need to do.";
+          ? ["Anything else? Speak again, or add what you have.", ""]
+          : ["Press Speak again and say what you’re going to do.", ""];
 
   return createPortal(
     <div
@@ -536,19 +659,25 @@ export function VoiceScreen({
               <canvas ref={canvas} aria-hidden="true" className="size-[240px] flex-none text-ink md:size-[300px]" />
               <p className="tabular mt-1 min-h-[18px] text-caption text-ink-3">{caption}</p>
               <p
+                ref={words}
                 aria-live="off"
-                className="mt-2 line-clamp-4 min-h-[52px] w-full max-w-[560px] text-center text-headline font-medium text-balance md:min-h-[60px] md:text-[20px] md:leading-[30px] md:tracking-[-0.014em]"
+                className={`mt-2 line-clamp-4 min-h-[52px] w-full max-w-[560px] text-center text-headline font-medium text-balance transition-opacity duration-(--duration-fast) md:min-h-[60px] md:text-[20px] md:leading-[30px] md:tracking-[-0.014em] ${
+                  poured ? "opacity-0" : ""
+                }`}
               >
                 {problem && phase !== "listening" && !review ? (
-                  <span className="font-normal text-ink-2">{problem.message}</span>
+                  <span className="text-callout font-normal text-ink-2 md:text-[17px] md:leading-6">{problem.message}</span>
                 ) : said || saying ? (
                   <>
-                    <span className={busy ? "text-ink-2" : ""}>{said}</span>
+                    <span>{said}</span>
                     {saying && <span className="text-ink-3"> {saying}</span>}
                   </>
-                ) : (
-                  <span className="font-normal text-ink-3">{hint}</span>
-                )}
+                ) : hint ? (
+                  <span key={hint[0]} className="block animate-[fade_var(--duration-base)_var(--ease-out)_both] font-normal">
+                    <span className="block text-callout text-ink-2 md:text-[16px] md:leading-6">{hint[0]}</span>
+                    {hint[1] && <span className="mt-1.5 block text-footnote text-ink-3">{hint[1]}</span>}
+                  </span>
+                ) : null}
               </p>
             </>
           )}
@@ -568,7 +697,7 @@ export function VoiceScreen({
           </Button>
         ) : problem?.audio && phase === "idle" ? (
           <>
-            <Button size="lg" onClick={listen} className="gap-2 max-sm:flex-1 md:h-10 md:rounded-[10px]">
+            <Button size="lg" onClick={() => listen()} className="gap-2 max-sm:flex-1 md:h-10 md:rounded-[10px]">
               <Orb size={20} />
               Speak again
             </Button>
@@ -584,40 +713,57 @@ export function VoiceScreen({
             </span>
           </Button>
         ) : (
-          <Button size="lg" variant="primary" disabled={busy || hearing || spent} onClick={listen} className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
+          <Button size="lg" variant="primary" disabled={busy || hearing || spent} onClick={() => listen()} className="gap-2 max-sm:flex-1 md:h-10 md:min-w-[140px] md:rounded-[10px]">
             <Orb size={20} />
             Speak again
           </Button>
         )}
       </div>
 
-      {/* The window: up as soon as sorting starts. Lines fill in while it works; then the tasks, each one editable. */}
+      {/* The sheet: up from the bottom with the tasks, each one editable; the sphere stays in sight above it. Its handle
+          pulls it back down (the tasks stay, a button on the stage brings them back). */}
       {review && (
         <div
-          className="absolute inset-0 z-10 flex animate-[fade_var(--duration-fast)_var(--ease-out)_both] items-end justify-center bg-[var(--scrim)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:items-center md:p-6"
-          onPointerDown={(e) => e.target === e.currentTarget && discard()}
+          ref={backdrop}
+          className="absolute inset-0 z-10 flex animate-[fade_var(--duration-base)_var(--ease-out)_both] items-end justify-center bg-[linear-gradient(to_bottom,transparent_0%,var(--scrim)_72%)]"
+          onPointerDown={(e) => e.target === e.currentTarget && !busy && lower()}
         >
           <section
+            ref={sheet}
             role="dialog"
             aria-modal="true"
             aria-label="Tasks to add"
             aria-busy={busy}
-            className="flex max-h-full w-full max-w-[560px] animate-rise flex-col overflow-hidden rounded-card bg-elevated shadow-float"
+            className="flex max-h-[min(78dvh,700px)] w-full max-w-[640px] animate-[sheet-up_520ms_cubic-bezier(0.16,1,0.3,1)_both] flex-col overflow-hidden rounded-t-[24px] bg-elevated pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--line),0_-18px_60px_-12px_rgba(0,0,0,0.28)] md:mx-4"
+            style={pull ? { transform: `translateY(${pull}px)`, animation: "none" } : undefined}
           >
-            <header className="flex h-14 flex-none items-center gap-3 border-b border-line pr-3 pl-5">
+            <div
+              onPointerDown={hold}
+              aria-hidden="true"
+              className="flex h-6 flex-none cursor-grab touch-none items-end justify-center active:cursor-grabbing"
+            >
+              <span className="h-[5px] w-10 rounded-full bg-line-2" />
+            </div>
+            <header onPointerDown={(e) => !(e.target as HTMLElement).closest("button") && hold(e)} className="flex h-14 flex-none touch-none items-center gap-3 pr-3 pl-5">
               {busy && <span aria-hidden="true" className="size-4 flex-none animate-spin rounded-full border-[1.5px] border-line-2 border-t-ink" />}
-              <h2 className="min-w-0 flex-1 truncate text-headline font-semibold">
-                {busy ? "Sorting into tasks…" : n ? `${tasks(n)} to add` : "Nothing to add yet"}
-              </h2>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-headline font-semibold">{busy ? "Sorting into tasks…" : n ? `${tasks(n)} to add` : "Nothing to add yet"}</h2>
+                {!busy && n > 0 && <p className="truncate text-caption text-ink-3">Edit a task, change its day, or leave it out.</p>}
+              </div>
               <IconButton label="Close" onClick={discard} className="shadow-[inset_0_0_0_1px_var(--line-2)]">
                 <XIcon size={14} />
               </IconButton>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-line">
               <ul aria-label="Tasks to add">
-                {drafts.map((d) => (
-                  <li key={d.key} className="flex min-h-[52px] animate-rise items-center gap-2 border-b border-line pr-3 pl-5">
+                {drafts.map((d, i) => (
+                  <li
+                    key={d.key}
+                    onAnimationEnd={() => d.fresh && setDrafts((list) => list.map((x) => (x.key === d.key ? { ...x, fresh: false } : x)))}
+                    style={d.fresh ? { animationDelay: `${120 + i * 70}ms` } : undefined}
+                    className={`flex min-h-[52px] items-center gap-2 border-b border-line pr-3 pl-5 ${d.fresh ? "summary-in" : ""}`}
+                  >
                     <AutoTextarea
                       value={d.title}
                       onChange={(e) => setDrafts((list) => list.map((x) => (x.key === d.key ? { ...x, title: e.target.value.replace(/\n/g, " ") } : x)))}
@@ -698,6 +844,23 @@ export function VoiceScreen({
       </p>
 
       {openDayMenu && dayMenu && <Menu anchor={dayMenu.anchor} trigger={dayMenu.trigger} align="end" label="Day" entries={dayEntries(openDayMenu)} onClose={() => setDayMenu(null)} />}
+      {calendar && calendarDraft && (
+        // Any day at all: a month to pick from, opened from the day's menu.
+        <Popover anchor={calendar.anchor} trigger={calendar.trigger} align="end" label="Pick a date" onClose={() => setCalendar(null)} className="w-[268px] p-2.5">
+          <MiniMonth
+            year={calendar.y}
+            month={calendar.m}
+            selected={calendarDraft.date}
+            todayKey={todayKey}
+            byDate={() => []}
+            onShift={(k) => setCalendar((c) => (c ? { ...c, y: new Date(c.y, c.m + k, 1).getFullYear(), m: new Date(c.y, c.m + k, 1).getMonth() } : c))}
+            onSelect={(date) => {
+              setDrafts((list) => list.map((x) => (x.key === calendar.key ? { ...x, date } : x)));
+              setCalendar(null);
+            }}
+          />
+        </Popover>
+      )}
     </div>,
     document.body,
   );

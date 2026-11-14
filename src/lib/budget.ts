@@ -2,7 +2,7 @@ import { sql } from "./db";
 
 /**
  * Each person's AI allowance for a day (UTC), in tokens: hearing what was said, sorting it into tasks and writing the
- * summary in Progress all draw on it. Counted in `ai_usage`, one line per person and day; the words themselves are
+ * summary in Analytics all draw on it. Counted in `ai_usage`, one line per person and day; the words themselves are
  * never stored. AI_DAILY_TOKENS sets another allowance for everyone; `users.ai_daily_tokens` one for a single account
  * (null: the usual one).
  */

@@ -41,7 +41,7 @@ type Handlers = {
 };
 
 /** A pause this long after something was said ends the listening by itself. */
-const SILENCE_AFTER_WORDS = 4500;
+const SILENCE_AFTER_WORDS = 3200;
 /** Nothing said at all for this long: there's no point in listening on. */
 const SILENCE_AT_START = 12_000;
 const SPEAKING_HOLD = 700;

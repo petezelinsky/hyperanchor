@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { badRequest, currentUserId, unauthorized } from "@/lib/api";
+import { badRequest, currentUserId, unauthorized, isJson } from "@/lib/api";
 import { reserve, settle, type Spend } from "@/lib/budget";
 import { DraftError, draftsConfigured, draftTasks, shiftDay, sortingEstimate, TEXT_MAX } from "@/lib/drafts";
 import { isDate } from "@/lib/validate";
@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
   const userId = await currentUserId();
   if (!userId) return unauthorized();
 
+  if (!isJson(req)) return badRequest("JSON only");
   const body = await req.json().catch(() => null);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   if (!text) return badRequest("Text is required");

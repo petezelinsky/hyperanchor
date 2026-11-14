@@ -1,7 +1,8 @@
 /**
  * The voice's sphere: a thick, full ring of dots on a canvas. It moves to sound. Given the microphone's readings
  * (`listen`), every sound shows: the ring swells with the loudness, and each part of it leans out with its own slice
- * of the voice's range, so speech runs round it as waves. No two dots do the same thing: each has its own direction
+ * of the voice's range, so speech runs round it as waves. In silence it gathers in: the haze of outer dots draws close
+ * to the ring and fades, and comes back out (a little further than the ring's resting width) once there's a voice. No two dots do the same thing: each has its own direction
  * (out, in, along the ring, or a long flight), its own pace of waking up and settling, and its own small orbit. Without
  * a microphone to read (phones), it acts out syllables while words are being recognized. Nothing is drawn inside it.
  *
@@ -12,7 +13,11 @@ const TAU = Math.PI * 2;
 const BINS = 360;
 const BANDS = 16;
 
-export type RingMode = "speech" | "steady" | "silent";
+/**
+ * speech: moves to the voice; steady: a calm breath; silent: still but alive; think: three comets of light run round
+ * the ring while what was said is worked on.
+ */
+export type RingMode = "speech" | "steady" | "silent" | "think";
 
 type Options = {
   count: number;
@@ -52,6 +57,10 @@ type Dot = {
   e: number;
   /** How loud this dot's part of the ring is right now. */
   a: number;
+  /** How far out it sits in silence, as a share of its place when there's a voice (the haze gathers in). */
+  calm: number;
+  /** How much of its opacity it keeps in silence. */
+  dim: number;
 };
 
 /** What the microphone hears at this moment: how loud (0…1), and the same over 16 bands from low to high. */
@@ -68,6 +77,12 @@ export class ParticleRing {
   private t = 0;
   private G = 0;
   private E = 0;
+  /** 0 in silence, 1 while there's a voice: rises at once, falls slowly, so the ring doesn't shrink between words. */
+  private wake = 0;
+  /** Where the comets are (think mode). */
+  private spin = 0;
+  /** A breath out (see `pulse`), fading. */
+  private kick = 0;
   private gateNow = 0;
   private level: number;
   private shown: number;
@@ -111,6 +126,11 @@ export class ParticleRing {
     cancelAnimationFrame(this.raf);
   }
 
+  /** A single breath out: the ring opens wide for a moment and settles back (the tasks are ready). */
+  pulse() {
+    this.kick = 1;
+  }
+
   /** One still frame, `t` seconds into its life: the sphere drawn small, as an icon (see Orb). */
   still(t = 0) {
     if (t > 0) this.advance(t);
@@ -147,6 +167,9 @@ export class ParticleRing {
       // A dense heart, a soft body around it and a wide haze: the band reads thick and full.
       const layer = rnd();
       const sigma = layer < 0.4 ? spread * 0.36 : layer < 0.78 ? spread * 0.8 : spread * 1.5;
+      // In silence the heart stays, the body draws in a little and the haze a lot (and fades).
+      const calm = layer < 0.4 ? 0.96 : layer < 0.78 ? 0.68 : 0.38;
+      const dim = layer < 0.4 ? 1 : layer < 0.78 ? 0.85 : 0.32;
       let off = Math.max(-2.3, Math.min(2.3, gauss())) * sigma;
       if (off < -radius * 0.46) off = -radius * 0.46 * rnd(); // nothing wanders into the middle
       const near = Math.max(0, 1 - Math.abs(off) / (spread * 2.4));
@@ -177,6 +200,8 @@ export class ParticleRing {
         sc: 0.35 + rnd() * 0.75,
         e: 0,
         a: 0,
+        calm,
+        dim,
       });
     }
     const order = Array.from({ length: BANDS }, (_, k) => k);
@@ -229,9 +254,13 @@ export class ParticleRing {
     if (this.shown < 1) this.shown = Math.min(1, this.shown + dt / 0.8);
     // Real sound when there is some to read; otherwise syllables acted out while words are recognized.
     const heard = o.mode === "speech" ? (this.listen?.() ?? null) : null;
-    const x = o.mode === "speech" ? (heard ? heard.level : this.speech(t, step)) : o.mode === "steady" ? 0.3 + 0.08 * Math.sin(t * 0.8) : 0;
+    const think = o.mode === "think";
+    const x = o.mode === "speech" ? (heard ? heard.level : this.speech(t, step)) : o.mode === "steady" ? 0.3 + 0.08 * Math.sin(t * 0.8) : think ? 0.16 : 0;
+    this.kick *= Math.exp(-step * 3.2);
     this.G += (x - this.G) * ease(x > this.G ? (heard ? 36 : 13) : heard ? 7.5 : 4.6);
     this.E += (this.G - this.E) * ease(this.G > this.E ? (heard ? 9 : 3) : heard ? 2.2 : 1.1);
+    const awake = o.mode === "silent" ? 0 : Math.min(1, this.G * 4.5);
+    this.wake += (awake - this.wake) * ease(awake > this.wake ? 7 : 0.9);
     // The bands: an equalizer wrapped around the ring. With the microphone, each sector follows its own slice of the
     // voice; without it, each has its own slow life.
     for (const b of this.bands) {
@@ -244,16 +273,33 @@ export class ParticleRing {
       b.level += (target - b.level) * ease(target > b.level ? (heard ? 32 : 12) : heard ? 8.5 : 4.4);
     }
     const W = 0.3;
-    for (let i = 0; i < BINS; i++) {
-      const a = (i / BINS) * TAU;
-      let v = 0;
-      for (const b of this.bands) {
-        let d = Math.abs(a - b.center) % TAU;
-        if (d > Math.PI) d = TAU - d;
-        if (d < 3 * W) v += b.level * Math.exp(-(d * d) / (2 * W * W));
+    if (think && !o.reduced) {
+      // Three comets, each a bright head with a tail of light behind it, running round at slightly different paces.
+      this.spin += step * 2.1;
+      for (let i = 0; i < BINS; i++) {
+        const a = (i / BINS) * TAU;
+        let v = 0;
+        for (let k = 0; k < 3; k++) {
+          const head = this.spin * (1 + k * 0.17) + (k * TAU) / 3;
+          let d = (head - a) % TAU;
+          if (d < 0) d += TAU;
+          if (d < 2.4) v += Math.exp(-d / 0.55);
+          const ahead = TAU - d;
+          if (ahead < 0.3) v += Math.exp(-((ahead / 0.09) ** 2));
+        }
+        this.act[i] = Math.min(1.25, v * 0.95) * this.level;
       }
-      this.act[i] = Math.min(1.3, v) * this.level;
-    }
+    } else
+      for (let i = 0; i < BINS; i++) {
+        const a = (i / BINS) * TAU;
+        let v = 0;
+        for (const b of this.bands) {
+          let d = Math.abs(a - b.center) % TAU;
+          if (d > Math.PI) d = TAU - d;
+          if (d < 3 * W) v += b.level * Math.exp(-(d * d) / (2 * W * W));
+        }
+        this.act[i] = Math.min(1.3, v) * this.level;
+      }
     // Every dot follows its sector at its own pace.
     const slide = o.reduced ? 0 : 1;
     for (const p of this.dots) {
@@ -267,7 +313,7 @@ export class ParticleRing {
       p.pa += step * p.os * (0.3 + 1.1 * p.e);
       p.pb += step * p.sb;
       p.pc += step * p.sc * (1 + 0.5 * p.e);
-      p.ang += step * p.flow * (0.018 + 0.1 * p.e) * slide;
+      p.ang += step * (p.flow * (0.018 + 0.1 * p.e) + (think ? 0.22 : 0)) * slide;
     }
   }
 
@@ -280,18 +326,24 @@ export class ParticleRing {
     ctx.clearRect(0, 0, 800, 800);
     ctx.fillStyle = o.color;
     // The whole ring swells a little with the loudness; each part of it leans out with its own sound.
-    const R = o.radius * (0.93 + 0.07 * k3) * (1 + 0.045 * this.E * this.level);
+    const kick = this.kick;
+    const R = o.radius * (0.93 + 0.07 * k3) * (1 + 0.06 * this.E * this.level + 0.07 * kick);
     const ds = o.dotSize;
+    const w = Math.max(this.wake, kick);
     for (const p of this.dots) {
       const e = p.e;
-      const along = e * p.reach * (0.78 + 0.22 * Math.sin(p.pc));
-      const r = R + p.off + p.a * (7 + 15 * p.react) + Math.sin(p.pb) * 1.6 + p.dx * along + Math.cos(p.pa) * p.orb * e;
+      // Out to its place (a touch beyond, with a voice) as the ring wakes, and as its own part of the ring sounds.
+      const open = Math.min(1, Math.max(w, e * 1.4));
+      const off = p.off * (p.calm + (1.08 - p.calm) * open);
+      const along = (e * 1.12 + kick * 0.6) * p.reach * (0.78 + 0.22 * Math.sin(p.pc));
+      const r = R + off + p.a * (7 + 17 * p.react) + Math.sin(p.pb) * 1.6 + p.dx * along + Math.cos(p.pa) * p.orb * e;
       const tn = Math.cos(p.pb * 0.8 + p.pc) * 1.6 + p.dy * along + Math.sin(p.pa) * p.orb * e;
       const ca = Math.cos(p.ang);
       const sa = Math.sin(p.ang);
-      ctx.globalAlpha = Math.min(1, p.op * (0.84 + 0.16 * Math.sin(p.pc)) * (0.82 + 0.5 * e)) * k3;
+      const fade = p.dim + (1 - p.dim) * open;
+      ctx.globalAlpha = Math.min(1, p.op * (0.84 + 0.16 * Math.sin(p.pc)) * (0.82 + 0.5 * e)) * fade * k3;
       ctx.beginPath();
-      ctx.arc(400 + ca * r - sa * tn, 400 + sa * r + ca * tn, (p.size * ds * (1 + 0.2 * e)) / 2, 0, TAU);
+      ctx.arc(400 + ca * r - sa * tn, 400 + sa * r + ca * tn, (p.size * ds * (1 + 0.28 * e)) / 2, 0, TAU);
       ctx.fill();
     }
     ctx.globalAlpha = 1;
