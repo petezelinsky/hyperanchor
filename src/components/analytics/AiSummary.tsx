@@ -328,7 +328,7 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 max-sm:w-full">
+        <div className="flex items-center gap-1 @max-xl/analytics:w-full">
           {!!state && state.total >= 2 && (
             <Button variant="plain" size="sm" onClick={() => setHistory(true)} aria-haspopup="dialog" data-tip="Every summary written" className="gap-1.5 text-ink-2!">
               <HistoryIcon size={14} />
@@ -349,7 +349,7 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
             onPointerDown={press}
             onClick={click}
             data-tip={why}
-            className={`ml-1 gap-2 max-sm:ml-auto ${can || writing ? "" : "cursor-default opacity-40"}`}
+            className={`ml-1 gap-2 @max-xl/analytics:ml-auto ${can || writing ? "" : "cursor-default opacity-40"}`}
           >
             {writing ? <span aria-hidden="true" className="size-3.5 animate-spin rounded-full border-[1.5px] border-current/30 border-t-current" /> : <SparkIcon size={14} />}
             {writing ? "Writing…" : current ? "Write again" : "Summarize"}

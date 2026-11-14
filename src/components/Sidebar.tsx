@@ -349,9 +349,11 @@ export function MiniMonth({
 /** What the bar says about the page: the day ("Today"), the week, the month, or a page's name, with its date beside it. */
 export type Head = {
   title: string;
+  /** For a narrow bar, a name that says it all on its own ("Wed, Nov 11" for "Wednesday" and "November 11" beside it). */
+  titleNarrow?: string;
   /** The quiet part beside the title: the date in full ("Wednesday, November 11"), a range, the year. */
   soft?: string;
-  /** The same for phones and narrow windows ("Wed, Nov 11"). */
+  /** The same, shorter, for a bar without the room ("Wed, Nov 11"). */
   softShort?: string;
   /** Makes the title a button (Day and Week: it opens the month to pick a day from). */
   onTitle?: (button: HTMLElement) => void;
@@ -369,12 +371,19 @@ export type Nav = {
 };
 
 /**
- * The one bar across the top of the work area, in three parts that never crowd each other. On the left, what's on
- * screen: the arrows, then its name and date (the arrows come first, so they stay put however long the date is, and a
- * day can be stepped through without chasing them), and the way back to the present once away from it. In the middle,
- * the switch (Day / Week / Month, or Analytics' periods). On the right, what the page offers: how much of the day is
- * done, and Focus. With the sidebar hidden, the button to bring it back is the only thing before the arrows. Phones
- * have two rows: the name of the app, the switch and the account; then the arrows, the date and the page's actions.
+ * The one bar across the top of the work area. On the left, what's on screen: the arrows, then its name and date (the
+ * arrows come first, so they stay put however long the date is), and the way back to the present once away from it.
+ * Then the switch (Day / Week / Month, or Analytics' periods) and what the page offers: how much of the day is done,
+ * and Focus.
+ *
+ * It arranges itself by its own width, not the window's (the sidebar can be wide, narrow or hidden):
+ * - wide: three parts, the switch in the very middle, the date in full;
+ * - less: the same with the date short;
+ * - less still: one row, the switch moved to the right beside Focus (the day's count sits before it, so the switch
+ *   doesn't shift when the count comes and goes);
+ * - narrow: two rows, the switch across the top.
+ * A date that doesn't fit beside its name leaves whole rather than being cut short. Phones have two rows of their own:
+ * the name of the app, the switch and the account; then the arrows, the date and the page's actions.
  */
 export function AppBar({
   user,
@@ -382,6 +391,7 @@ export function AppBar({
   head,
   nav,
   center,
+  meter,
   actions,
   sidebar,
   onShowSidebar,
@@ -393,6 +403,8 @@ export function AppBar({
   head: Head;
   nav?: Nav;
   center?: React.ReactNode;
+  /** How much of the day is done (Day). */
+  meter?: React.ReactNode;
   /** The page's own actions, at the right end. */
   actions?: React.ReactNode;
   /** Whether the sidebar is shown (computers). */
@@ -410,17 +422,27 @@ export function AppBar({
     return () => window.removeEventListener("scroll", update);
   }, []);
 
-  // The name and the date share one baseline; the button around them (when there is one) is a quiet tile.
+  // The name and the date share one baseline, on a line that holds only what fits: the date wraps out of sight whole
+  // when there's no room for it. The button around them (when there is one) is a quiet tile.
   const words = (
-    <>
-      <h1 className="flex-none font-display text-[17px] leading-6 font-semibold tracking-[-0.014em] whitespace-nowrap">{head.title}</h1>
+    <span className="flex h-6 min-w-0 flex-wrap items-baseline gap-x-2 gap-y-3 overflow-hidden">
+      <h1 className="flex-none font-display text-[17px] leading-6 font-semibold tracking-[-0.014em] whitespace-nowrap">
+        {head.titleNarrow ? (
+          <>
+            <span className="@max-[640px]/appbar:hidden">{head.title}</span>
+            <span className="@min-[640px]/appbar:hidden">{head.titleNarrow}</span>
+          </>
+        ) : (
+          head.title
+        )}
+      </h1>
       {head.soft && (
-        <span className="tabular min-w-0 truncate text-body whitespace-nowrap text-ink-3">
-          <span className={head.softShort ? "max-lg:hidden" : ""}>{head.soft}</span>
-          {head.softShort && <span className="lg:hidden">{head.softShort}</span>}
+        <span className={`tabular flex-none text-body whitespace-nowrap text-ink-3 ${head.titleNarrow ? "@max-[640px]/appbar:hidden" : ""}`}>
+          <span className={head.softShort ? "@max-[1100px]/appbar:hidden" : ""}>{head.soft}</span>
+          {head.softShort && <span className="@min-[1100px]/appbar:hidden">{head.softShort}</span>}
         </span>
       )}
-    </>
+    </span>
   );
   const title = head.onTitle ? (
     <button
@@ -429,14 +451,14 @@ export function AppBar({
       aria-haspopup="dialog"
       aria-expanded={!!head.titleOpen}
       data-tip="Pick a day"
-      className={`tap relative flex h-8 min-w-0 items-baseline gap-2 rounded-sm px-2 pt-[5px] text-left transition-colors duration-(--duration-fast) ${
+      className={`tap relative flex h-8 min-w-0 items-center rounded-sm px-2 text-left transition-colors duration-(--duration-fast) ${
         head.titleOpen ? "bg-surface-3" : "hover:bg-surface-3"
       }`}
     >
       {words}
     </button>
   ) : (
-    <div className="flex h-8 min-w-0 items-baseline gap-2 px-2 pt-[5px]">{words}</div>
+    <div className="flex h-8 min-w-0 items-center px-2">{words}</div>
   );
   const left = (
     <div className={`flex min-w-0 items-center gap-1 ${nav ? "" : "-ml-2"}`}>
@@ -448,51 +470,65 @@ export function AppBar({
 
   return (
     <>
-      {/* Computers: one row, three parts. */}
-      <header className="hidden h-14 flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-line bg-surface px-4 md:grid">
-        <div className="flex min-w-0 items-center gap-2">
-          {!sidebar && (
-            <IconButton label="Show sidebar" tip="Show sidebar ([)" onClick={onShowSidebar} className="-ml-1 flex-none text-ink-2">
-              <SidebarIcon size={16} />
-            </IconButton>
-          )}
-          {left}
-        </div>
-        <div className="flex justify-center">{center}</div>
-        <div className="flex min-w-0 items-center justify-end gap-3">
-          {!sidebar && <SyncStatus sync={sync} className="empty:hidden" />}
-          {actions}
+      {/* Computers. */}
+      <header className="@container/appbar hidden flex-none border-b border-line bg-surface md:block">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 @min-[560px]/appbar:h-14 @min-[560px]/appbar:grid-cols-[minmax(0,1fr)_auto_auto] @min-[860px]/appbar:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] @min-[860px]/appbar:gap-x-4">
+          <div className="flex h-12 min-w-0 items-center gap-2 @min-[560px]/appbar:h-auto">
+            {!sidebar && (
+              <IconButton label="Show sidebar" tip="Show sidebar ([)" onClick={onShowSidebar} className="-ml-1 flex-none text-ink-2">
+                <SidebarIcon size={16} />
+              </IconButton>
+            )}
+            {left}
+            {meter && <span className="ml-auto hidden flex-none pl-1 @min-[560px]/appbar:flex @min-[860px]/appbar:hidden">{meter}</span>}
+          </div>
+          <div className="order-first col-span-2 flex justify-center pt-2.5 @max-[560px]/appbar:*:w-full @min-[560px]/appbar:order-none @min-[560px]/appbar:col-span-1 @min-[560px]/appbar:pt-0">
+            {center}
+          </div>
+          <div className="flex min-w-0 items-center justify-end gap-3">
+            {!sidebar && <SyncStatus sync={sync} className="empty:hidden" />}
+            {meter && <span className="flex flex-none @min-[560px]/appbar:hidden @min-[860px]/appbar:flex">{meter}</span>}
+            {actions}
+          </div>
         </div>
       </header>
 
       {/* Phones: the app's name, the switch and the account stay on top; the arrows, the date and the actions follow. */}
+      {/* When the three don't fit (a small phone, four periods, longer words), the name gives way, whole. */}
       <header
-        className={`sticky top-0 z-30 flex h-[52px] flex-none items-center gap-3 bg-surface px-4 transition-shadow duration-(--duration-fast) md:hidden ${
+        className={`sticky top-0 z-30 flex h-[52px] flex-none items-center gap-3 bg-surface px-4 transition-shadow duration-(--duration-fast) max-[340px]:gap-2 md:hidden ${
           scrolled ? "shadow-[0_1px_0_var(--line)]" : ""
         }`}
       >
-        <Wordmark size={17} />
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
-          {center}
-          <button
-            type="button"
-            aria-haspopup="dialog"
-            aria-expanded={accountOpen}
-            aria-label={`${user.name}: account`}
-            onClick={(e) => onAccount(e.currentTarget)}
-            className={`relative flex-none rounded-full transition-shadow duration-(--duration-fast) before:absolute before:-inset-[6px] ${
-              accountOpen ? "shadow-[0_0_0_2px_var(--surface),0_0_0_3.5px_var(--ink)]" : ""
-            }`}
-          >
-            <Avatar name={user.name} image={user.image} size={30} />
-          </button>
+        <div className="flex h-full min-w-0 shrink-[1000] flex-wrap overflow-hidden">
+          <span aria-hidden="true" className="h-full w-px flex-none" />
+          <span className="flex h-full flex-none items-center">
+            <Wordmark size={17} />
+          </span>
         </div>
+        {/* The switch takes the room there is, up to its full size; pressed for room, it tightens before the name goes. */}
+        <div className="flex min-w-0 flex-auto justify-end">{center}</div>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={accountOpen}
+          aria-label={`${user.name}: account`}
+          onClick={(e) => onAccount(e.currentTarget)}
+          className={`relative flex-none rounded-full transition-shadow duration-(--duration-fast) before:absolute before:-inset-[6px] ${
+            accountOpen ? "shadow-[0_0_0_2px_var(--surface),0_0_0_3.5px_var(--ink)]" : ""
+          }`}
+        >
+          <Avatar name={user.name} image={user.image} size={30} />
+        </button>
       </header>
-      <div className="flex h-12 flex-none items-center justify-between gap-3 border-b border-line px-4 md:hidden">
-        <div className="min-w-0">{left}</div>
-        <div className="flex flex-none items-center gap-2.5">
-          <SyncStatus sync={sync} className="empty:hidden" />
-          {actions}
+      <div className="@container/appbar flex-none border-b border-line md:hidden">
+        <div className="flex h-12 items-center justify-between gap-3 px-4">
+          <div className="min-w-0">{left}</div>
+          <div className="flex flex-none items-center gap-2.5">
+            <SyncStatus sync={sync} className="empty:hidden" />
+            {meter && <span className="flex flex-none @max-[340px]/appbar:hidden">{meter}</span>}
+            {actions}
+          </div>
         </div>
       </div>
     </>

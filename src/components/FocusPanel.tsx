@@ -78,20 +78,23 @@ export function FocusPanel({
       tabIndex={-1}
       className="fixed inset-0 z-[80] flex animate-[fade_var(--duration-base)_var(--ease-out)_both] flex-col bg-canvas outline-none"
     >
-      <header className="@container/bar grid h-[52px] flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 md:h-14 md:px-4">
-        <div className="flex">
-          <Button onClick={onExit} data-tip="Leave focus (Esc)" className="gap-2 pl-2.5">
-            <XIcon size={14} />
-            <span className="sm:hidden">Leave</span>
-            <span className="max-sm:hidden">Leave focus</span>
-            <span className="pointer-coarse:hidden">
-              <Kbd>Esc</Kbd>
-            </span>
-          </Button>
-        </div>
-        <Where done={done} total={total} finished={!task} />
-        <div className="flex justify-end">
-          <TimerControl timer={timer} />
+      {/* Three parts: on a wide bar the count sits in the very middle; on a phone's, the ends take what they need. */}
+      <header className="@container/bar flex-none">
+        <div className="grid h-[52px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 md:h-14 md:px-4 @min-[640px]/bar:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div className="flex">
+            <Button onClick={onExit} data-tip="Leave focus (Esc)" className="gap-2 pl-2.5">
+              <XIcon size={14} />
+              <span className="sm:hidden">Leave</span>
+              <span className="max-sm:hidden">Leave focus</span>
+              <span className="pointer-coarse:hidden">
+                <Kbd>Esc</Kbd>
+              </span>
+            </Button>
+          </div>
+          <Where done={done} total={total} finished={!task} />
+          <div className="flex justify-end">
+            <TimerControl timer={timer} />
+          </div>
         </div>
       </header>
 
@@ -239,9 +242,14 @@ function Where({ done, total, finished }: { done: number; total: number; finishe
   if (!total) return <span />;
   const at = Math.min(done + 1, total);
   return (
-    <span role="img" aria-label={finished ? `All ${total} done` : `Task ${at} of ${total}`} className="flex items-center gap-2.5 text-footnote font-medium whitespace-nowrap text-ink-3">
-      {total <= 12 ? (
-        <span aria-hidden="true" className="flex gap-[5px]">
+    <span
+      role="img"
+      aria-label={finished ? `All ${total} done` : `Task ${at} of ${total}`}
+      className="flex min-w-0 items-center justify-center gap-2.5 justify-self-center text-footnote font-medium whitespace-nowrap text-ink-3"
+    >
+      {/* A dot per task while they fit (a dozen in a wide bar, five in a phone's); a plain bar beyond that. */}
+      {total <= 12 && (
+        <span aria-hidden="true" className={`flex gap-[5px] ${total > 5 ? "@max-[480px]/bar:hidden" : ""}`}>
           {Array.from({ length: total }, (_, i) => (
             <span
               key={i}
@@ -251,8 +259,9 @@ function Where({ done, total, finished }: { done: number; total: number; finishe
             />
           ))}
         </span>
-      ) : (
-        <span aria-hidden="true" className="block h-1 w-24 overflow-hidden rounded-full bg-line-2">
+      )}
+      {total > 5 && (
+        <span aria-hidden="true" className={`block h-1 w-24 flex-none overflow-hidden rounded-full bg-line-2 @max-[480px]/bar:w-10 @max-[380px]/bar:hidden ${total <= 12 ? "@min-[480px]/bar:hidden" : ""}`}>
           <span className="block h-full origin-left rounded-full bg-ink transition-transform duration-(--duration-data) ease-out" style={{ transform: `scaleX(${done / total})` }} />
         </span>
       )}

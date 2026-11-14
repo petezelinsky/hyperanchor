@@ -60,7 +60,7 @@ export function UsageSheet({ onClose }: { onClose: () => void }) {
         </IconButton>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-5 pb-6 md:px-6" aria-busy={!usage && !failed}>
+      <div className="@container/usage min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-5 pb-6 md:px-6" aria-busy={!usage && !failed}>
         {failed ? (
           <p className="py-10 text-center text-footnote text-ink-2">Usage didn’t load. Check your connection and try again.</p>
         ) : (
@@ -90,16 +90,17 @@ export function UsageSheet({ onClose }: { onClose: () => void }) {
             </div>
             <Chart days={days} limit={t?.limit ?? 10000} loading={!usage} />
 
-            <dl className="mt-5 grid grid-cols-3 divide-x divide-line rounded-[12px] shadow-[inset_0_0_0_1px_var(--line)]">
+            {/* Three figures: side by side where there's room, a line each on a narrow phone. */}
+            <dl className="mt-5 grid divide-line rounded-[12px] shadow-[inset_0_0_0_1px_var(--line)] @max-[420px]/usage:divide-y @min-[420px]/usage:grid-cols-3 @min-[420px]/usage:divide-x">
               {[
                 ["Last 7 days", usage ? count.format(week) : "–", "tokens"],
                 ["Busiest day", busiest && busiest.tokens ? dayLabel(busiest.day) : "–", busiest && busiest.tokens ? `${count.format(busiest.tokens)} tokens` : "nothing yet"],
                 ["Days with AI", usage ? `${active.length} of ${DAYS}` : "–", `${count.format(requests)} ${requests === 1 ? "request" : "requests"}`],
               ].map(([label, value, foot]) => (
-                <div key={label} className="min-w-0 px-3.5 py-3">
-                  <dt className="truncate text-caption text-ink-3">{label}</dt>
-                  <dd className="tabular mt-1 truncate text-callout font-semibold text-ink">{value}</dd>
-                  <dd className="truncate text-caption text-ink-3">{foot}</dd>
+                <div key={label} className="flex min-w-0 flex-wrap items-baseline gap-x-2 px-3.5 py-2.5 @min-[420px]/usage:block @min-[420px]/usage:py-3">
+                  <dt className="mr-auto text-caption text-ink-3">{label}</dt>
+                  <dd className="tabular text-footnote font-semibold text-ink @min-[420px]/usage:mt-1 @min-[420px]/usage:text-callout">{value}</dd>
+                  <dd className="text-caption text-ink-3">{foot}</dd>
                 </div>
               ))}
             </dl>

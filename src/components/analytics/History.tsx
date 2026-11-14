@@ -56,14 +56,14 @@ export function HistoryCard({ rows, unit, className = "" }: { rows: HistoryRow[]
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-footnote sm:min-w-[560px]">
+            <table className="w-full border-collapse text-footnote @2xl/analytics:min-w-[560px]">
               <thead>
                 <tr className="border-b border-line text-caption text-ink-3">
                   {th("date", unit === "days" ? "Date" : "Month", false, "pl-2")}
                   {th("done", "Done", true)}
-                  <th className="py-2 pl-4 text-right font-medium max-sm:hidden">Planned</th>
+                  <th className="py-2 pl-4 text-right font-medium @max-2xl/analytics:hidden">Planned</th>
                   {th("rate", "Rate", true, "pl-5")}
-                  <th className="py-2 pl-6 text-left font-medium max-sm:hidden">{unit === "days" ? "Tasks" : "Active days"}</th>
+                  <th className="py-2 pl-6 text-left font-medium @max-2xl/analytics:hidden">{unit === "days" ? "Tasks" : "Active days"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -79,9 +79,9 @@ export function HistoryCard({ rows, unit, className = "" }: { rows: HistoryRow[]
                       </button>
                     </td>
                     <td className="tabular py-2.5 text-right">{r.done}</td>
-                    <td className="tabular py-2.5 pl-4 text-right text-ink-2 max-sm:hidden">{r.planned}</td>
+                    <td className="tabular py-2.5 pl-4 text-right text-ink-2 @max-2xl/analytics:hidden">{r.planned}</td>
                     <td className={`tabular py-2.5 pl-5 text-right ${r.rate === 1 ? "font-medium text-ink" : "text-ink-2"}`}>{r.rate == null ? "—" : pct(r.rate)}</td>
-                    <td className="w-[50%] max-w-0 py-2.5 pl-6 max-sm:hidden">
+                    <td className="w-[50%] max-w-0 py-2.5 pl-6 @max-2xl/analytics:hidden">
                       {r.tasks ? (
                         <span className="block truncate">
                           {[...r.tasks]

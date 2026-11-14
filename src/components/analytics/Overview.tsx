@@ -92,13 +92,17 @@ function Dots({ days }: { days: boolean[] }) {
 
 function Stat({ label, value, foot, tip, children }: { label: string; value: React.ReactNode; foot?: React.ReactNode; tip?: string; children?: React.ReactNode }) {
   return (
-    <div data-tip={tip} className="flex min-w-0 items-end justify-between gap-3 py-3.5 sm:px-5 sm:pt-4 sm:pb-0 sm:first:pl-0 sm:last:pr-0">
-      <div className="min-w-0">
-        <dt className="truncate text-caption text-ink-3">{label}</dt>
-        <dd className="tabular mt-1 font-display text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">{value}</dd>
-        {foot && <dd className="mt-0.5 text-caption text-pretty text-ink-3">{foot}</dd>}
+    <div
+      data-tip={tip}
+      className="flex min-w-0 items-end justify-between gap-3 py-3 @xl/analytics:px-5 @xl/analytics:pt-4 @xl/analytics:pb-0 @xl/analytics:first:pl-0 @xl/analytics:last:pr-0"
+    >
+      {/* Narrow: a line each, the name on the left and the figure on the right. Wider: three columns, figure under name. */}
+      <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 @xl/analytics:block">
+        <dt className="text-caption text-ink-3 @max-xl/analytics:text-footnote @max-xl/analytics:text-ink-2">{label}</dt>
+        <dd className="tabular row-span-2 font-display text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink @xl/analytics:mt-1">{value}</dd>
+        {foot && <dd className="text-caption text-pretty text-ink-3 @xl/analytics:mt-0.5">{foot}</dd>}
       </div>
-      {children && <div className="flex-none pb-1 @max-2xl/analytics:hidden">{children}</div>}
+      {children && <div className="flex-none pb-1 @max-4xl/analytics:hidden">{children}</div>}
     </div>
   );
 }
@@ -191,7 +195,7 @@ export function Overview({
             <span className="text-[17px] leading-6 text-ink-3">of {sum.planned} done</span>
           </p>
         </div>
-        <div className="min-w-0 sm:text-right">
+        <div className="min-w-0 @xl/analytics:text-right">
           <p className="tabular font-display text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">{sum.rate == null ? "—" : pct(sum.rate)}</p>
           <p className="mt-0.5 text-footnote">{compare}</p>
         </div>
@@ -214,7 +218,7 @@ export function Overview({
         </div>
       </div>
 
-      <dl className="mt-5 grid grid-cols-1 border-t border-line max-sm:divide-y max-sm:divide-line sm:grid-cols-3 sm:divide-x sm:divide-line">
+      <dl className="mt-5 grid grid-cols-1 divide-line border-t border-line @max-xl/analytics:divide-y @xl/analytics:grid-cols-3 @xl/analytics:divide-x">
         {day ? (
           <>
             <Stat label="A typical day" value={fmt1(typical)} foot="done, the 4 weeks before" tip="The median: half of the days before it ended with more done, half with less." />

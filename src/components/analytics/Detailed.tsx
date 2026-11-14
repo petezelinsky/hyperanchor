@@ -36,15 +36,16 @@ function Frame({
 }) {
   return (
     <section className={`flex min-w-0 flex-col rounded-[14px] bg-surface p-5 shadow-[0_0_0_1px_var(--line)] ${className}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+      {/* The finding keeps its line; a legend that doesn't fit beside it goes under it. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="max-w-full flex-none">
           <h3 className="text-caption font-medium text-ink-3">{label}</h3>
-          <div className="mt-1.5 flex items-baseline gap-1.5">
-            <span className="tabular font-display text-[26px] leading-[32px] font-semibold tracking-[-0.022em] text-ink">{value}</span>
-            {unit && <span className="text-footnote text-ink-3">{unit}</span>}
+          <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5">
+            <span className="tabular font-display text-[26px] leading-[32px] font-semibold tracking-[-0.022em] whitespace-nowrap text-ink">{value}</span>
+            {unit && <span className="text-footnote whitespace-nowrap text-ink-3">{unit}</span>}
           </div>
         </div>
-        {legend && <div className="flex flex-none flex-wrap items-center justify-end gap-x-3.5 gap-y-1 pt-0.5 text-caption text-ink-2">{legend}</div>}
+        {legend && <div className="flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 pt-0.5 text-caption text-ink-2">{legend}</div>}
       </div>
       <p className="mt-1 max-w-[62ch] text-footnote text-pretty text-ink-2">{line}</p>
       {children && <div className="mt-5">{children}</div>}
@@ -74,10 +75,10 @@ const Key = ({ kind, children }: { kind: "solid" | "dashed" | "quiet" | "bar"; c
 function Fact({ label, value, unit, children }: { label: string; value: React.ReactNode; unit?: string; children?: React.ReactNode }) {
   return (
     <div className="min-w-0 bg-surface px-5 py-4">
-      <dt className="truncate text-caption text-ink-3">{label}</dt>
-      <dd className="mt-1 flex items-baseline gap-1.5">
-        <span className="tabular font-display text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">{value}</span>
-        {unit && <span className="truncate text-caption text-ink-3">{unit}</span>}
+      <dt className="text-caption text-ink-3">{label}</dt>
+      <dd className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+        <span className="tabular font-display text-[22px] leading-7 font-semibold tracking-[-0.02em] whitespace-nowrap text-ink">{value}</span>
+        {unit && <span className="text-caption text-ink-3">{unit}</span>}
       </dd>
       {children && <dd className="mt-2">{children}</dd>}
     </div>
@@ -253,7 +254,7 @@ export function Detailed({
             {plan && <PlanChart plan={plan} />}
           </Frame>
 
-          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-line shadow-[0_0_0_1px_var(--line)] md:grid-cols-4 @4xl/analytics:order-5 @4xl/analytics:col-span-12">
+          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-line shadow-[0_0_0_1px_var(--line)] @3xl/analytics:grid-cols-4 @4xl/analytics:order-5 @4xl/analytics:col-span-12">
             <Fact label="A typical day" value={typical ? fmt1(typical.median) : "—"} unit="done (median)" />
             <Fact label="In a row" value={streak.current} unit={streak.current === 1 ? "day with something done" : "days with something done"}>
               <div aria-hidden="true" className="flex max-w-[180px] justify-between gap-1">

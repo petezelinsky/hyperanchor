@@ -321,8 +321,11 @@ function Go({ title, hint, lead, onClick, top = false, last = false }: { title: 
 /** One setting: its name (and a hint) on the left, the control on the right. */
 function Row({ title, hint, children, last = false }: { title: string; hint?: string; children: React.ReactNode; last?: boolean }) {
   return (
-    <div className={`flex items-center justify-between gap-4 px-4 py-2 md:px-6 ${hint ? "min-h-16" : "min-h-[52px]"} ${last ? "" : "border-b border-line"}`}>
-      <div className="min-w-0">
+    <div
+      className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5 md:px-6 ${hint ? "min-h-16" : "min-h-[52px]"} ${last ? "" : "border-b border-line"}`}
+    >
+      {/* The words keep a readable width: where the control doesn't fit beside them, it goes under them. */}
+      <div className={`min-w-0 flex-1 ${hint ? "basis-[150px]" : "basis-auto"}`}>
         <div className="text-body font-medium">{title}</div>
         {hint && <div className="mt-0.5 text-caption text-ink-3">{hint}</div>}
       </div>

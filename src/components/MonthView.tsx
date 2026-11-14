@@ -59,10 +59,15 @@ export function MonthView({
       </div>
 
       {/* Computers: the whole month as a grid, the tasks written in the days. */}
-      <div className="max-md:hidden">
-        <div className="grid grid-cols-7 border-b border-line">
+      <div className="@container/month flex min-h-full flex-col max-md:hidden">
+        <div className="grid flex-none grid-cols-7 border-b border-line">
           {weekdayNames("short").map((d, i) => (
-            <div key={d} className={`flex h-8 items-center px-3 text-caption font-medium ${i ? "border-l border-line" : ""} ${isCurrent && i === todayIndex ? "text-ink" : "text-ink-3"}`}>
+            <div
+              key={d}
+              className={`flex h-8 min-w-0 items-center px-3 text-caption font-medium @max-[640px]/month:px-1.5 ${i ? "border-l border-line" : ""} ${
+                isCurrent && i === todayIndex ? "text-ink" : "text-ink-3"
+              }`}
+            >
               {d}
             </div>
           ))}
@@ -73,7 +78,7 @@ export function MonthView({
           role="grid"
           aria-label={`${MONTHS[month]} ${year}`}
           style={{ "--weeks": rows } as React.CSSProperties}
-          className="grid min-h-[calc(100dvh-89px)] animate-[fade_var(--duration-fast)_var(--ease-out)_both] grid-cols-7 [grid-template-rows:repeat(var(--weeks),minmax(104px,1fr))]"
+          className="grid flex-1 animate-[fade_var(--duration-fast)_var(--ease-out)_both] grid-cols-7 [grid-template-rows:repeat(var(--weeks),minmax(104px,1fr))]"
         >
           {cells.map((d, i) => {
             const key = ymd(d);
@@ -96,7 +101,7 @@ export function MonthView({
                 }}
                 onDoubleClick={() => onOpenDay(key)}
                 aria-label={`${formatLong(d)}${tasks.length ? `, ${plural(tasks.length, "task")}` : ""}`}
-                className={`flex min-w-0 flex-col gap-[3px] overflow-hidden border-line px-3 py-2 text-left transition-[background-color,box-shadow] duration-(--duration-fast) ${i % 7 ? "border-l" : ""} ${
+                className={`flex min-w-0 flex-col gap-[3px] overflow-hidden border-line px-3 py-2 text-left transition-[background-color,box-shadow] duration-(--duration-fast) @max-[640px]/month:px-1.5 ${i % 7 ? "border-l" : ""} ${
                   i >= 7 ? "border-t" : ""
                 } ${
                   hot

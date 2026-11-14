@@ -69,6 +69,9 @@ function fromAddress(): { view: View; date: string | null } {
 /** One step that can be taken back: `run` says whether there was still something to take back. */
 type Undo = { run: () => boolean; done: string };
 
+/** Wide enough for the sidebar to sit beside the work by default. */
+const WIDE = "(min-width: 1024px)";
+
 export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; account: string; voice: boolean; transcribe: boolean }) {
   const todayKey = useTodayKey();
   const [address] = useState(fromAddress);
@@ -112,20 +115,33 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
   const [focusOn, setFocusOn] = useState(false);
   const [later, setLater] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
-  // Computers: the sidebar can be hidden ([), and stays as it was left.
-  const [sidebar, setSidebar] = useState(() => {
+  // Computers: the sidebar can be hidden ([), and stays as it was left. A wide window and a narrow one each remember
+  // their own answer: wide, it's there unless hidden; narrower than 1024px it stays out of the way unless asked for,
+  // so a window pulled narrow gives its room to the work (and gets the sidebar back when pulled wide again).
+  const [wide, setWide] = useState(() => typeof window === "undefined" || window.matchMedia(WIDE).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(WIDE);
+    const update = () => setWide(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  const [sidePref, setSidePref] = useState(() => {
     try {
-      return localStorage.getItem("hyperanchor:sidebar") !== "hidden";
+      return { wide: localStorage.getItem("hyperanchor:sidebar") !== "hidden", narrow: localStorage.getItem("hyperanchor:sidebar-narrow") === "shown" };
     } catch {
-      return true;
+      return { wide: true, narrow: false };
     }
   });
+  const sidebar = wide ? sidePref.wide : sidePref.narrow;
   const toggleSidebar = useCallback(() => {
-    setSidebar((shown) => {
+    const isWide = window.matchMedia(WIDE).matches;
+    setSidePref((p) => {
+      const shown = !(isWide ? p.wide : p.narrow);
       try {
-        localStorage.setItem("hyperanchor:sidebar", shown ? "hidden" : "shown");
+        localStorage.setItem(isWide ? "hyperanchor:sidebar" : "hyperanchor:sidebar-narrow", shown ? "shown" : "hidden");
       } catch {}
-      return !shown;
+      return isWide ? { ...p, wide: shown } : { ...p, narrow: shown };
     });
   }, []);
   // The account panel, opened from the sidebar's foot (computers) or the avatar in the bar (phones).
@@ -890,6 +906,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
     const relative = relativeDay(selected, todayKey);
     head = {
       title: relative ?? dayName(sel),
+      titleNarrow: relative ? undefined : `${formatMedium(sel)}${year(sel)}`,
       soft: `${relative ? formatLong(sel) : `${MONTHS[sel.getMonth()]} ${sel.getDate()}`}${year(sel)}`,
       softShort: `${relative ? formatMedium(sel) : formatShort(sel)}${year(sel)}`,
       onTitle: pickDay,
@@ -933,12 +950,13 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
       title: "Analytics",
       soft:
         stats.period === "day"
-          ? `${formatLong(b.start)}${b.start.getFullYear() !== now.getFullYear() ? `, ${b.start.getFullYear()}` : ""}`
+          ? `${formatLong(b.start)}${year(b.start)}`
           : stats.period === "week"
             ? shortRange(b.start, b.end, now.getFullYear())
             : stats.period === "month"
               ? `${MONTHS[b.start.getMonth()]} ${b.start.getFullYear()}`
               : String(b.start.getFullYear()),
+      softShort: stats.period === "day" ? `${formatMedium(b.start)}${year(b.start)}` : undefined,
     };
     nav = {
       prev: `Previous ${stats.period}`,
@@ -953,6 +971,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
     view === "analytics" ? (
       <SegmentedControl
         label="Period"
+        className="max-md:w-full max-md:max-w-[264px] max-md:[&>button]:px-1"
         value={stats.period}
         onChange={(period) => setStats({ period, offset: 0 })}
         options={[
@@ -965,6 +984,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
     ) : isPlanner(view) ? (
       <SegmentedControl
         label="View"
+        className="max-md:w-full max-md:max-w-[204px] max-md:[&>button]:px-1"
         value={view}
         onChange={showView}
         options={[
@@ -974,15 +994,19 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
         ]}
       />
     ) : undefined;
-  // The page's own actions, on the right: how much of the day is done, beside Focus.
+  // What the page offers, on the right: how much of the day is done, and Focus (its word only where the bar has room).
+  const barMeter = view === "day" && dayTasks.length > 0 ? <DayCount done={dayTasks.filter((t) => t.done).length} total={dayTasks.length} /> : undefined;
   const barActions = isPlanner(view) ? (
-    <>
-      {view === "day" && <DayCount done={dayTasks.filter((t) => t.done).length} total={dayTasks.length} />}
-      <Button onClick={startFocus} disabled={!hasOpen} aria-label="Focus" data-tip="Focus on one task at a time (F)" className="max-sm:w-8 max-sm:px-0 sm:pr-3 sm:pl-2.5">
-        <FocusIcon size={15} />
-        <span className="max-sm:hidden">Focus</span>
-      </Button>
-    </>
+    <Button
+      onClick={startFocus}
+      disabled={!hasOpen}
+      aria-label="Focus"
+      data-tip="Focus on one task at a time (F)"
+      className="@max-[700px]/appbar:w-8 @max-[700px]/appbar:px-0 @min-[700px]/appbar:pr-3 @min-[700px]/appbar:pl-2.5"
+    >
+      <FocusIcon size={15} />
+      <span className="@max-[700px]/appbar:hidden">Focus</span>
+    </Button>
   ) : undefined;
   const phone = typeof window !== "undefined" && !window.matchMedia("(min-width: 768px)").matches;
   const monthPicker = (large: boolean) => (
@@ -1024,6 +1048,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
             head={head}
             nav={nav}
             center={center}
+            meter={barMeter}
             actions={barActions}
             sidebar={sidebar}
             onShowSidebar={toggleSidebar}
