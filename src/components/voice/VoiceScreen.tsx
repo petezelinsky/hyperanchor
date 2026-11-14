@@ -6,9 +6,8 @@ import { addDays, formatMedium, parseYmd, relativeDay, startOfWeek, ymd, type We
 import type { TaskDraft, Usage } from "@/lib/types";
 import { DRAFT_TEXT_MAX as TEXT_MAX } from "@/lib/validate";
 import { AutoTextarea } from "../AutoTextarea";
-import { pourWords } from "../dust";
 import { ChevronDown, XIcon } from "../icons";
-import { motion, reducedMotion } from "../motion";
+import { reducedMotion } from "../motion";
 import { MiniMonth } from "../Sidebar";
 import { Button, IconButton, Kbd, Menu, Popover, type MenuEntry } from "../ui";
 import { canListen, Dictation, spokenLanguage, type StopReason } from "./dictation";
@@ -45,19 +44,19 @@ const HEARING: Record<string, string> = {
   failed: "That couldn’t be written down. Try again.",
 };
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-/** The least time the sphere spends thinking, so what was said can be seen pouring into it. */
-const THINK_MS = 1500;
-/** The ring's radius as a share of the sphere's half-width (ParticleRing draws it at 226 of 400). */
-const RING = 226 / 400;
+/** The least time the sphere spends thinking: about one turn of its wave, so the pause reads as thought, not as a stall. */
+const THINK_MS = 1900;
 
 /**
  * Speak your tasks: the whole screen, plain. The sphere listens in the middle and moves to every sound. Where the server
  * hears speech itself (`server`), the voice is recorded and written down there once the person stops — in any language,
  * worked out without asking (Settings can name one); elsewhere the browser's own recognition writes the words under the
- * sphere as they come. Once the person stops, the words pour into the sphere, which thinks (comets of light run round
- * it) while they are written down and sorted; then it breathes out and a sheet slides up from the bottom with the tasks
- * on their days: each can be reworded, moved to another day (any day, from a calendar) or left out. The sheet can be
- * pulled down to the stage and brought back. From there it's one step to add them, to speak some more, or to leave.
+ * sphere as they come. Once the person stops, the sphere thinks (one smooth wave goes round it, clockwise, and the dots
+ * it passes swell) while the words are written down and sorted; then a sheet with the tasks comes up from under the
+ * screen and lifts the stage with it: the sphere stays in sight above, smaller, and the sheet never takes more than half
+ * the screen (a long list scrolls inside it). Each task can be reworded, moved to another day (any day, from a
+ * calendar) or left out. The sheet can be pulled down and brought back. From there it's one step to add them, to speak
+ * some more, or to leave.
  * Typing (or pasting) works the same way, and takes over where the browser can't listen.
  */
 export function VoiceScreen({
@@ -96,16 +95,12 @@ export function VoiceScreen({
   const [confirming, setConfirming] = useState(false);
   const [dayMenu, setDayMenu] = useState<{ key: number; anchor: DOMRect; trigger: HTMLElement } | null>(null);
   const [calendar, setCalendar] = useState<{ key: number; anchor: DOMRect; trigger: HTMLElement; y: number; m: number } | null>(null);
-  // The words have poured into the sphere: they're no longer shown under it.
-  const [poured, setPoured] = useState(false);
   // How far the sheet is being pulled down (px), while it's held.
   const [pull, setPull] = useState(0);
 
   const dialog = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const words = useRef<HTMLParagraphElement>(null);
-  const sheet = useRef<HTMLElement>(null);
-  const backdrop = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const ring = useRef<ParticleRing | null>(null);
   const dictation = useRef<Dictation | null>(null);
@@ -126,22 +121,9 @@ export function VoiceScreen({
     meter.current = null;
   }, []);
 
-  /** What was said pours into the sphere (once it has been on screen for a moment). */
-  const pour = useCallback(() => {
-    setTimeout(() => {
-      const el = words.current;
-      const c = canvas.current;
-      const host = dialog.current;
-      if (!alive.current || !el || !c || !host || latest.current.phase !== "sorting") return;
-      const r = c.getBoundingClientRect();
-      if (pourWords(host, el, { x: r.left + r.width / 2, y: r.top + r.height / 2, r: (r.width / 2) * RING })) setPoured(true);
-    }, 420);
-  }, []);
-
   /**
-   * Sends `words` to be sorted; the tasks that come back join the ones already there. Spoken, the words pour into the
-   * sphere, which thinks for at least a moment, breathes out, and the sheet comes up; typed, the sheet comes up at once
-   * with lines filling in.
+   * Sends `words` to be sorted; the tasks that come back join the ones already there. Spoken, the sphere thinks for at
+   * least a moment, breathes out, and the sheet comes up; typed, the sheet comes up at once with lines filling in.
    */
   const sort = useCallback(async (words: string) => {
     const clean = words.trim();
@@ -156,10 +138,8 @@ export function VoiceScreen({
     setPhase("sorting");
     setProblem(null);
     setConfirming(false);
-    if (spoken) {
-      setReview(false);
-      pour();
-    } else setReview(true);
+    if (spoken) setReview(false);
+    else setReview(true);
     // Spoken: the sheet waits for the sphere to have thought for a moment, then comes up as it breathes out.
     const settle = async () => {
       if (!spoken) return;
@@ -199,8 +179,7 @@ export function VoiceScreen({
     // Whatever came of it, the sheet is up now (with the tasks, or with what went wrong).
     setReview(true);
     setPhase("idle");
-    setPoured(false);
-  }, [pour]);
+  }, []);
 
   const heard = useCallback(
     (reason: StopReason, words: string) => {
@@ -300,7 +279,6 @@ export function VoiceScreen({
     setConfirming(false);
     setSaid("");
     setSaying("");
-    setPoured(false);
     setPhase("listening");
     if (record) {
       const r = new Recorder({ onSpeaking: setSpeaking, onStop: recorded });
@@ -542,27 +520,11 @@ export function VoiceScreen({
   };
   const calendarDraft = calendar && drafts.find((d) => d.key === calendar.key);
 
-  /** The sheet goes back down (the tasks stay): it slides away, then is gone. */
+  /** The sheet goes back down (the tasks stay; a button on the stage brings it back). */
   const lower = (then?: () => void) => {
-    const s = sheet.current;
-    const b = backdrop.current;
     setPull(0);
-    if (!s || reducedMotion()) {
-      setReview(false);
-      return then?.();
-    }
-    const m = motion();
-    b?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: m.base, easing: m.in, fill: "forwards" });
-    void s
-      .animate([{ transform: getComputedStyle(s).transform === "none" ? "translateY(0)" : getComputedStyle(s).transform }, { transform: "translateY(100%)" }], { duration: m.base, easing: m.in, fill: "forwards" })
-      .finished.then(
-        () => {
-          if (!alive.current) return;
-          setReview(false);
-          then?.();
-        },
-        () => {},
-      );
+    setReview(false);
+    then?.();
   };
 
   /** Holding the sheet's handle: it follows the finger down, and let go far (or fast) enough it goes down for good. */
@@ -633,9 +595,10 @@ export function VoiceScreen({
         )}
       </header>
 
-      {/* The stage: the sphere and the words, or a box to type into, in the middle of the screen. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-        <div className="my-auto flex w-full flex-col items-center px-4 pt-2 pb-4 md:px-6 md:pb-6">
+      {/* The stage: the sphere and the words, or a box to type into, in the middle of the room it has. When the sheet
+          comes up the room gets smaller, and the sphere with it (it is sized by the stage's own height). */}
+      <div className={`flex min-h-0 flex-1 flex-col overscroll-contain [container-type:size] ${typing ? "overflow-y-auto" : "overflow-hidden"}`}>
+        <div className={`my-auto flex w-full flex-col items-center px-4 md:px-6 ${review && !typing ? "py-2" : "pt-2 pb-4 md:pb-6"}`}>
           {typing ? (
             <div className="w-full max-w-[600px] pt-4">
               <h1 className="font-display text-title-2 font-semibold tracking-[-0.02em]">Type your tasks</h1>
@@ -656,14 +619,14 @@ export function VoiceScreen({
             </div>
           ) : (
             <>
-              <canvas ref={canvas} aria-hidden="true" className="size-[240px] flex-none text-ink md:size-[300px]" />
-              <p className="tabular mt-1 min-h-[18px] text-caption text-ink-3">{caption}</p>
+              <canvas ref={canvas} aria-hidden="true" className={`flex-none text-ink ${review ? "size-[min(240px,84cqh)] md:size-[min(300px,84cqh)]" : "size-[min(240px,56cqh)] md:size-[min(300px,60cqh)]"}`} />
+              <p className={`tabular mt-1 min-h-[18px] text-caption text-ink-3 ${review ? "hidden" : ""}`}>{caption}</p>
               <p
                 ref={words}
                 aria-live="off"
-                className={`mt-2 line-clamp-4 min-h-[52px] w-full max-w-[560px] text-center text-headline font-medium text-balance transition-opacity duration-(--duration-fast) md:min-h-[60px] md:text-[20px] md:leading-[30px] md:tracking-[-0.014em] ${
-                  poured ? "opacity-0" : ""
-                }`}
+                className={`mt-2 line-clamp-4 min-h-[52px] w-full max-w-[560px] text-center text-headline font-medium text-balance transition-colors duration-(--duration-base) md:min-h-[60px] md:text-[20px] md:leading-[30px] md:tracking-[-0.014em] ${
+                  busy ? "text-ink-3" : ""
+                } ${review ? "hidden" : ""}`}
               >
                 {problem && phase !== "listening" && !review ? (
                   <span className="text-callout font-normal text-ink-2 md:text-[17px] md:leading-6">{problem.message}</span>
@@ -684,8 +647,8 @@ export function VoiceScreen({
         </div>
       </div>
 
-      {/* The foot: the next step, in the middle, on the same white. */}
-      <div className="flex flex-none items-center justify-center gap-2 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:pt-3 md:pb-9">
+      {/* The foot: the next step, in the middle, on the same white (the sheet brings its own). */}
+      <div className={`flex-none items-center justify-center gap-2 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:pt-3 md:pb-9 ${review ? "hidden" : "flex"}`}>
         {n > 0 && !review && (
           <Button size="lg" onClick={() => setReview(true)} className="max-sm:flex-1 md:h-10 md:rounded-[10px]">
             Review {tasks(n)}
@@ -720,22 +683,15 @@ export function VoiceScreen({
         )}
       </div>
 
-      {/* The sheet: up from the bottom with the tasks, each one editable; the sphere stays in sight above it. Its handle
-          pulls it back down (the tasks stay, a button on the stage brings them back). */}
-      {review && (
-        <div
-          ref={backdrop}
-          className="absolute inset-0 z-10 flex animate-[fade_var(--duration-base)_var(--ease-out)_both] items-end justify-center bg-[linear-gradient(to_bottom,transparent_0%,var(--scrim)_72%)]"
-          onPointerDown={(e) => e.target === e.currentTarget && !busy && lower()}
-        >
+      {/* The sheet: it comes up from under the screen and lifts the stage with it, never past half the screen (a long
+          list scrolls inside). Its handle pulls it back down (the tasks stay, a button on the stage brings them back). */}
+      <Rise open={review}>
           <section
-            ref={sheet}
             role="dialog"
-            aria-modal="true"
             aria-label="Tasks to add"
             aria-busy={busy}
-            className="flex max-h-[min(78dvh,700px)] w-full max-w-[640px] animate-[sheet-up_520ms_cubic-bezier(0.16,1,0.3,1)_both] flex-col overflow-hidden rounded-t-[24px] bg-elevated pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--line),0_-18px_60px_-12px_rgba(0,0,0,0.28)] md:mx-4"
-            style={pull ? { transform: `translateY(${pull}px)`, animation: "none" } : undefined}
+            className="mx-auto flex max-h-[50dvh] w-full max-w-[720px] flex-col overflow-hidden rounded-t-[24px] bg-elevated pb-[env(safe-area-inset-bottom)] shadow-[0_0_0_1px_var(--line),0_-16px_48px_-20px_rgba(0,0,0,0.22)]"
+            style={pull ? { transform: `translateY(${pull}px)` } : { transition: "transform var(--duration-base) var(--ease-out)" }}
           >
             <div
               onPointerDown={hold}
@@ -835,8 +791,7 @@ export function VoiceScreen({
               )}
             </footer>
           </section>
-        </div>
-      )}
+      </Rise>
 
       {/* For assistive tech: what state the screen is in, without reading every word as it is heard. */}
       <p role="status" className="sr-only">
@@ -863,5 +818,39 @@ export function VoiceScreen({
       )}
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Something that comes up from under the screen and takes its place in it, pushing what's above it up (and letting it
+ * back down as it leaves). Its height opens from nothing to what it holds; it is in the page only while it's up or on
+ * its way.
+ */
+function Rise({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(open);
+  const [up, setUp] = useState(false);
+  if (open && !mounted) setMounted(true);
+  useEffect(() => {
+    if (!open) {
+      setUp(false);
+      // With reduced motion nothing slides, so nothing tells when it's gone: it goes at once.
+      if (reducedMotion()) setMounted(false);
+      return;
+    }
+    // Two frames: the closed state has to be on screen before it can open from it.
+    let id = requestAnimationFrame(() => {
+      id = requestAnimationFrame(() => setUp(true));
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+  if (!mounted) return null;
+  return (
+    <div
+      className="grid flex-none px-0 transition-[grid-template-rows] duration-[520ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none md:px-4"
+      style={{ gridTemplateRows: up ? "1fr" : "0fr" }}
+      onTransitionEnd={(e) => e.target === e.currentTarget && !open && setMounted(false)}
+    >
+      <div className="min-h-0 overflow-hidden pt-4">{children}</div>
+    </div>
   );
 }
