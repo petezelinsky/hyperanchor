@@ -15,8 +15,8 @@ import { appearOnRender, cancelLeaving, exitCopy, foldAway, motion, playFlip, pr
 import { readSort, readWeekStart, saveSort, saveWeekStart } from "./prefs";
 import { SearchPalette } from "./SearchPalette";
 import { SettingsSheet, type SettingsTab } from "./SettingsSheet";
+import { SortButton } from "./SortButton";
 import { AccountPanel, AppBar, DayCount, isPlanner, MiniMonth, Sidebar, type Head, type Nav, type Page, type View } from "./Sidebar";
-import { ComingSoon } from "./ComingSoon";
 import type { Composer, Editing, Section, TableActions } from "./table/types";
 import { Button, Modal, Popover, SegmentedControl } from "./ui";
 import { useTasks } from "./useTasks";
@@ -52,7 +52,7 @@ const monthOf = (key: string) => {
   return { y: d.getFullYear(), m: d.getMonth() };
 };
 
-const VIEW_NAMES: View[] = ["day", "week", "month", "analytics", "timeline", "goals", "agent"];
+const VIEW_NAMES: View[] = ["day", "week", "month", "analytics"];
 
 /** The view and the date in the address (?view=week&date=2026-11-12). A plain address is Day, today. */
 function fromAddress(): { view: View; date: string | null } {
@@ -853,7 +853,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
     setStats((st) => ({ ...st, offset: 0 }));
   };
   const goPage = (p: Page) => {
-    if (p !== "home") return showView(p);
+    if (p !== "tasks") return showView(p);
     if (!isPlanner(view)) return showView(lastPlanner.current);
     goToday();
     showView("day");
@@ -911,10 +911,10 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
       onNext: () => setCal(({ y, m }) => monthOf(ymd(new Date(y, m + 1, 1)))),
       back: cal.y !== now.getFullYear() || cal.m !== now.getMonth() ? { label: "Back to this month", onClick: goToday } : undefined,
     };
-  } else if (view === "analytics") {
+  } else {
     const b = periodBounds(stats.period, stats.offset, todayKey);
     head = {
-      title: "Progress",
+      title: "Analytics",
       soft:
         stats.period === "week"
           ? shortRange(b.start, b.end, now.getFullYear())
@@ -930,7 +930,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
       nextDisabled: stats.offset === 0,
       back: stats.offset !== 0 ? { label: `Back to this ${stats.period}`, onClick: goToday } : undefined,
     };
-  } else head = { title: view === "timeline" ? "Timeline" : view === "goals" ? "Goals" : "Agent" };
+  }
   const center =
     view === "analytics" ? (
       <SegmentedControl
@@ -958,6 +958,7 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
   // The page's own actions, on the right: how much of the day is done, beside Focus.
   const barActions = isPlanner(view) ? (
     <>
+      {(view === "day" || view === "week") && <SortButton sort={sort} onSort={setSort} />}
       {view === "day" && <DayCount done={dayTasks.filter((t) => t.done).length} total={dayTasks.length} />}
       <Button onClick={startFocus} disabled={!hasOpen} aria-label="Focus" data-tip="Focus on one task at a time (F)" className="max-sm:w-8 max-sm:px-0 sm:pr-3 sm:pl-2.5">
         <FocusIcon size={15} />
@@ -1072,7 +1073,6 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
                 onPlan={() => showView(stats.period === "week" ? "week" : "month")}
               />
             )}
-            {(view === "timeline" || view === "goals" || view === "agent") && <ComingSoon page={view} />}
           </main>
         </div>
       </div>
@@ -1109,7 +1109,6 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
           onPage={goPage}
           onSettings={() => setSheet("general")}
           onSearch={() => setSearching(true)}
-          onShortcuts={() => setSheet("shortcuts")}
           onClose={() => setAccountMenu(null)}
         />
       )}
@@ -1119,8 +1118,6 @@ export function TaskApp({ user, account, voice, transcribe }: { user: AppUser; a
           user={user}
           weekStart={weekStart}
           onWeekStart={changeWeekStart}
-          sort={sort}
-          onSort={setSort}
           voice={voice}
           transcribe={transcribe}
           sample={sample}

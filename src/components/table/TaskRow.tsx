@@ -8,9 +8,12 @@ import { ArrowRightIcon, CheckIcon, EllipsisIcon } from "../icons";
 import { Checkbox, IconButton } from "../ui";
 import type { Field, TableActions } from "./types";
 
-// A row's columns: check | task (the title, its notes beside it on the same line) | menu. The box and its gap make 30px,
-// so text starts 12px + 30px in (16px + 30px on phones), where the hairline under the row starts too.
-export const COLS = "grid grid-cols-[30px_minmax(0,1fr)_36px] pr-2 pl-4 md:pr-1 md:pl-3";
+// A row's columns: check | task (the title) | menu. The box and its gap make 30px, so text starts 12px + 30px into the
+// task's card.
+export const COLS = "grid grid-cols-[30px_minmax(0,1fr)_36px] pr-1.5 pl-3 md:pr-1";
+
+/** A task in a list is a card of its own: a soft rounded box with a hairline edge, a shade darker when picked. */
+export const CARD = "rounded-[10px] bg-surface shadow-[0_0_0_1px_var(--line-2)]";
 
 const SWIPE = 72; // px a finger has to travel for a swipe to count
 
@@ -245,14 +248,14 @@ export const TaskRow = memo(function TaskRow({
       <div
         {...common}
         onPointerDown={(e) => !editing && drag.start(e, task)}
-        // A line of the day, like a row in the Day list: no card until it's picked up. --row-bg is its shade right now,
-        // which the ⋯ button and the fade under it take on.
-        className={`group/row relative rounded-sm ${compact ? "py-[5px]" : "py-1.5"} px-1.5 transition-[background-color,box-shadow,opacity] duration-(--duration-fast) ${
+        // A card, as in the Day list: a hairline edge that firms up under the pointer, a shade darker when picked. --row-bg
+        // is its shade right now, which the ⋯ button and the fade under it take on.
+        className={`group/row relative rounded-[8px] ${compact ? "py-[5px]" : "py-[7px]"} px-2 transition-[background-color,box-shadow,opacity] duration-(--duration-fast) ${
           lifted ? "opacity-35" : ""
         } ${
           selected || editing || active
-            ? "bg-surface-3 shadow-ring-line-2 [--row-bg:var(--surface-3)]"
-            : "[--row-bg:var(--surface-2)] hover:bg-surface-2 hover:shadow-ring-line-2"
+            ? "bg-surface-2 shadow-[0_0_0_1px_var(--ink-4)] [--row-bg:var(--surface-2)]"
+            : "bg-surface shadow-[0_0_0_1px_var(--line-2)] [--row-bg:var(--surface)] pointer-fine:hover:shadow-[0_0_0_1px_var(--ink-4)]"
         }`}
       >
         <div className="flex items-start gap-2">
@@ -287,18 +290,17 @@ export const TaskRow = memo(function TaskRow({
         swipeHandlers.onPointerDown(e);
       }}
       style={{ touchAction: "pan-y" }}
-      // Rows are divided by hairlines that start where the text starts. Under the pointer a row becomes a soft box with
-      // an edge (its ring covers the hairlines around it); a picked one is a shade darker. It clips only while swiped (so
-      // the menu button's touch area can reach past its edge).
-      className={`group/row relative transition-[background-color,box-shadow,opacity] duration-(--duration-fast) md:rounded-sm ${dx !== 0 ? "overflow-hidden" : ""} after:pointer-events-none after:absolute after:right-4 after:bottom-0 after:left-[46px] after:h-px after:bg-line md:after:right-3 md:after:left-[42px] ${
+      // Each task is a card: a hairline edge that firms up under the pointer; a picked one is a shade darker. It clips
+      // only while swiped (so the menu button's touch area can reach past its edge).
+      className={`group/row relative rounded-[10px] transition-[background-color,box-shadow,opacity] duration-(--duration-fast) ${dx !== 0 ? "overflow-hidden" : ""} ${
         selected || editing || active
-          ? "z-[1] bg-surface-3 shadow-ring-line-2 after:opacity-0"
-          : "pointer-fine:hover:z-[1] pointer-fine:hover:bg-surface-2 pointer-fine:hover:shadow-ring-line-2 pointer-fine:hover:after:opacity-0"
+          ? "z-[1] bg-surface-2 shadow-[0_0_0_1px_var(--ink-4)]"
+          : "bg-surface shadow-[0_0_0_1px_var(--line-2)] pointer-fine:hover:shadow-[0_0_0_1px_var(--ink-4)]"
       } ${lifted ? "opacity-35" : ""}`}
     >
       {dx !== 0 && <SwipeActions dx={dx} done={task.done} />}
       <div
-        className={`relative ${COLS} min-h-[50px] items-start md:min-h-12 ${dx !== 0 ? "bg-surface" : ""}`}
+        className={`relative ${COLS} min-h-[50px] items-start md:min-h-12 ${dx !== 0 ? "rounded-[10px] bg-surface" : ""}`}
         style={{
           transform: dx ? `translateX(${dx}px)` : undefined,
           transition: back ? "transform var(--duration-base) var(--ease-out)" : undefined,

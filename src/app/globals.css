@@ -475,6 +475,13 @@ svg[data-icon] * {
 }
 
 /* Focus mode's deck: a finished card lifts away, one put off sinks to the back; the cards under it move up by themselves. */
+/* A card that opens beside what it belongs to (what's coming, in the sidebar): in from the left, softly. */
+@keyframes soon-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px) scale(0.98);
+  }
+}
 @keyframes focus-in {
   from {
     opacity: 0;

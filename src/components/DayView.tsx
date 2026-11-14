@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { formatMedium, parseYmd, relativeDay, dayName } from "@/lib/dates";
 import type { Task } from "@/lib/types";
 import { ArrowRightIcon, TrashIcon } from "./icons";
-import { FoldRow, TaskTable } from "./table/TaskTable";
+import { CARD } from "./table/TaskRow";
+import { FoldRow, NewTaskRow, TaskTable } from "./table/TaskTable";
 import type { Section, TableActions, TableState } from "./table/types";
 import { Accordion, Button, Checkbox, IconButton, Kbd } from "./ui";
 
@@ -59,6 +60,10 @@ export function DayView({
   const past = selected < todayKey;
   const isToday = selected === todayKey;
 
+  // A day with nothing on it (and nothing left over from earlier days): the way to add stands in the middle of the page.
+  if (!welcome && !all.length && !(isToday && carried.length) && state.composer?.date !== selected)
+    return <EmptyDay date={selected} todayKey={todayKey} onAdd={() => actions.openComposer(selected)} onSpeak={onSpeak} />;
+
   return (
     <div className="mx-auto w-full max-w-[792px] pt-1 pb-6 md:px-6 md:pt-3 md:pb-16">
       {past && open.length > 0 && (
@@ -79,7 +84,7 @@ export function DayView({
           onCompletedOpen={onCompletedOpen}
           between={isToday && carried.length > 0 && <Carried tasks={carried} todayKey={todayKey} actions={actions} onMoveAll={() => onMoveToToday(carried)} />}
           cleared={
-            <p className="flex h-12 items-center pl-[46px] text-body text-ink-3 md:pl-[42px]">
+            <p className="flex h-12 items-center pl-[42px] text-body text-ink-3">
               {all.length
                 ? isToday
                   ? "All done for today."
@@ -93,6 +98,28 @@ export function DayView({
           }
         />
       )}
+    </div>
+  );
+}
+
+/** An empty day: one line on it, and "New task" (with Speak) as a card in the middle of the page. */
+function EmptyDay({ date, todayKey, onAdd, onSpeak }: { date: string; todayKey: string; onAdd: () => void; onSpeak?: () => void }) {
+  const d = parseYmd(date);
+  const rel = relativeDay(date, todayKey);
+  const past = date < todayKey;
+  const [title, line] = past
+    ? ["Nothing was planned on this day.", "You can still add what you did."]
+    : date === todayKey
+      ? ["Nothing planned for today.", "Add the first task, or say everything that’s on your mind."]
+      : [`Nothing planned for ${rel === "Tomorrow" ? "tomorrow" : dayName(d)} yet.`, "Get a head start: add a task, or say a few."];
+  return (
+    // Phones: the screen under the two bars; computers: the work area. A little above the middle, where the eye rests.
+    <div className="mx-auto flex min-h-[calc(100dvh-124px-env(safe-area-inset-bottom))] w-full max-w-[792px] flex-col items-center justify-center px-4 pb-[10dvh] text-center md:h-full md:min-h-[320px] md:px-6">
+      <div className="flex w-full max-w-[400px] animate-rise flex-col items-center">
+        <h2 className="text-headline font-semibold text-ink">{title}</h2>
+        <p className="mt-1 text-footnote text-balance text-ink-3">{line}</p>
+        <NewTaskRow onClick={onAdd} onSpeak={onSpeak} className={`mt-6 w-full pr-2.5 pl-3 text-left ${CARD} transition-shadow duration-(--duration-fast) hover:shadow-[0_0_0_1px_var(--ink-4)]`} />
+      </div>
     </div>
   );
 }
@@ -144,15 +171,15 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
     <div>
       <FoldRow label="From earlier days" count={n} open={open} onToggle={() => setOpen(!open)} />
       <Accordion open={open}>
-        <div className="pt-1 pb-3 pl-[46px] pr-4 md:pl-[42px] md:pr-3">
+        <div className="px-3 pt-1 pb-3 md:px-0">
           {/* Bringing everything along is a choice made while looking at the list, not a button that's always there. */}
-          <div className="flex min-h-9 items-center justify-between gap-3 text-footnote text-ink-3">
+          <div className="flex min-h-9 items-center justify-between gap-3 pr-0.5 pl-3 text-footnote text-ink-3">
             <span>Most recent first. Tick off, bring to today, or let go.</span>
             <MoveButton label={n === 1 ? "Move to today" : "Move all to today"} onClick={onMoveAll} />
           </div>
-          <ul className="mt-1 rounded-lg shadow-ring-line">
-            {tasks.slice(0, limit).map((t, i) => (
-              <li key={t.id} data-flip={t.id} className={`flex items-center gap-3 py-1.5 pr-2 pl-3.5 ${i ? "border-t border-line" : ""}`}>
+          <ul className="mt-1 flex flex-col gap-1.5">
+            {tasks.slice(0, limit).map((t) => (
+              <li key={t.id} data-flip={t.id} className={`flex items-center gap-3 py-1.5 pr-1.5 pl-3 ${CARD}`}>
                 <Checkbox size={18} checked={t.done} onToggle={() => actions.toggle(t)} label={`Mark “${t.title}” as done`} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-body text-ink">{t.title}</span>
@@ -172,7 +199,7 @@ function Carried({ tasks, todayKey, actions, onMoveAll }: { tasks: Task[]; today
             <button
               type="button"
               onClick={() => setLimit((l) => l + MORE)}
-              className="tap relative mt-2.5 text-caption font-medium text-ink-2 underline decoration-ink-4 underline-offset-[3px] hover:text-ink hover:decoration-current"
+              className="tap relative mt-2.5 ml-3 text-caption font-medium text-ink-2 underline decoration-ink-4 underline-offset-[3px] hover:text-ink hover:decoration-current"
             >
               Show {Math.min(MORE, n - limit)} more
             </button>

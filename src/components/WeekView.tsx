@@ -33,8 +33,15 @@ export function WeekView({ selected, sections, state, actions }: { selected: str
   }, []);
 
   return (
-    <div ref={box} data-week={selected} className={board ? "" : "pb-6 md:pb-16"}>
-      {board ? <WeekBoard sections={sections} state={state} actions={actions} /> : <TaskTable sections={sections} state={state} actions={actions} grouped />}
+    <div ref={box} data-week={selected}>
+      {board ? (
+        <WeekBoard sections={sections} state={state} actions={actions} />
+      ) : (
+        // Narrower screens: the days one under another, in the same column as Day.
+        <div className="mx-auto w-full max-w-[792px] pt-1 pb-6 md:px-6 md:pb-16">
+          <TaskTable sections={sections} state={state} actions={actions} grouped />
+        </div>
+      )}
     </div>
   );
 }
