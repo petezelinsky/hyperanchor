@@ -1,12 +1,14 @@
+import { DAILY_TOKENS } from "./allowance";
 import { sql } from "./db";
 
-/**
- * Each person's AI allowance for a day (UTC), in tokens: hearing what was said (OpenAI), sorting it into tasks and
- * writing the summary in Analytics (Anthropic) all draw on the same 10,000. Counted in `ai_usage`, one line per person
- * and day; the words themselves are never stored. The allowance is the same for every account, with no exceptions and
- * no setting that changes it.
+export { DAILY_TOKENS };
+
+/*
+ * Each person's AI allowance for a day (UTC), in tokens (DAILY_TOKENS, allowance.ts): hearing what was said (OpenAI),
+ * sorting it into tasks and writing the summary in Analytics (Anthropic) all draw on it. Counted in `ai_usage`, one
+ * line per person and day; the words themselves are never stored. The allowance is the same for every account, with no
+ * exceptions and no setting that changes it.
  */
-export const DAILY_TOKENS = 10_000;
 
 /** What a call cost: tokens read (cached ones included) and tokens written. */
 export type Spend = { input: number; output: number };

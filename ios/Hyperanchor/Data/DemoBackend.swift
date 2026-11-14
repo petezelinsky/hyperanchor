@@ -87,7 +87,7 @@ actor DemoBackend: Backend {
     }
 
     private var tokensUsed = 1840
-    private let tokenLimit = 10_000
+    private let tokenLimit = 15_000
 
     func usage() async throws -> Usage {
         try await roundTrip()

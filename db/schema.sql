@@ -31,8 +31,8 @@ create table if not exists users (
 
 alter table users enable row level security;
 
--- Once an account's own daily AI allowance. No longer read: the allowance is 10,000 tokens a day for every account
--- (src/lib/budget.ts). The column stays so older deployments keep working.
+-- Once an account's own daily AI allowance. No longer read: the allowance is 15,000 tokens a day for every account
+-- (src/lib/allowance.ts). The column stays so older deployments keep working.
 alter table users add column if not exists ai_daily_tokens integer;
 
 -- Turning text into tasks (voice): how many requests each person made on a day (UTC), and how much text. The daily
@@ -80,3 +80,11 @@ create table if not exists revocations (
 );
 
 alter table revocations enable row level security;
+
+-- One-off jobs on the data (a reset of the day's AI tokens, …): each is done once, and its key is kept here.
+create table if not exists maintenance (
+  key     text primary key,
+  done_at timestamptz not null default now()
+);
+
+alter table maintenance enable row level security;

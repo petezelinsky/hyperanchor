@@ -72,6 +72,21 @@ begin
     );
     alter table revocations enable row level security;
   end if;
+  -- One-off jobs on the data, each done once, by whichever server gets here first: its key is kept in \`maintenance\`.
+  if to_regclass('maintenance') is null then
+    create table if not exists maintenance (
+      key     text primary key,
+      done_at timestamptz not null default now()
+    );
+    alter table maintenance enable row level security;
+  end if;
+  -- Nov 14, 2026, with the allowance going up to 15,000: everyone's tokens for the day start again from zero.
+  if not exists (select 1 from maintenance where key = 'ai-usage-reset-2026-11-14') then
+    insert into maintenance (key) values ('ai-usage-reset-2026-11-14') on conflict (key) do nothing;
+    if found then
+      delete from ai_usage where day = current_date;
+    end if;
+  end if;
 end $$;
 `;
 
