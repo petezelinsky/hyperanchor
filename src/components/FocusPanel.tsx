@@ -3,16 +3,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Task } from "@/lib/types";
 import { disintegrate, shootCard, type CardShot } from "./dust";
-import { CheckIcon, ChevronDown, PlusIcon, TimerIcon, XIcon } from "./icons";
+import { CheckIcon, ChevronDown, PlusIcon, XIcon } from "./icons";
 import { FOCUS_MINUTES, readFocusMinutes, saveFocusMinutes } from "./prefs";
-import { Button, Checkbox, Kbd, Menu, ProgressRing } from "./ui";
+import { Button, Checkbox, Kbd, Menu } from "./ui";
 import { primeSound, soundTimer } from "./voice/sound";
 
 /**
  * Focus mode: the whole screen for one task. The task is a small card, a row of the list grown large: its box and its
  * words, nothing else. It lies on top of a deck; the cards under it, one for each task still waiting, show as two even
  * edges. A finished card turns to dust (dust.ts) and the next one rises into its place at once; Later slips the card
- * to the back. Where the day stands and the timer sit in the bar above; a thought that comes up goes on the line below.
+ * to the back. Where the day stands and the timer sit in the bar above (a running timer also draws itself round the
+ * card); a thought that comes up goes on the line below.
  */
 export function FocusPanel({
   queue,
@@ -38,6 +39,7 @@ export function FocusPanel({
   const deck = queue.slice(0, 3);
   const task = deck[0];
   const leaving = useLeaving(deck, queue);
+  const timer = useFocusTimer();
   const root = useRef<HTMLDivElement>(null);
   // The top card's picture, taken as it leaves the page: if it left because it's done, it turns to dust right where it
   // was, in the same frame (a card put off for later sinks to the back instead).
@@ -76,7 +78,7 @@ export function FocusPanel({
       tabIndex={-1}
       className="fixed inset-0 z-[80] flex animate-[fade_var(--duration-base)_var(--ease-out)_both] flex-col bg-canvas outline-none"
     >
-      <header className="grid h-[52px] flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 md:h-14 md:px-4">
+      <header className="@container/bar grid h-[52px] flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 md:h-14 md:px-4">
         <div className="flex">
           <Button onClick={onExit} data-tip="Leave focus (Esc)" className="gap-2 pl-2.5">
             <XIcon size={14} />
@@ -89,7 +91,7 @@ export function FocusPanel({
         </div>
         <Where done={done} total={total} finished={!task} />
         <div className="flex justify-end">
-          <FocusTimer />
+          <TimerControl timer={timer} />
         </div>
       </header>
 
@@ -101,6 +103,7 @@ export function FocusPanel({
                 <DeckCard key={t.id} task={t} index={i} onDone={onDone} onGone={(shot) => (gone.current = { id: t.id, shot })} />
               ))}
               {leaving && <DeckCard key={`${leaving.id}-leaving`} task={leaving} index={0} leaving />}
+              <Fuse timer={timer} />
             </div>
             {/* The two ways on, quiet, under the deck (the box on the card finishes the task too). */}
             <div className="mt-12 flex items-center gap-1 text-ink-2">
@@ -261,15 +264,29 @@ function Where({ done, total, finished }: { done: number; total: number; finishe
 }
 
 /**
- * An optional timer for a stretch of focus: one click starts it, another stops it, and the arrow beside it picks its
- * length (remembered). When the time is up a soft sound plays (and phones buzz), then it rests until the next round.
+ * An optional timer for a stretch of focus. It lives in the panel, because two things show it: the clock in the bar,
+ * and a line that travels round the card in hand. When the time is up a soft sound plays (and phones buzz), and it
+ * rests until the next round.
  */
-function FocusTimer() {
+type Timer = {
+  minutes: number;
+  /** Picks the timer's length (remembered). */
+  pick: (minutes: number) => void;
+  running: boolean;
+  /** Just finished: said for a few seconds. */
+  over: boolean;
+  /** Milliseconds left of the round, and its whole length. */
+  left: number;
+  total: number;
+  start: () => void;
+  stop: () => void;
+};
+
+function useFocusTimer(): Timer {
   const [minutes, setMinutes] = useState(readFocusMinutes);
   const [end, setEnd] = useState<number | null>(null);
   const [now, setNow] = useState(0);
   const [over, setOver] = useState(false);
-  const [menu, setMenu] = useState<{ anchor: DOMRect; trigger: HTMLElement } | null>(null);
 
   useEffect(() => {
     if (!end) return;
@@ -283,7 +300,12 @@ function FocusTimer() {
       navigator.vibrate?.([90, 70, 90]);
     };
     const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
+    // A tab that was asleep catches up the moment it's looked at again.
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [end]);
   useEffect(() => {
     if (!over) return;
@@ -292,60 +314,90 @@ function FocusTimer() {
   }, [over]);
 
   const total = minutes * 60_000;
-  const start = () => {
-    // Asked for during the click, so the browser lets the sound play when the time is up.
-    primeSound();
-    const t = Date.now();
-    setNow(t);
-    setOver(false);
-    setEnd(t + total);
+  return {
+    minutes,
+    pick: (m) => {
+      setMinutes(m);
+      saveFocusMinutes(m);
+    },
+    running: end != null,
+    over,
+    left: end ? Math.max(0, end - now) : total,
+    total,
+    start: () => {
+      // Asked for during the click, so the browser lets the sound play when the time is up.
+      primeSound();
+      const t = Date.now();
+      setNow(t);
+      setOver(false);
+      setEnd(t + total);
+    },
+    stop: () => setEnd(null),
   };
+}
+
+/**
+ * The timer in the bar: a strip of tape with a tick for every second, and the time in figures. One click starts it,
+ * another stops it, and the arrow beside it picks its length. While it runs the tape slides under the needle, a tick a
+ * second, and each figure rolls over as it changes.
+ */
+function TimerControl({ timer }: { timer: Timer }) {
+  const { minutes, running, over, left } = timer;
+  const [menu, setMenu] = useState<{ anchor: DOMRect; trigger: HTMLElement } | null>(null);
+  const secs = Math.ceil(left / 1000);
+  const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  const shell = "flex h-9 flex-none items-center rounded-full bg-surface shadow-[inset_0_0_0_1px_var(--line-2)]";
+  const cell = "tap relative flex h-9 items-center text-ink transition-colors duration-(--duration-fast) hover:bg-surface-3 active:bg-line";
 
   if (over)
     return (
-      <span role="status" className="flex h-8 animate-pop-in items-center px-2 text-footnote font-medium text-ink">
-        {minutes} minutes are up.
-      </span>
-    );
-
-  const cell = "tap relative flex h-8 items-center text-footnote font-medium text-ink transition-colors duration-(--duration-fast) hover:bg-surface-3 active:bg-line";
-  const left = end ? Math.max(0, end - now) : total;
-  const secs = Math.ceil(left / 1000);
-  const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
-  return (
-    <div role="group" aria-label="Timer" className="flex h-8 flex-none items-center rounded-sm bg-surface shadow-[inset_0_0_0_1px_var(--line-2)]">
-      {end ? (
+      <>
         <button
           type="button"
-          onClick={() => setEnd(null)}
-          aria-label={`Stop the timer, ${Math.ceil(secs / 60)} minutes left`}
-          data-tip="Stop the timer"
-          className={`${cell} gap-2 rounded-sm pr-3 pl-2.5`}
+          onClick={timer.start}
+          aria-label={`${minutes} minutes are up. Start another round`}
+          data-tip={`Start another ${minutes} minutes`}
+          className={`${shell} ${cell} animate-pop-in gap-2 pr-3.5 pl-3 text-footnote font-medium whitespace-nowrap`}
         >
-          <ProgressRing value={1 - left / total} size={14} stroke={1.75} />
-          <span className="tabular min-w-[36px] text-left">{clock}</span>
+          <span aria-hidden="true" className="size-1.5 flex-none rounded-full bg-accent" />
+          <span className="@max-[420px]/bar:hidden">{minutes} minutes are up</span>
+          <span className="@min-[420px]/bar:hidden">Time’s up</span>
         </button>
-      ) : (
-        <>
-          <button type="button" onClick={start} aria-label={`Start a ${minutes}-minute timer`} data-tip={`Start a ${minutes}-minute timer`} className={`${cell} gap-2 rounded-l-sm pr-2.5 pl-2.5`}>
-            <TimerIcon size={14} className="text-ink-2" />
-            <span className="tabular">{minutes}:00</span>
-          </button>
-          <button
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={!!menu}
-            aria-label={`Timer length: ${minutes} minutes. Change`}
-            data-tip="Timer length"
-            onClick={(e) => {
-              const trigger = e.currentTarget;
-              setMenu((m) => (m ? null : { anchor: trigger.getBoundingClientRect(), trigger }));
-            }}
-            className={`${cell} w-7 justify-center rounded-r-sm border-l border-line-2 text-ink-2!`}
-          >
-            <ChevronDown size={12} />
-          </button>
-        </>
+        <span role="status" className="sr-only">
+          {minutes} minutes are up
+        </span>
+      </>
+    );
+
+  return (
+    <div role="group" aria-label="Timer" className={shell}>
+      <button
+        type="button"
+        onClick={running ? timer.stop : timer.start}
+        aria-label={running ? `Stop the timer, ${Math.ceil(secs / 60)} minutes left` : `Start a ${minutes}-minute timer`}
+        data-tip={running ? "Stop the timer" : `Start a ${minutes}-minute timer`}
+        className={`${cell} gap-2.5 pl-3 ${running ? "rounded-full pr-3.5" : "rounded-l-full pr-2.5"}`}
+      >
+        <Tape running={running} />
+        <span aria-hidden="true" className="tabular flex font-display text-[15px] leading-5 font-semibold tracking-[-0.01em]">
+          {[...clock].map((c, i) => (c === ":" ? <span key={i} className="px-px text-ink-3">:</span> : <Figure key={i} value={c} />))}
+        </span>
+      </button>
+      {!running && (
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={!!menu}
+          aria-label={`Timer length: ${minutes} minutes. Change`}
+          data-tip="Timer length"
+          onClick={(e) => {
+            const trigger = e.currentTarget;
+            setMenu((m) => (m ? null : { anchor: trigger.getBoundingClientRect(), trigger }));
+          }}
+          className={`${cell} w-8 justify-center rounded-r-full border-l border-line-2 pr-0.5 text-ink-2!`}
+        >
+          <ChevronDown size={12} />
+        </button>
       )}
       {menu && (
         <Menu
@@ -355,20 +407,121 @@ function FocusTimer() {
           label="Timer length"
           className="min-w-[148px]"
           onClose={() => setMenu(null)}
-          entries={[
-            { heading: "Timer" },
-            ...FOCUS_MINUTES.map((m) => ({
-              label: `${m} min`,
-              checked: m === minutes,
-              onSelect: () => {
-                setMinutes(m);
-                saveFocusMinutes(m);
-              },
-            })),
-          ]}
+          entries={[{ heading: "Timer" }, ...FOCUS_MINUTES.map((m) => ({ label: `${m} min`, checked: m === minutes, onSelect: () => timer.pick(m) }))]}
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The tape: ticks five pixels apart, every fifth one taller, under a needle. Running, it moves a tick a second (so the
+ * strip repeats every five); at rest it lies still and pale.
+ */
+function Tape({ running }: { running: boolean }) {
+  return (
+    <span aria-hidden="true" className="relative block h-3.5 w-[52px] flex-none @max-[350px]/bar:hidden">
+      <span
+        className={`absolute inset-0 overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_26%,#000_74%,transparent)] transition-opacity duration-(--duration-move) ${
+          running ? "" : "opacity-45"
+        }`}
+      >
+        <span
+          className={`absolute inset-y-0 -right-[25px] left-0 ${running ? "animate-[tape_5s_linear_infinite]" : ""}`}
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(90deg, var(--ink) 0 1px, transparent 1px 25px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--ink) 34%, transparent) 0 1px, transparent 1px 5px)",
+            backgroundSize: "100% 10px, 100% 5px",
+            backgroundPosition: "1px 50%, 1px 50%",
+            backgroundRepeat: "no-repeat",
+          }}
+        />
+      </span>
+      <span
+        className={`absolute -inset-y-px left-1/2 w-[2px] -translate-x-1/2 rounded-full transition-colors duration-(--duration-move) ${running ? "bg-accent" : "bg-ink-3"}`}
+      />
+    </span>
+  );
+}
+
+/** A figure of the clock: when it changes, the old one leaves upward as the new one comes up from below. */
+function Figure({ value }: { value: string }) {
+  const last = useRef(value);
+  const prev = last.current;
+  useEffect(() => {
+    last.current = value;
+  }, [value]);
+  return (
+    <span className="relative block overflow-hidden">
+      {prev !== value && (
+        <span key={`${prev}${value}`} className="absolute inset-0 animate-[figure-out_var(--duration-base)_var(--ease-out)_both]">
+          {prev}
+        </span>
+      )}
+      <span key={value} className="block animate-[figure-in_var(--duration-base)_var(--ease-out)_both]">
+        {value}
+      </span>
+    </span>
+  );
+}
+
+/** The card's corner, and how far inside its edge the line runs. */
+const CARD_RADIUS = 18;
+const FUSE_INSET = 0.75;
+
+/**
+ * The timer on the task itself: a line that sets off from the top of the card in hand and travels round it clockwise,
+ * so the frame closes as the time runs out. Its head glows a little. Stopped, the line reels back in; when the time is
+ * up, the closed frame sends out one soft ring.
+ */
+function Fuse({ timer }: { timer: Timer }) {
+  const box = useRef<SVGSVGElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = box.current?.parentElement;
+    if (!el) return;
+    const measure = () => setSize({ w: el.offsetWidth, h: el.offsetHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const { running, over } = timer;
+  const share = over ? 1 : running ? Math.min(1, 1 - timer.left / timer.total) : 0;
+  let d = "";
+  if (size) {
+    const i = FUSE_INSET;
+    const r = CARD_RADIUS - i;
+    const [x0, y0, x1, y1] = [i, i, size.w - i, size.h - i];
+    d = `M${size.w / 2} ${y0}H${x1 - r}A${r} ${r} 0 0 1 ${x1} ${y0 + r}V${y1 - r}A${r} ${r} 0 0 1 ${x1 - r} ${y1}H${x0 + r}A${r} ${r} 0 0 1 ${x0} ${y1 - r}V${y0 + r}A${r} ${r} 0 0 1 ${x0 + r} ${y0}Z`;
+  }
+  // A second at a time while it runs (so it glides); quicker when it's reeled back in.
+  const glide = running ? "stroke-dashoffset 1s linear" : "stroke-dashoffset 520ms var(--ease-out)";
+  const head = `opacity var(--duration-base) var(--ease-out), ${glide}`;
+  return (
+    <>
+      <svg
+        ref={box}
+        aria-hidden="true"
+        width={size?.w ?? 0}
+        height={size?.h ?? 0}
+        className={`pointer-events-none absolute inset-0 z-[4] overflow-visible transition-opacity duration-500 ${running || over ? "" : "opacity-0"}`}
+        fill="none"
+        stroke="var(--accent)"
+      >
+        {size && (
+          <>
+            <path d={d} pathLength={1} strokeWidth={1.5} strokeDasharray="1 1" strokeDashoffset={1 - share} style={{ transition: glide }} />
+            <g strokeLinecap="round" strokeDasharray="0.0001 1" style={{ opacity: running ? 1 : 0, transition: "opacity var(--duration-base)" }}>
+              <path d={d} pathLength={1} strokeWidth={13} strokeDashoffset={-share} className="animate-[fuse-halo_2.4s_ease-in-out_infinite]" style={{ transition: head }} />
+              <path d={d} pathLength={1} strokeWidth={5} strokeDashoffset={-share} style={{ transition: head }} />
+            </g>
+          </>
+        )}
+      </svg>
+      {over && <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-[4] animate-[fuse-over_1.5s_var(--ease-out)_2_both] rounded-[18px]" />}
+    </>
   );
 }
 

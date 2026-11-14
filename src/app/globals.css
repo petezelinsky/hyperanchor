@@ -514,6 +514,44 @@ svg[data-icon] * {
   }
 }
 
+/* The focus timer. Its tape passes under the needle a tick (5px) a second, so the strip repeats every five. */
+@keyframes tape {
+  to {
+    transform: translateX(-25px);
+  }
+}
+/* A figure of its clock rolling over: the new one comes up from below as the old one leaves upward. */
+@keyframes figure-in {
+  from {
+    opacity: 0;
+    transform: translateY(60%);
+  }
+}
+@keyframes figure-out {
+  to {
+    opacity: 0;
+    transform: translateY(-60%);
+  }
+}
+/* The head of the line round the card glows, slowly; when the time is up the closed frame sends out a ring. */
+@keyframes fuse-halo {
+  0%,
+  100% {
+    opacity: 0.14;
+  }
+  50% {
+    opacity: 0.32;
+  }
+}
+@keyframes fuse-over {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 20px color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+
 /* A finished task's words are crossed out by a line that draws itself along them, one line of text after another. */
 .strike {
   background-image: linear-gradient(currentColor, currentColor);
