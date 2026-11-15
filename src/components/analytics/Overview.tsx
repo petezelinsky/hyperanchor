@@ -4,6 +4,7 @@ import type { Insights } from "@/lib/insights";
 import type { Period, Summary } from "@/lib/stats";
 import { m, rich, tr, trn } from "@/lib/i18n";
 import { fmt1, pct } from "./format";
+import { lightAt, lightGradient } from "../light";
 import { PANEL } from "./parts";
 
 /** How a period stands against the one before it, as whole sentences (each language declines "last week" its own way). */
@@ -51,28 +52,33 @@ const PILLS = 60;
 
 /**
  * The period's tasks as one line: done, left open, and still ahead. Up to sixty, every task is a pill of its own (so a
- * week reads as the handful of things it is); more than that, three lengths in the same order.
+ * week reads as the handful of things it is); more than that, three lengths in the same order. What is done is lit:
+ * the line warms from green towards violet as more of the period gets done.
  */
 function Track({ done, open, ahead }: { done: number; open: number; ahead: number }) {
   const total = done + open + ahead;
   if (!total) return <div aria-hidden="true" className="h-2.5 rounded-full bg-surface-3" />;
+  // The light the lit stretch lets fall on the panel under it.
+  const spill = done > 0 && <span className="lit-spill" style={{ width: `${(done / total) * 100}%`, "--lit": lightGradient("to right", 0, done / total) } as React.CSSProperties} />;
   if (total <= PILLS)
     return (
-      <div aria-hidden="true" className="flex gap-[3px]">
+      <div aria-hidden="true" className="relative flex gap-[3px]">
+        {spill}
         {Array.from({ length: total }, (_, i) => (
           <span
             key={i}
-            style={{ animationDelay: `${Math.min(i, 40) * 14}ms` }}
-            className={`h-2.5 min-w-0 flex-1 animate-[fade_var(--duration-base)_var(--ease-out)_both] rounded-full ${
-              i < done ? "bg-accent" : i < done + open ? "bg-accent-track" : "shadow-[inset_0_0_0_1.25px_var(--line-2)]"
+            style={{ animationDelay: `${Math.min(i, 40) * 14}ms`, ...(i < done ? ({ "--lit": lightAt((i + 0.5) / total) } as React.CSSProperties) : null) }}
+            className={`relative h-2.5 min-w-0 flex-1 animate-[fade_var(--duration-base)_var(--ease-out)_both] rounded-full ${
+              i < done ? "lit" : i < done + open ? "bg-accent-track" : "shadow-[inset_0_0_0_1.25px_var(--line-2)]"
             }`}
           />
         ))}
       </div>
     );
   return (
-    <div aria-hidden="true" className="flex h-2.5 gap-[3px]">
-      {done > 0 && <span className="rounded-full bg-accent" style={{ flex: done }} />}
+    <div aria-hidden="true" className="relative flex h-2.5 gap-[3px]">
+      {spill}
+      {done > 0 && <span className="lit relative rounded-full" style={{ flex: done, "--lit": lightGradient("to right", 0, done / total), "--lit-c": lightAt(done / total / 2) } as React.CSSProperties} />}
       {open > 0 && <span className="rounded-full bg-accent-track" style={{ flex: open }} />}
       {ahead > 0 && <span className="rounded-full shadow-[inset_0_0_0_1.25px_var(--line-2)]" style={{ flex: ahead }} />}
     </div>
@@ -80,9 +86,12 @@ function Track({ done, open, ahead }: { done: number; open: number; ahead: numbe
 }
 
 /** What a mark of the track stands for, with its count. */
-const Mark = ({ kind, n, children }: { kind: "done" | "open" | "ahead"; n: number; children: React.ReactNode }) => (
+const Mark = ({ kind, n, to = 0, children }: { kind: "done" | "open" | "ahead"; n: number; /** done: how far along the scale the line gets */ to?: number; children: React.ReactNode }) => (
   <span className="flex items-center gap-1.5 whitespace-nowrap">
-    <span className={`h-2 w-3 rounded-full ${kind === "done" ? "bg-accent" : kind === "open" ? "bg-accent-track" : "shadow-[inset_0_0_0_1.25px_var(--line-2)]"}`} />
+    <span
+      className={`h-2 w-3 rounded-full ${kind === "done" ? "" : kind === "open" ? "bg-accent-track" : "shadow-[inset_0_0_0_1.25px_var(--line-2)]"}`}
+      style={kind === "done" ? { background: lightGradient("to right", 0, to) } : undefined}
+    />
     <span className="text-ink-2">{children}</span>
     <span className="tabular font-medium text-ink">{n}</span>
   </span>
@@ -225,7 +234,7 @@ export function Overview({
       <div className="mt-5">
         <Track done={sum.completed} open={left} ahead={ahead} />
         <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-caption">
-          <Mark kind="done" n={sum.completed}>
+          <Mark kind="done" n={sum.completed} to={sum.completed / Math.max(1, sum.completed + left + ahead)}>
             {tr("Done")}
           </Mark>
           <Mark kind="open" n={left}>

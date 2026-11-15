@@ -8,6 +8,7 @@ import { m, tr, trn } from "@/lib/i18n";
 import { ChartIcon, ChevronDown } from "../icons";
 import { Accordion } from "../ui";
 import { BurnChart, PlanChart, SpreadChart, TrendChart, WeekdayChart } from "./charts";
+import { lightAt, lightGradient } from "../light";
 import { fmt1, pct } from "./format";
 import { PANEL } from "./parts";
 
@@ -77,13 +78,21 @@ function Frame({
   );
 }
 
-/** A mark of a chart's legend: a solid line, a dashed one, or a quiet one. */
-const Key = ({ kind, children }: { kind: "solid" | "dashed" | "quiet" | "bar"; children: React.ReactNode }) => (
+/** A mark of a chart's legend: the lit line (solid, or dotted where it is a guess), a dashed one, or a quiet one. */
+const Key = ({ kind, children }: { kind: "lit" | "lit-dotted" | "dashed" | "quiet" | "bar"; children: React.ReactNode }) => (
   <span className="flex items-center gap-1.5 whitespace-nowrap">
     {kind === "bar" ? (
       <span className="h-2.5 w-1.5 rounded-[2px] bg-ink-4" />
+    ) : kind === "lit" ? (
+      <span className="h-0.5 w-3.5 rounded-full" style={{ background: lightGradient("to right", 0.1, 0.62) }} />
+    ) : kind === "lit-dotted" ? (
+      <span className="flex w-3.5 justify-between">
+        {[0.42, 0.52, 0.62].map((t) => (
+          <span key={t} className="size-0.5 rounded-full" style={{ background: lightAt(t) }} />
+        ))}
+      </span>
     ) : (
-      <span className={`w-3.5 border-t-2 ${kind === "solid" ? "border-accent" : kind === "dashed" ? "border-dotted border-ink-2" : "border-ink-4"}`} />
+      <span className={`w-3.5 border-t-2 ${kind === "dashed" ? "border-dotted border-ink-2" : "border-ink-4"}`} />
     )}
     {children}
   </span>
@@ -189,9 +198,9 @@ export function Detailed({
               }
               legend={
                 <>
-                  <Key kind="solid">{tr(WORDS.thisOne[p])}</Key>
+                  <Key kind="lit">{tr(WORDS.thisOne[p])}</Key>
                   {burn.before && <Key kind="quiet">{tr(WORDS.lastOne[p])}</Key>}
-                  {burn.ahead && <Key kind="dashed">{tr("At your pace")}</Key>}
+                  {burn.ahead && <Key kind="lit-dotted">{tr("At your pace")}</Key>}
                 </>
               }
               formula={tr("done so far + your recent daily average × the days left; the cone is how far such a stretch usually strays (σ·√days)")}
@@ -219,7 +228,7 @@ export function Detailed({
             legend={
               momentum && (
                 <>
-                  <Key kind="solid">{period === "year" ? tr("4-week average") : tr("7-day average")}</Key>
+                  <Key kind="lit">{period === "year" ? tr("4-week average") : tr("7-day average")}</Key>
                   <Key kind="dashed">{tr("Trend")}</Key>
                 </>
               )

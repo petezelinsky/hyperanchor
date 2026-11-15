@@ -6,6 +6,7 @@ import { toUnlock, UNLOCK, type SavedSummary, type SummaryState } from "@/lib/su
 import type { Usage } from "@/lib/types";
 import { getLang, m, num, tr, trn } from "@/lib/i18n";
 import { ChevronDown, HistoryIcon, SparkIcon } from "../icons";
+import { lightAt, lightGradient } from "../light";
 import { Orb } from "../voice/Orb";
 import { LiquidLens } from "../lens";
 import { motion, reducedMotion } from "../motion";
@@ -322,8 +323,9 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
     <section ref={panel} aria-labelledby="ai-summary" aria-busy={writing} className={`min-w-0 overflow-hidden ${PANEL}`}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 p-5 md:px-6">
         {/* The sphere stands for the AI; it thinks for as long as the summary is being written. */}
-        <span aria-hidden="true" className="flex size-10 flex-none items-center justify-center rounded-full bg-surface-2 shadow-ring-line">
-          <Orb size={30} active={writing} className="text-ink" />
+        <span aria-hidden="true" className="orb-bead relative flex size-10 flex-none items-center justify-center rounded-full">
+          <span className="orb-halo" />
+          <Orb size={36} active={writing} lit className="relative text-white" />
         </span>
         <div className="min-w-0 flex-1">
           <h2 id="ai-summary" className="text-body font-semibold text-ink">
@@ -334,10 +336,12 @@ export function AiSummary({ input, done, noun, account }: { input: SummaryInput 
             // How close the summary is: a pill for every task it takes (a line for the many a year takes).
             <div aria-hidden="true" className="mt-2.5 flex h-1.5 max-w-[280px] gap-[3px]">
               {UNLOCK[period] <= 32 ? (
-                Array.from({ length: UNLOCK[period] }, (_, i) => <span key={i} className={`min-w-0 flex-1 rounded-full ${i < doneSince ? "bg-accent" : "bg-surface-3"}`} />)
+                Array.from({ length: UNLOCK[period] }, (_, i) => (
+                  <span key={i} className={`min-w-0 flex-1 rounded-full ${i < doneSince ? "" : "bg-surface-3"}`} style={i < doneSince ? { background: lightAt((i + 0.5) / UNLOCK[period]) } : undefined} />
+                ))
               ) : (
                 <span className="flex-1 overflow-hidden rounded-full bg-surface-3">
-                  <span className="block h-full origin-left rounded-full bg-accent" style={{ transform: `scaleX(${Math.min(1, doneSince / UNLOCK[period])})` }} />
+                  <span className="block h-full rounded-full" style={{ width: `${Math.min(1, doneSince / UNLOCK[period]) * 100}%`, background: lightGradient("to right", 0, Math.min(1, doneSince / UNLOCK[period])) }} />
                 </span>
               )}
             </div>

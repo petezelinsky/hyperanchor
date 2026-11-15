@@ -1,9 +1,10 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { Insights, Point } from "@/lib/insights";
 
 import { tr, trn } from "@/lib/i18n";
+import { lightAt, lightStops } from "../light";
 import { fmt1 } from "./format";
 
 /** A round top for an axis whose middle line is round too: 4, 8, 10, 20, 40, 50, 80, 100, 200… */
@@ -13,9 +14,27 @@ function niceMax(v: number) {
 
 /**
  * The charts of Detailed analytics, drawn in SVG at the size they are shown (so lines stay crisp and text never
- * stretches). One look for all of them: hairline grid, the accent for what the chart is about, greys for what it is
- * read against, and a small card that follows the pointer.
+ * stretches). One look for all of them: hairline grid, greys for what a chart is read against, a small card that
+ * follows the pointer, and light for the one thing the chart is about. The light is one scale (see ../light): on a
+ * plot it runs bottom to top, so a lit line takes the colour of its height.
  */
+
+/** The light across a plot, from the pixel `from` (nothing) to the pixel `to` (the top of the axis); `across`: left to right. */
+function Heat({ id, from, to, across = false, start = 0, end = 1 }: { id: string; from: number; to: number; across?: boolean; start?: number; end?: number }) {
+  return (
+    <linearGradient id={id} gradientUnits="userSpaceOnUse" x1={across ? from : 0} y1={across ? 0 : from} x2={across ? to : 0} y2={across ? 0 : to}>
+      {lightStops(start, end).map(([at, c], i) => (
+        <stop key={i} offset={at} style={{ stopColor: c }} />
+      ))}
+    </linearGradient>
+  );
+}
+/** The soft light a lit line throws: a blur over the whole plot (a line's own box can be flat, so not that). */
+const Soft = ({ id, w, h, by = 5 }: { id: string; w: number; h: number; by?: number }) => (
+  <filter id={id} filterUnits="userSpaceOnUse" x={-24} y={-24} width={w + 48} height={h + 48}>
+    <feGaussianBlur stdDeviation={by} />
+  </filter>
+);
 
 /** The width an element has on screen, kept up to date. */
 function useWidth() {
@@ -97,6 +116,7 @@ function Grid({ w, h, top, max }: { w: number; h: number; top: number; max: numb
  */
 export function BurnChart({ burn, dayLabel, vs }: { burn: NonNullable<Insights["burn"]>; dayLabel: (i: number) => string; vs: string }) {
   const [ref, w] = useWidth();
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [at, setAt] = useState<number | null>(null);
   const H = 196;
   const top = 12;
@@ -136,12 +156,19 @@ export function BurnChart({ burn, dayLabel, vs }: { burn: NonNullable<Insights["
         {w > 0 && (
           <svg width={w} height={H} className="block overflow-visible" aria-hidden="true">
             <Grid w={w} h={h} top={top} max={max} />
+            <defs>
+              <Heat id={`${uid}h`} from={y(0)} to={y(max)} />
+              <Soft id={`${uid}s`} w={w} h={H} />
+            </defs>
             {before.length > 1 && <path d={path(before)} fill="none" stroke="var(--ink-4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />}
-            {fan.length > 2 && <path d={`${path(fan)}Z`} fill="var(--accent)" fillOpacity="0.07" />}
-            {now.length > 1 && <path d={`${path(now)}L${now[now.length - 1][0]} ${y(0)}L${now[0][0]} ${y(0)}Z`} fill="var(--accent)" fillOpacity="0.08" />}
-            {ahead.length > 1 && <path d={path(ahead)} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="1 5" strokeLinecap="round" />}
-            {now.length > 1 && <path d={path(now)} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" pathLength={1} style={{ strokeDasharray: 1, animation: "draw-line 900ms var(--ease-out) both" }} />}
-            {now.length > 0 && <circle cx={now[now.length - 1][0]} cy={now[now.length - 1][1]} r="4" fill="var(--accent)" stroke="var(--surface)" strokeWidth="2" />}
+            {/* Where it is heading: a fan of the same light, the further up the warmer. */}
+            {fan.length > 2 && <path d={`${path(fan)}Z`} fill={`url(#${uid}h)`} fillOpacity="0.22" />}
+            {fan.length > 2 && <path d={`${path(fan)}Z`} fill={`url(#${uid}h)`} fillOpacity="0.2" filter={`url(#${uid}s)`} />}
+            {now.length > 1 && <path d={`${path(now)}L${now[now.length - 1][0]} ${y(0)}L${now[0][0]} ${y(0)}Z`} fill={`url(#${uid}h)`} fillOpacity="0.09" />}
+            {ahead.length > 1 && <path d={path(ahead)} fill="none" stroke={`url(#${uid}h)`} strokeWidth="2" strokeDasharray="1 5" strokeLinecap="round" />}
+            {now.length > 1 && <path d={path(now)} fill="none" stroke={`url(#${uid}h)`} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" opacity="0.42" filter={`url(#${uid}s)`} />}
+            {now.length > 1 && <path d={path(now)} fill="none" stroke={`url(#${uid}h)`} strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" pathLength={1} style={{ strokeDasharray: 1, animation: "draw-line 900ms var(--ease-out) both" }} />}
+            {now.length > 0 && <circle cx={now[now.length - 1][0]} cy={now[now.length - 1][1]} r="4.5" fill={lightAt(burn.now[today] / max)} stroke="var(--surface)" strokeWidth="2" />}
             {hover != null && (
               <g>
                 <path d={`M${x(hover)} ${top}V${top + h}`} stroke="var(--ink-4)" strokeDasharray="2 3" />
@@ -180,6 +207,7 @@ export function BurnChart({ burn, dayLabel, vs }: { burn: NonNullable<Insights["
  */
 export function TrendChart({ momentum, dayLabel }: { momentum: NonNullable<Insights["momentum"]>; dayLabel: (p: Point) => string }) {
   const [ref, w] = useWidth();
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [at, setAt] = useState<number | null>(null);
   const H = 196;
   const top = 12;
@@ -208,6 +236,10 @@ export function TrendChart({ momentum, dayLabel }: { momentum: NonNullable<Insig
       >
         {w > 0 && (
           <svg width={w} height={H} className="block overflow-visible" aria-hidden="true">
+            <defs>
+              <Heat id={`${uid}h`} from={y(0)} to={y(max)} />
+              <Soft id={`${uid}s`} w={w} h={H} />
+            </defs>
             <Grid w={w} h={h} top={top} max={max} />
             {pts.map((p, i) => (
               <rect
@@ -221,11 +253,12 @@ export function TrendChart({ momentum, dayLabel }: { momentum: NonNullable<Insig
               />
             ))}
             <path d={path([[x(0), y(momentum.from)], [x(n - 1), y(momentum.to)]])} stroke="var(--ink-2)" strokeWidth="1.25" strokeDasharray="4 4" strokeLinecap="round" />
+            <path d={curve(momentum.average.map((v, i): XY => [x(i), y(v)]).slice(lead))} fill="none" stroke={`url(#${uid}h)`} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" opacity="0.42" filter={`url(#${uid}s)`} />
             <path
               d={curve(momentum.average.map((v, i): XY => [x(i), y(v)]).slice(lead))}
               fill="none"
-              stroke="var(--accent)"
-              strokeWidth="2"
+              stroke={`url(#${uid}h)`}
+              strokeWidth="2.25"
               strokeLinecap="round"
               strokeLinejoin="round"
               pathLength={1}
@@ -259,7 +292,8 @@ export function TrendChart({ momentum, dayLabel }: { momentum: NonNullable<Insig
  */
 export function SpreadChart({ spread }: { spread: NonNullable<Insights["spread"]> }) {
   const [ref, w] = useWidth();
-  const [at, setAt] = useState<number | null>(null);
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const [hover, setHover] = useState<number | null>(null);
   const H = 150;
   const base = H - 30;
   const bins = spread.bins;
@@ -269,16 +303,36 @@ export function SpreadChart({ spread }: { spread: NonNullable<Insights["spread"]
   const bar = Math.max(4, Math.min(34, step - 6));
   const x = (i: number) => step * (i + 0.5);
   const every = n > 14 ? Math.ceil(n / 8) : 1;
+  // Across this plot the light runs left to right: a day with more done is further along it.
+  const at = (i: number) => (n > 1 ? i / (n - 1) : 0);
   return (
-    <div ref={ref} className="relative" style={{ height: H }} onMouseLeave={() => setAt(null)}>
+    <div ref={ref} className="relative" style={{ height: H }} onMouseLeave={() => setHover(null)}>
       {w > 0 && (
         <svg width={w} height={H} className="block overflow-visible" aria-hidden="true">
+          <defs>
+            <Heat id={`${uid}h`} across from={x(spread.low) - bar / 2} to={x(spread.high) + bar / 2} start={at(spread.low)} end={at(spread.high)} />
+            <Soft id={`${uid}s`} w={w} h={H} by={6} />
+          </defs>
           <path d={`M0 ${base + 0.5}H${w}`} stroke="var(--line-2)" />
+          {/* The middle half is lit: columns of light, each the colour of its place across, and the glow they throw. */}
+          <defs>
+            {bins.map((_, i) =>
+              i >= spread.low && i <= spread.high ? (
+                <linearGradient key={i} id={`${uid}c${i}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0.1" style={{ stopColor: lightAt(at(i)) }} />
+                  <stop offset="1" style={{ stopColor: lightAt(at(i)), stopOpacity: 0.3 }} />
+                </linearGradient>
+              ) : null,
+            )}
+          </defs>
+          <g filter={`url(#${uid}s)`} opacity="0.5">
+            {bins.map((days, i) => (i >= spread.low && i <= spread.high && days > 0 ? <rect key={i} x={x(i) - bar / 2} y={base - (days / top) * (base - 14)} width={bar} height={Math.min(26, (days / top) * (base - 14))} rx="3" fill={lightAt(at(i))} /> : null))}
+          </g>
           {bins.map((days, i) => {
             const bh = (days / top) * (base - 14);
             const mid = i >= spread.low && i <= spread.high;
             return (
-              <g key={i} onMouseEnter={() => setAt(i)}>
+              <g key={i} onMouseEnter={() => setHover(i)}>
                 <rect x={x(i) - step / 2} y={0} width={step} height={base} fill="transparent" />
                 {days > 0 && (
                   <rect
@@ -287,13 +341,13 @@ export function SpreadChart({ spread }: { spread: NonNullable<Insights["spread"]
                     width={bar}
                     height={bh}
                     rx="3"
-                    fill={mid ? "var(--accent)" : "var(--ink-4)"}
-                    fillOpacity={at != null && at !== i ? 0.55 : 1}
+                    fill={mid ? `url(#${uid}c${i})` : "var(--ink-4)"}
+                    fillOpacity={hover != null && hover !== i ? 0.55 : 1}
                     style={{ transformBox: "fill-box", transformOrigin: "bottom", animation: `grow-y var(--duration-data) ${i * 30}ms var(--ease-out) both` }}
                   />
                 )}
                 {i % every === 0 && (
-                  <text x={x(i)} y={base + 14} textAnchor="middle" className={`text-[11px] ${at === i ? "fill-ink" : "fill-ink-3"}`} style={{ fontVariantNumeric: "tabular-nums" }}>
+                  <text x={x(i)} y={base + 14} textAnchor="middle" className={`text-[11px] ${hover === i ? "fill-ink" : "fill-ink-3"}`} style={{ fontVariantNumeric: "tabular-nums" }}>
                     {i}
                   </text>
                 )}
@@ -301,17 +355,17 @@ export function SpreadChart({ spread }: { spread: NonNullable<Insights["spread"]
             );
           })}
           {/* The middle half of the days, and the median within it. */}
-          <path d={`M${x(spread.low) - bar / 2} ${base + 22}H${x(spread.high) + bar / 2}`} stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
-          <circle cx={x(spread.median)} cy={base + 22} r="3.5" fill="var(--surface)" stroke="var(--accent)" strokeWidth="2" />
+          <path d={`M${x(spread.low) - bar / 2} ${base + 22}H${x(spread.high) + bar / 2}`} stroke={`url(#${uid}h)`} strokeWidth="2" strokeLinecap="round" />
+          <circle cx={x(spread.median)} cy={base + 22} r="3.5" fill="var(--surface)" stroke={lightAt(at(spread.median))} strokeWidth="2" />
         </svg>
       )}
-      {at != null && w > 0 && (
-        <Tip x={x(at)} y={base - (bins[at] / top) * (base - 14)} width={w}>
+      {hover != null && w > 0 && (
+        <Tip x={x(hover)} y={base - (bins[hover] / top) * (base - 14)} width={w}>
           <div className="tabular text-footnote">
             <span className="font-semibold text-ink">
-              {trn(bins[at], "{n} day", "{n} days")}
+              {trn(bins[hover], "{n} day", "{n} days")}
             </span>
-            <span className="text-ink-2"> {tr("with {n} done", { n: at })}</span>
+            <span className="text-ink-2"> {tr("with {n} done", { n: hover })}</span>
           </div>
         </Tip>
       )}
@@ -332,8 +386,13 @@ export function WeekdayChart({ weekdays, names }: { weekdays: Insights["weekdays
           <div key={d.index} className="flex h-full min-w-0 flex-col items-center justify-end" onMouseEnter={() => setAt(d.index)}>
             <span className={`tabular mb-1 text-caption-2 transition-colors duration-(--duration-fast) ${on || at === d.index ? "font-semibold text-ink" : "text-ink-3"}`}>{d.days ? fmt1(d.avg) : ""}</span>
             <span
-              className={`w-full max-w-[34px] origin-bottom rounded-t-[4px] rounded-b-[1px] transition-opacity duration-(--duration-fast) ${on ? "bg-accent" : "bg-ink-4"} ${at != null && at !== d.index ? "opacity-55" : ""}`}
-              style={{ height: `${Math.max(d.avg > 0 ? 3 : 1, (d.avg / top) * 96)}px`, animation: `grow-y var(--duration-data) ${d.index * 40}ms var(--ease-out) both` }}
+              className={`w-full max-w-[34px] origin-bottom rounded-t-[4px] rounded-b-[1px] transition-opacity duration-(--duration-fast) ${on ? "lit-bar" : "bg-ink-4"} ${at != null && at !== d.index ? "opacity-55" : ""}`}
+              style={{
+                height: `${Math.max(d.avg > 0 ? 3 : 1, (d.avg / top) * 96)}px`,
+                animation: `grow-y var(--duration-data) ${d.index * 40}ms var(--ease-out) both`,
+                // The day that carries the most is lit, as far along the light as its plans get done.
+                ...(on ? ({ "--lit": lightAt(d.rate ?? 1) } as React.CSSProperties) : null),
+              }}
             />
             <span className={`mt-2 text-caption-2 ${on ? "font-semibold text-ink" : "text-ink-3"}`}>{names[d.index]}</span>
             <span className="tabular h-3.5 text-[10px] leading-[14px] text-ink-3">{d.rate == null ? "" : `${Math.round(d.rate * 100)}%`}</span>
@@ -350,6 +409,7 @@ export function WeekdayChart({ weekdays, names }: { weekdays: Insights["weekdays
  */
 export function PlanChart({ plan }: { plan: NonNullable<Insights["plan"]> }) {
   const [ref, w] = useWidth();
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [at, setAt] = useState<number | null>(null);
   const H = 150;
   const top = 8;
@@ -363,8 +423,13 @@ export function PlanChart({ plan }: { plan: NonNullable<Insights["plan"]> }) {
       {w > 0 && (
         <svg width={w} height={H} className="block overflow-visible" aria-hidden="true">
           <Grid w={w} h={h} top={top} max={max} />
+          <defs>
+            <Heat id={`${uid}h`} from={y(0)} to={y(max)} />
+            <Soft id={`${uid}s`} w={w} h={H} />
+          </defs>
           <path d={`M${x(0)} ${y(0)}L${x(max)} ${y(max)}`} stroke="var(--ink-4)" strokeWidth="1.25" strokeDasharray="4 4" strokeLinecap="round" />
-          <path d={`M${x(0)} ${y(0)}L${x(max)} ${y(Math.min(max, plan.share * max))}`} stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
+          <path d={`M${x(0)} ${y(0)}L${x(max)} ${y(Math.min(max, plan.share * max))}`} stroke={`url(#${uid}h)`} strokeWidth="6" strokeLinecap="round" opacity="0.42" filter={`url(#${uid}s)`} />
+          <path d={`M${x(0)} ${y(0)}L${x(max)} ${y(Math.min(max, plan.share * max))}`} stroke={`url(#${uid}h)`} strokeWidth="2.25" strokeLinecap="round" />
           {plan.dots.map((d, i) => (
             <circle
               key={i}

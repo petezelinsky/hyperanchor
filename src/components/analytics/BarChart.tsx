@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { niceMax } from "@/lib/stats";
 import type { Task } from "@/lib/types";
 import { tr } from "@/lib/i18n";
+import { lightAt } from "../light";
 import { fmt1, pct } from "./format";
 
 export type Bar = {
@@ -88,7 +89,13 @@ export function BarChart({ bars, avg, avgLabel, onPick }: { bars: Bar[]; avg: nu
                     >
                       {open > 0 && <span className="min-h-[3px] rounded-t-xs bg-accent-track" style={{ flex: open }} />}
                       {open > 0 && b.done > 0 && <span className="h-[2px] flex-none" />}
-                      {b.done > 0 && <span className={`min-h-[3px] bg-accent ${open > 0 ? "" : "rounded-t-xs"}`} style={{ flex: b.done }} />}
+                      {b.done > 0 &&
+                        (b.current ? (
+                          // Today (the month, in a year) is lit: as far along the light as the day is through its plan.
+                          <span className={`lit-bar min-h-[3px] ${open > 0 ? "" : "rounded-t-xs"}`} style={{ flex: b.done, "--lit": lightAt(b.done / b.total) } as React.CSSProperties} />
+                        ) : (
+                          <span className={`min-h-[3px] bg-accent ${open > 0 ? "" : "rounded-t-xs"}`} style={{ flex: b.done }} />
+                        ))}
                     </span>
                   ) : (
                     b.elapsed && <span data-bar="" className="h-[2px] w-full rounded-full bg-line-2" style={{ maxWidth: maxW }} />
