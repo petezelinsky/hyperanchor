@@ -219,16 +219,6 @@ enum Tokens {
     static let redInk = ThemeColor(light: RGBA(hex: 0xC62828), dark: RGBA(hex: 0xF87171))
     static let redSoft = ThemeColor(light: RGBA(hex: 0xFDEDED), dark: RGBA(hex: 0x351515))
 
-    // MARK: The light inside analytics marks
-
-    /// The light inside analytics marks, in six steps: the more gets done, the further along it goes.
-    static let light1 = ThemeColor(light: RGBA(hex: 0x34C759), dark: RGBA(hex: 0x30D158))
-    static let light2 = ThemeColor(light: RGBA(hex: 0xFFC800), dark: RGBA(hex: 0xFFD60A))
-    static let light3 = ThemeColor(light: RGBA(hex: 0xFF9500), dark: RGBA(hex: 0xFF9F0A))
-    static let light4 = ThemeColor(light: RGBA(hex: 0xFF3B30), dark: RGBA(hex: 0xFF453A))
-    static let light5 = ThemeColor(light: RGBA(hex: 0xFF2D70), dark: RGBA(hex: 0xFF3B7F))
-    static let light6 = ThemeColor(light: RGBA(hex: 0xAF52DE), dark: RGBA(hex: 0xBF5AF2))
-
     // MARK: Radii (points)
 
     /// Four steps and a circle (rounded-full). A box inside a rounded box takes the outer radius minus the padding between them.

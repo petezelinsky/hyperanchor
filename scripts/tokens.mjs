@@ -24,7 +24,6 @@ const GROUPS = [
   ["Primary buttons", ["primary", "primary-hover", "on-primary"]],
   ["Accent", ["on-accent", "heat-0"]],
   ["Rises and drops (analytics), destructive actions", ["green-ink", "green-soft", "red-ink", "red-soft"]],
-  ["The light inside analytics marks", ["light-1", "light-2", "light-3", "light-4", "light-5", "light-6"]],
 ];
 const grouped = GROUPS.flatMap(([, keys]) => keys);
 const missing = Object.keys(tokens.color).filter((k) => !grouped.includes(k));

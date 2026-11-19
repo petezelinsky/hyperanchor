@@ -26,8 +26,6 @@ type Options = {
   dotSize: number;
   seed: number;
   color: string;
-  /** Lit: the colours of the ring from its top to its bottom, instead of the one `color`. */
-  colors?: string[];
   mode: RingMode;
   intensity: number;
   speed: number;
@@ -323,8 +321,6 @@ export class ParticleRing {
     ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
     ctx.clearRect(0, 0, 800, 800);
     ctx.fillStyle = o.color;
-    const lit = o.colors && o.colors.length ? o.colors : null;
-    let paint = o.color;
     // The whole ring swells a little with the loudness; each part of it leans out with its own sound.
     const kick = this.kick;
     const R = o.radius * (0.93 + 0.07 * k3) * (1 + 0.06 * this.E * this.level + 0.07 * kick);
@@ -344,17 +340,9 @@ export class ParticleRing {
       const ca = Math.cos(p.ang);
       const sa = Math.sin(p.ang);
       const fade = p.dim + (1 - p.dim) * Math.max(open, swell);
-      ctx.globalAlpha = Math.min(1, p.op * (0.84 + 0.16 * Math.sin(p.pc)) * (0.82 + 0.5 * e + 0.35 * swell)) * (lit ? 0.55 + 0.45 * fade : fade) * k3;
-      const px = 400 + ca * r - sa * tn;
-      const py = 400 + sa * r + ca * tn;
-      if (lit) {
-        // Lit: a dot takes the colour of its height on the ring (and a little of its place across, so the light leans).
-        const at = ((py - 400) * 0.94 + (px - 400) * 0.34) / (2 * R) + 0.5;
-        const c = lit[Math.min(lit.length - 1, Math.max(0, Math.floor(at * lit.length)))];
-        if (c !== paint) ctx.fillStyle = paint = c;
-      }
+      ctx.globalAlpha = Math.min(1, p.op * (0.84 + 0.16 * Math.sin(p.pc)) * (0.82 + 0.5 * e + 0.35 * swell)) * fade * k3;
       ctx.beginPath();
-      ctx.arc(px, py, (p.size * ds * (1 + 0.28 * e + 1.35 * swell)) / 2, 0, TAU);
+      ctx.arc(400 + ca * r - sa * tn, 400 + sa * r + ca * tn, (p.size * ds * (1 + 0.28 * e + 1.35 * swell)) / 2, 0, TAU);
       ctx.fill();
     }
     ctx.globalAlpha = 1;

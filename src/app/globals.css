@@ -52,13 +52,6 @@
   --red-ink: #c62828;
   --red-soft: #fdeded;
 
-  --light-1: #34c759; /* the light inside analytics marks, in six steps: the more gets done, the further along it goes */
-  --light-2: #ffc800;
-  --light-3: #ff9500;
-  --light-4: #ff3b30;
-  --light-5: #ff2d70;
-  --light-6: #af52de;
-
   --shadow-lift: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.03);
   --shadow-sheet: 0 0 0 1px rgba(0, 0, 0, 0.045), 0 1px 3px rgba(0, 0, 0, 0.04), 0 10px 30px -12px rgba(0, 0, 0, 0.07);
   --shadow-float: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.07), 0 18px 40px -12px rgba(0, 0, 0, 0.16);
@@ -155,13 +148,6 @@
   --green-soft: #10261a;
   --red-ink: #f87171;
   --red-soft: #351515;
-
-  --light-1: #30d158; /* the light inside analytics marks, in six steps: the more gets done, the further along it goes */
-  --light-2: #ffd60a;
-  --light-3: #ff9f0a;
-  --light-4: #ff453a;
-  --light-5: #ff3b7f;
-  --light-6: #bf5af2;
 
   --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-sheet: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 10px 30px -10px rgba(0, 0, 0, 0.6);
@@ -547,62 +533,6 @@ svg[data-icon] * {
     transform: translateY(-60%);
   }
 }
-/*
- * A lit mark (analytics): it takes its colour, or its gradient, from --lit and throws a soft light around itself, a
- * little more of it downwards. A gradient names the colour of that light in --lit-c. See components/light.ts.
- */
-.lit {
-  background: var(--lit);
-  box-shadow:
-    0 0 12px -1px color-mix(in oklab, var(--lit-c, var(--lit)) 50%, transparent),
-    0 4px 18px -3px color-mix(in oklab, var(--lit-c, var(--lit)) 44%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 0.28);
-}
-/* What a lit line lets fall on the panel under it: the same colours, soft (stronger in the dark, where light shows). */
-.lit-spill {
-  position: absolute;
-  left: 0;
-  top: 40%;
-  height: 16px;
-  border-radius: 8px;
-  background: var(--lit);
-  filter: blur(10px);
-  opacity: 0.22;
-  pointer-events: none;
-}
-:root[data-theme="dark"] .lit-spill {
-  opacity: 0.36;
-}
-/* A lit column: one colour, brightest at its top (where its value is) and fading towards the base, like a tube of light. */
-.lit-bar {
-  background: linear-gradient(to top, color-mix(in oklab, var(--lit) 30%, transparent), var(--lit) 88%);
-  box-shadow:
-    0 -3px 16px -3px color-mix(in oklab, var(--lit) 58%, transparent),
-    0 0 22px -6px color-mix(in oklab, var(--lit) 46%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 0.34);
-}
-/*
- * The sphere, lit, sits in a bead of black glass (on the light theme too: the light needs the dark to show), with a
- * soft ring of the same light behind its dots.
- */
-.orb-bead {
-  background: radial-gradient(circle at 50% 30%, #262626, #0c0c0c 70%);
-  box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 0.09),
-    inset 0 1px 0 rgb(255 255 255 / 0.16);
-}
-.orb-halo {
-  position: absolute;
-  inset: 4px;
-  border-radius: 50%;
-  background: linear-gradient(160deg, var(--light-1), var(--light-2) 22%, var(--light-3) 42%, var(--light-4) 60%, var(--light-5) 78%, var(--light-6));
-  -webkit-mask: radial-gradient(circle, transparent 50%, #000 60%, #000 68%, transparent 80%);
-  mask: radial-gradient(circle, transparent 50%, #000 60%, #000 68%, transparent 80%);
-  filter: blur(3px);
-  opacity: 0.55;
-  pointer-events: none;
-}
-
 /* The head of the line round the card glows, slowly; when the time is up the closed frame sends out a ring. */
 @keyframes fuse-halo {
   0%,
