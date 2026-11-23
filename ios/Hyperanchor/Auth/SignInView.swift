@@ -28,7 +28,7 @@ struct SignInView: View {
                             Spacer(minLength: 40)
                             Wordmark(size: 24)
                                 .rise(hidden: splash, delay: 0.06)
-                            hero(headline: 40)
+                            hero(headline: 44)
                                 .padding(.top, 36)
                             actions.padding(.top, 44)
                             Spacer(minLength: 40)
@@ -40,7 +40,7 @@ struct SignInView: View {
                                 .padding(.top, 8)
                                 .rise(hidden: splash, delay: 0.06)
                             Spacer(minLength: 40)
-                            hero(headline: 34)
+                            hero(headline: 38)
                             Spacer(minLength: 40)
                             actions
                         }
@@ -103,7 +103,7 @@ struct SignInView: View {
 
             // Two set lines: the documents always together on the second, neither name ever broken.
             VStack(spacing: 3) {
-                Text("Free forever. By continuing, you agree to the")
+                Text("By continuing, you agree to the")
                 Text(legalLinks)
             }
             .font(.caption)
