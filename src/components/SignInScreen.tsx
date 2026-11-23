@@ -23,7 +23,7 @@ export function SignInScreen({ error }: { error?: boolean }) {
           </header>
 
           <main className="flex flex-1 flex-col justify-center py-10 lg:py-14">
-            <h1 className={`font-display text-title font-semibold ${enter}`}>
+            <h1 className={`font-display text-[30px]/[36px] font-semibold tracking-[-0.025em] ${enter}`}>
               <span className="sr-only">Own your day, week and month.</span>
               <span aria-hidden="true">
                 Own your <RotatingWord words={["day.", "week.", "month."]} />
@@ -52,7 +52,7 @@ export function SignInScreen({ error }: { error?: boolean }) {
             )}
             {/* Two set lines: the documents always sit together on the second, and neither name ever breaks. */}
             <p className={`mt-5 text-caption text-ink-2 [animation-delay:210ms] ${enter}`}>
-              <span className="block text-balance">Free forever. By continuing, you agree to the</span>
+              <span className="block text-balance">By continuing, you agree to the</span>
               <span className="block">
                 <Link href="/terms" className="whitespace-nowrap">
                   Terms of Service
