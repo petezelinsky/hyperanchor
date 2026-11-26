@@ -136,12 +136,16 @@ function Chart({ days, limit, loading }: { days: { day: string; tokens: number; 
   const list = loading ? Array.from({ length: DAYS }, (_, i) => ({ day: String(i), tokens: 0, requests: 0 })) : days;
   const h = hover != null ? list[hover] : null;
   return (
-    <div className="mt-6">
+    <div className="mt-5">
+      {/* What the dashed line is, said above the bars rather than on the line: a day over the allowance reaches past the
+          line, and its bar would run into the words. */}
+      <div className="mb-2.5 flex items-center gap-1.5 text-caption-2 text-ink-3">
+        <span aria-hidden="true" className="w-3.5 border-t border-dashed border-ink-3" />
+        <span className="tabular">{tr("The day’s {n}", { n: num(limit) })}</span>
+      </div>
       <div ref={box} className="relative" style={{ height: H }} onMouseLeave={() => setHover(null)}>
         {/* The allowance, as the line the bars reach for. */}
-        <div className="pointer-events-none absolute inset-x-0 border-t border-dashed border-ink-4" style={{ bottom: `${(limit / max) * 100}%` }}>
-          <span className="tabular absolute bottom-1 left-0 text-caption-2 text-ink-3">{tr("The day’s {n}", { n: num(limit) })}</span>
-        </div>
+        <div className="pointer-events-none absolute inset-x-0 border-t border-dashed border-ink-4" style={{ bottom: `${(limit / max) * 100}%` }} />
         <div className="absolute inset-x-0 bottom-0 border-t border-line-2" />
         <div className="relative grid h-full items-end gap-1.5" style={{ gridTemplateColumns: `repeat(${list.length}, minmax(0, 1fr))` }}>
           {list.map((d, i) => (
